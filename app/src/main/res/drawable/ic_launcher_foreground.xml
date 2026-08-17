@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simple placeholder mark (stylized "L"); swap for real Larpnet branding art before release. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#A54BAD"
+        android:pathData="M38,28 L50,28 L50,68 L76,68 L76,80 L38,80 Z" />
+    <path
+        android:fillColor="#E8B4EE"
+        android:pathData="M60,28 L72,28 L72,40 L60,40 Z" />
+</vector>

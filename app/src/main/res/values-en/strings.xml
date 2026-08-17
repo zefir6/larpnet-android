@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Larpnet</string>
+
+    <!-- Login -->
+    <string name="login_title">Log in to Larpnet</string>
+    <string name="login_instance_label">Server address</string>
+    <string name="login_button">Log in</string>
+    <string name="login_error_invalid_url">Invalid server address</string>
+    <string name="login_error_generic">Login failed. Please try again.</string>
+    <string name="login_opening_browser">Opening browser…</string>
+
+    <!-- Bottom nav -->
+    <string name="nav_home">Home</string>
+    <string name="nav_local">Larpnet</string>
+    <string name="nav_directory">Users</string>
+    <string name="nav_notifications">Notifications</string>
+    <string name="nav_profile">Profile</string>
+
+    <!-- Search -->
+    <string name="search_title">Search</string>
+    <string name="search_hint">Search for people (name or @user@server)</string>
+    <string name="search_empty">No results</string>
+
+    <!-- Directory -->
+    <string name="directory_empty">No users</string>
+
+    <!-- Timeline -->
+    <string name="timeline_empty">No posts yet</string>
+    <string name="timeline_new_posts">New posts (%1$d)</string>
+    <string name="timeline_load_more">Load more</string>
+    <string name="timeline_error_retry">Retry</string>
+    <string name="action_reply">Reply</string>
+    <string name="action_favourite">Favourite</string>
+    <string name="action_unfavourite">Unfavourite</string>
+    <string name="action_reblog">Boost</string>
+    <string name="action_unreblog">Undo boost</string>
+    <string name="action_bookmark">Bookmark</string>
+    <string name="action_unbookmark">Remove bookmark</string>
+    <string name="action_open_thread">Open thread</string>
+    <string name="action_delete">Delete</string>
+    <string name="delete_confirm_message">Delete this post? This can\'t be undone.</string>
+    <string name="dialog_cancel">Cancel</string>
+    <string name="content_warning_show">Show content</string>
+    <string name="content_warning_hide">Hide content</string>
+
+    <!-- Thread -->
+    <string name="thread_title">Thread</string>
+
+    <!-- Compose -->
+    <string name="compose_title_new">New post</string>
+    <string name="compose_title_reply">Reply</string>
+    <string name="compose_hint">What\'s happening in your LARP?</string>
+    <string name="compose_spoiler_hint">Subject / content warning (optional)</string>
+    <string name="compose_publish">Publish</string>
+    <string name="compose_visibility_label">Visibility</string>
+    <string name="compose_visibility_public">Public</string>
+    <string name="compose_visibility_unlisted">Unlisted</string>
+    <string name="compose_visibility_private">Followers only</string>
+    <string name="compose_visibility_direct">Direct message</string>
+    <string name="compose_sensitive">Mark as sensitive</string>
+    <string name="compose_error">Failed to publish post</string>
+
+    <!-- Notifications -->
+    <string name="notifications_empty">No notifications</string>
+    <string name="notifications_clear">Clear all</string>
+    <string name="notification_favourite">favourited your post</string>
+    <string name="notification_reblog">boosted your post</string>
+    <string name="notification_mention">mentioned you</string>
+    <string name="notification_follow">followed you</string>
+    <string name="notification_follow_request">requested to follow you</string>
+    <string name="notification_poll">a poll has ended</string>
+    <string name="notification_quote">quoted your post</string>
+    <string name="notification_generic">new notification</string>
+
+    <!-- Profile -->
+    <string name="profile_edit">Edit profile</string>
+    <string name="profile_follow">Follow</string>
+    <string name="profile_unfollow">Unfollow</string>
+    <string name="profile_followers">Followers</string>
+    <string name="profile_following">Following</string>
+    <string name="profile_posts">Posts</string>
+    <string name="profile_logout">Log out</string>
+    <string name="edit_profile_title">Edit profile</string>
+    <string name="edit_profile_display_name">Display name</string>
+    <string name="edit_profile_bio">Bio</string>
+    <string name="edit_profile_locked">Manually approve followers</string>
+    <string name="edit_profile_discoverable">Show in directories and search</string>
+    <string name="edit_profile_bot">Automated account (bot)</string>
+    <string name="edit_profile_save">Save</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_privacy_section">Account privacy</string>
+    <string name="settings_app_language_section">App language</string>
+    <string name="settings_app_language_system">System default</string>
+    <string name="settings_language_section">Account language (web)</string>
+    <string name="settings_language_label">Interface language</string>
+    <string name="settings_language_hint">This is the account\'s web-interface language, not the app\'s. Read-only -- no app can change this, only the website</string>
+    <string name="settings_open_web">Edit more profile fields in browser</string>
+    <string name="settings_open_web_hint">For fields this app can\'t edit: birthday, address, XMPP/Matrix, homepage, keywords, custom profile fields, and language. Opens the website -- you may need to sign in there separately.</string>
+
+    <!-- Errors -->
+    <string name="error_network">Network error. Check your connection.</string>
+    <string name="error_generic">Something went wrong.</string>
+    <string name="error_session_expired">Session expired, please log in again.</string>
+</resources>

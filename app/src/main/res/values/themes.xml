@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Only used for the Activity window background before Compose takes over
+      (avoids a flash of default-white on cold start); all real theming is done
+      via ui/theme/Theme.kt (Compose Material3), not this XML theme.
+    -->
+    <style name="Theme.Larpnet" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/larpnet_background</item>
+        <item name="android:statusBarColor">@color/larpnet_background</item>
+    </style>
+</resources>

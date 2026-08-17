@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Larpnet brand violet, matching the web theme's ember accent (view/theme/larpnet in friendica-larpnet). -->
+    <color name="larpnet_violet">#A54BAD</color>
+    <color name="larpnet_background">#17121A</color>
+</resources>

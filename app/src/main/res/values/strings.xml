@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Larpnet</string>
+
+    <!-- Login -->
+    <string name="login_title">Zaloguj się do Larpnet</string>
+    <string name="login_instance_label">Adres serwera</string>
+    <string name="login_button">Zaloguj się</string>
+    <string name="login_error_invalid_url">Nieprawidłowy adres serwera</string>
+    <string name="login_error_generic">Logowanie nie powiodło się. Spróbuj ponownie.</string>
+    <string name="login_opening_browser">Otwieranie przeglądarki…</string>
+
+    <!-- Bottom nav -->
+    <string name="nav_home">Strona główna</string>
+    <string name="nav_local">Larpnet</string>
+    <string name="nav_directory">Użytkownicy</string>
+    <string name="nav_notifications">Powiadomienia</string>
+    <string name="nav_profile">Profil</string>
+
+    <!-- Search -->
+    <string name="search_title">Szukaj</string>
+    <string name="search_hint">Szukaj osób (nazwa lub @użytkownik@serwer)</string>
+    <string name="search_empty">Brak wyników</string>
+
+    <!-- Directory -->
+    <string name="directory_empty">Brak użytkowników</string>
+
+    <!-- Timeline -->
+    <string name="timeline_empty">Brak wpisów</string>
+    <string name="timeline_new_posts">Nowe wpisy (%1$d)</string>
+    <string name="timeline_load_more">Załaduj więcej</string>
+    <string name="timeline_error_retry">Spróbuj ponownie</string>
+    <string name="action_reply">Odpowiedz</string>
+    <string name="action_favourite">Ulub</string>
+    <string name="action_unfavourite">Cofnij ulubione</string>
+    <string name="action_reblog">Udostępnij</string>
+    <string name="action_unreblog">Cofnij udostępnienie</string>
+    <string name="action_bookmark">Zapisz</string>
+    <string name="action_unbookmark">Usuń z zapisanych</string>
+    <string name="action_open_thread">Otwórz wątek</string>
+    <string name="action_delete">Usuń</string>
+    <string name="delete_confirm_message">Usunąć ten wpis? Tej operacji nie można cofnąć.</string>
+    <string name="dialog_cancel">Anuluj</string>
+    <string name="content_warning_show">Pokaż zawartość</string>
+    <string name="content_warning_hide">Ukryj zawartość</string>
+
+    <!-- Thread -->
+    <string name="thread_title">Wątek</string>
+
+    <!-- Compose -->
+    <string name="compose_title_new">Nowy wpis</string>
+    <string name="compose_title_reply">Odpowiedź</string>
+    <string name="compose_hint">Co słychać w Waszym larpie?</string>
+    <string name="compose_spoiler_hint">Temat / ostrzeżenie o zawartości (opcjonalnie)</string>
+    <string name="compose_publish">Publikuj</string>
+    <string name="compose_visibility_label">Widoczność</string>
+    <string name="compose_visibility_public">Publiczny</string>
+    <string name="compose_visibility_unlisted">Niewidoczny na liście</string>
+    <string name="compose_visibility_private">Tylko obserwujący</string>
+    <string name="compose_visibility_direct">Wiadomość bezpośrednia</string>
+    <string name="compose_sensitive">Oznacz jako wrażliwe</string>
+    <string name="compose_error">Nie udało się opublikować wpisu</string>
+
+    <!-- Notifications -->
+    <string name="notifications_empty">Brak powiadomień</string>
+    <string name="notifications_clear">Wyczyść wszystkie</string>
+    <string name="notification_favourite">polubił(a) Twój wpis</string>
+    <string name="notification_reblog">udostępnił(a) Twój wpis</string>
+    <string name="notification_mention">wspomniał(a) o Tobie</string>
+    <string name="notification_follow">zaczął/zaczęła Cię obserwować</string>
+    <string name="notification_follow_request">prosi o obserwowanie</string>
+    <string name="notification_poll">ankieta się zakończyła</string>
+    <string name="notification_quote">zacytował(a) Twój wpis</string>
+    <string name="notification_generic">nowe powiadomienie</string>
+
+    <!-- Profile -->
+    <string name="profile_edit">Edytuj profil</string>
+    <string name="profile_follow">Obserwuj</string>
+    <string name="profile_unfollow">Przestań obserwować</string>
+    <string name="profile_followers">Obserwujący</string>
+    <string name="profile_following">Obserwowani</string>
+    <string name="profile_posts">Wpisy</string>
+    <string name="profile_logout">Wyloguj się</string>
+    <string name="edit_profile_title">Edytuj profil</string>
+    <string name="edit_profile_display_name">Wyświetlana nazwa</string>
+    <string name="edit_profile_bio">O mnie</string>
+    <string name="edit_profile_locked">Zatwierdzaj obserwujących ręcznie</string>
+    <string name="edit_profile_discoverable">Widoczny w katalogach i wyszukiwarkach</string>
+    <string name="edit_profile_bot">Konto zautomatyzowane (bot)</string>
+    <string name="edit_profile_save">Zapisz</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Ustawienia</string>
+    <string name="settings_privacy_section">Prywatność konta</string>
+    <string name="settings_app_language_section">Język aplikacji</string>
+    <string name="settings_app_language_system">Domyślny systemowy</string>
+    <string name="settings_language_section">Język konta (WWW)</string>
+    <string name="settings_language_label">Język interfejsu</string>
+    <string name="settings_language_hint">To język interfejsu WWW konta, nie aplikacji. Tylko do odczytu -- zmiana możliwa jedynie na stronie</string>
+    <string name="settings_open_web">Edytuj więcej pól profilu w przeglądarce</string>
+    <string name="settings_open_web_hint">Dla pól niedostępnych w aplikacji: data urodzenia, adres, XMPP/Matrix, strona domowa, słowa kluczowe, własne pola profilu i język. Otworzy stronę -- może być konieczne osobne zalogowanie się tam.</string>
+
+    <!-- Errors -->
+    <string name="error_network">Błąd sieci. Sprawdź połączenie.</string>
+    <string name="error_generic">Coś poszło nie tak.</string>
+    <string name="error_session_expired">Sesja wygasła, zaloguj się ponownie.</string>
+</resources>
