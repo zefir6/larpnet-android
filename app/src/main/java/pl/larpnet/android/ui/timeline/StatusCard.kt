@@ -46,6 +46,7 @@ import pl.larpnet.android.ui.common.AvatarImage
 import pl.larpnet.android.ui.common.HtmlContent
 import pl.larpnet.android.ui.common.RelativeTime
 import pl.larpnet.android.ui.common.VisibilityIcon
+import pl.larpnet.android.ui.theme.larpnetCard
 
 /**
  * Renders one post (or a boost of one). [status] is always the top-level API object; when it's
@@ -77,6 +78,9 @@ fun StatusCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .larpnetCard()
+            .clip(RoundedCornerShape(4.dp))
             .clickable { onOpenThread(display) }
             .padding(16.dp),
     ) {

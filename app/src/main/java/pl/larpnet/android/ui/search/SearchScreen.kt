@@ -35,6 +35,7 @@ import pl.larpnet.android.R
 import pl.larpnet.android.data.model.Account
 import pl.larpnet.android.di.rememberAppContainer
 import pl.larpnet.android.ui.common.AccountRow
+import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 
 /** [onSelectAccount], when set, replaces the default "tap opens profile" behavior -- used by the new-message recipient picker. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -56,6 +57,7 @@ fun SearchScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                colors = larpnetTopAppBarColors(),
                 title = { Text(stringResource(R.string.search_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {

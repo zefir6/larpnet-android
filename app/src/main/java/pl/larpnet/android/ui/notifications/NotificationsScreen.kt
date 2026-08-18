@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,6 +30,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -40,6 +42,7 @@ import pl.larpnet.android.data.model.Notification
 import pl.larpnet.android.di.rememberAppContainer
 import pl.larpnet.android.ui.common.AvatarImage
 import pl.larpnet.android.ui.common.RelativeTime
+import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,6 +73,7 @@ fun NotificationsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                colors = larpnetTopAppBarColors(),
                 title = { Text(stringResource(R.string.nav_notifications)) },
                 actions = {
                     IconButton(onClick = onOpenMessages) {
@@ -78,7 +82,10 @@ fun NotificationsScreen(
                     IconButton(onClick = onSearch) {
                         Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.search_title))
                     }
-                    TextButton(onClick = viewModel::clearAll) {
+                    TextButton(
+                        onClick = viewModel::clearAll,
+                        colors = ButtonDefaults.textButtonColors(contentColor = Color.White),
+                    ) {
                         Text(stringResource(R.string.notifications_clear))
                     }
                 },

@@ -41,6 +41,7 @@ import pl.larpnet.android.data.model.parseTwitterDate
 import pl.larpnet.android.di.rememberAppContainer
 import pl.larpnet.android.ui.common.AvatarImage
 import pl.larpnet.android.ui.common.RelativeTime
+import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,6 +74,7 @@ fun ConversationThreadScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                colors = larpnetTopAppBarColors(),
                 title = {
                     Text(state.account?.displayName?.ifBlank { state.account.username } ?: "")
                 },

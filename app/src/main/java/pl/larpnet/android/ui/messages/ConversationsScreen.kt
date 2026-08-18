@@ -45,6 +45,7 @@ import pl.larpnet.android.data.model.Conversation
 import pl.larpnet.android.di.rememberAppContainer
 import pl.larpnet.android.ui.common.AvatarImage
 import pl.larpnet.android.ui.common.RelativeTime
+import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,6 +80,7 @@ fun ConversationsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                colors = larpnetTopAppBarColors(),
                 title = { Text(stringResource(R.string.messages_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {

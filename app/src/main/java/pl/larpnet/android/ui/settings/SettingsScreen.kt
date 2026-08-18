@@ -69,6 +69,7 @@ import pl.larpnet.android.data.repository.PushRepository
 import pl.larpnet.android.di.rememberAppContainer
 import pl.larpnet.android.push.NtfyListenerService
 import pl.larpnet.android.ui.common.AvatarImage
+import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 
 /**
  * The Mastodon-compatible API only exposes a handful of Friendica's web profile settings
@@ -163,6 +164,7 @@ fun SettingsScreen(onBack: (() -> Unit)? = null, onOpenProfile: () -> Unit, onLo
     Scaffold(
         topBar = {
             TopAppBar(
+                colors = larpnetTopAppBarColors(),
                 title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
                     if (onBack != null) {

@@ -43,6 +43,7 @@ import pl.larpnet.android.di.rememberAppContainer
 import pl.larpnet.android.domain.html.HtmlParser
 import pl.larpnet.android.ui.common.AvatarImage
 import pl.larpnet.android.ui.common.HtmlContent
+import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 import pl.larpnet.android.ui.timeline.StatusCard
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -86,6 +87,7 @@ fun ProfileScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                colors = larpnetTopAppBarColors(),
                 title = { Text(stringResource(R.string.nav_profile)) },
                 navigationIcon = {
                     if (onBack != null) {

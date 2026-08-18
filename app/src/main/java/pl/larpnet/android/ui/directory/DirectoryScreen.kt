@@ -31,6 +31,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import pl.larpnet.android.R
 import pl.larpnet.android.di.rememberAppContainer
 import pl.larpnet.android.ui.common.AccountRow
+import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,7 +55,7 @@ fun DirectoryScreen(onOpenProfile: (String) -> Unit) {
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.nav_directory)) }) },
+        topBar = { TopAppBar(title = { Text(stringResource(R.string.nav_directory)) }, colors = larpnetTopAppBarColors()) },
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = state.isLoading,

@@ -8,6 +8,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -24,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -36,6 +38,7 @@ import org.jsoup.Jsoup
 import pl.larpnet.android.R
 import pl.larpnet.android.data.repository.ProfileRepository
 import pl.larpnet.android.di.rememberAppContainer
+import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,6 +58,7 @@ fun EditProfileScreen(onBack: () -> Unit, onSaved: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
+                colors = larpnetTopAppBarColors(),
                 title = { Text(stringResource(R.string.edit_profile_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -62,7 +66,14 @@ fun EditProfileScreen(onBack: () -> Unit, onSaved: () -> Unit) {
                     }
                 },
                 actions = {
-                    TextButton(onClick = viewModel::save, enabled = !state.isSaving && !state.isLoading) {
+                    TextButton(
+                        onClick = viewModel::save,
+                        enabled = !state.isSaving && !state.isLoading,
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = Color.White,
+                            disabledContentColor = Color.White.copy(alpha = 0.4f),
+                        ),
+                    ) {
                         Text(stringResource(R.string.edit_profile_save))
                     }
                 },
