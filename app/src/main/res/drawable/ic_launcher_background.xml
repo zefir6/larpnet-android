@@ -4,7 +4,8 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Matches the web/PWA icon's brand purple (view/theme/larpnet/img/larpnet-*.png); see ui/theme/Color.kt's LarpnetNavBar. -->
     <path
-        android:fillColor="#17121A"
+        android:fillColor="#833C89"
         android:pathData="M0,0h108v108h-108z" />
 </vector>
