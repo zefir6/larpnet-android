@@ -94,9 +94,7 @@
     <string name="settings_privacy_section">Account privacy</string>
     <string name="settings_app_language_section">App language</string>
     <string name="settings_app_language_system">System default</string>
-    <string name="settings_language_section">Account language (web)</string>
-    <string name="settings_language_label">Interface language</string>
-    <string name="settings_language_hint">This is the account\'s web-interface language, not the app\'s. Read-only -- no app can change this, only the website</string>
+    <string name="settings_app_language_hint">This only changes the app\'s language. To change the account\'s web-interface language, do that on the website</string>
     <string name="settings_open_web">Edit more profile fields in browser</string>
     <string name="settings_open_web_hint">For fields this app can\'t edit: birthday, address, XMPP/Matrix, homepage, keywords, custom profile fields, and language. Opens the website -- you may need to sign in there separately.</string>
 

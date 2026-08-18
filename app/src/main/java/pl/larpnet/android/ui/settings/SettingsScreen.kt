@@ -75,9 +75,12 @@ import pl.larpnet.android.ui.common.AvatarImage
  * this server -- not just on the Mastodon layer. Checked every API surface Friendica exposes:
  * `update_credentials`'s `fields_attributes` param is accepted and never read; no `dob` field
  * exists anywhere in the Mastodon Account object or its update path; `GET /api/v1/preferences`
- * is GET-only (routes.config.php) and is the one place language is genuinely readable (used
- * for [SettingsUiState.language] below), but nothing writes it -- `Source.language` in the
- * verify_credentials response is hardcoded to `''` and never wired up. The Twitter-compatible
+ * is GET-only (routes.config.php) and is the one place language is genuinely readable, but
+ * nothing writes it -- `Source.language` in the verify_credentials response is hardcoded to
+ * `''` and never wired up. Account language is therefore not shown in this screen at all
+ * (only the [App language][settings_app_language_section] picker, which is app-local and has
+ * nothing to do with this); its hint text points users to the website instead. The
+ * Twitter-compatible
  * legacy endpoints (`account/update_profile`, `profile/show`) don't cover them either. All
  * three, plus everything else on /settings/profile and the rest of /settings (2FA, connected
  * apps, addons, data export, delegation, ...), live behind session-cookie HTML forms with no
@@ -188,17 +191,8 @@ fun SettingsScreen(onBack: (() -> Unit)? = null, onOpenProfile: () -> Unit, onLo
                 SettingsLinkRow(
                     icon = Icons.Filled.Language,
                     label = appLanguageLabel(appLocaleTag),
-                    hint = null,
+                    hint = stringResource(R.string.settings_app_language_hint),
                     onClick = { showLanguageDialog = true },
-                )
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                SectionLabel(stringResource(R.string.settings_language_section))
-                InfoRow(
-                    label = stringResource(R.string.settings_language_label),
-                    value = state.language.ifBlank { "—" },
-                    hint = stringResource(R.string.settings_language_hint),
                 )
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -318,23 +312,6 @@ private fun SettingsSwitchRow(label: String, checked: Boolean, onCheckedChange: 
     }
 }
 
-@Composable
-private fun InfoRow(label: String, value: String, hint: String?) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(label)
-            if (hint != null) {
-                Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        Text(value, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
 
 @Composable
 private fun SettingsLinkRow(
@@ -368,7 +345,6 @@ private data class SettingsUiState(
     val locked: Boolean = false,
     val discoverable: Boolean = true,
     val bot: Boolean = false,
-    val language: String = "",
     val error: String? = null,
 )
 
@@ -401,9 +377,6 @@ private class SettingsViewModel(
                 },
                 onFailure = { e -> uiState = uiState.copy(isLoading = false, error = e.message) },
             )
-            profileRepository.preferences().onSuccess { preferences ->
-                uiState = uiState.copy(language = preferences.postingDefaultLanguage)
-            }
         }
     }
 

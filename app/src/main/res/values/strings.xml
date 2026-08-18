@@ -94,9 +94,7 @@
     <string name="settings_privacy_section">Prywatność konta</string>
     <string name="settings_app_language_section">Język aplikacji</string>
     <string name="settings_app_language_system">Domyślny systemowy</string>
-    <string name="settings_language_section">Język konta (WWW)</string>
-    <string name="settings_language_label">Język interfejsu</string>
-    <string name="settings_language_hint">To język interfejsu WWW konta, nie aplikacji. Tylko do odczytu -- zmiana możliwa jedynie na stronie</string>
+    <string name="settings_app_language_hint">To zmienia tylko język aplikacji. Aby zmienić język interfejsu WWW konta, zrób to na stronie</string>
     <string name="settings_open_web">Edytuj więcej pól profilu w przeglądarce</string>
     <string name="settings_open_web_hint">Dla pól niedostępnych w aplikacji: data urodzenia, adres, XMPP/Matrix, strona domowa, słowa kluczowe, własne pola profilu i język. Otworzy stronę -- może być konieczne osobne zalogowanie się tam.</string>
 
