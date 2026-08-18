@@ -2,6 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <application
         android:name=".App"
@@ -42,6 +45,22 @@
                 <data android:scheme="pl.larpnet.android" android:host="oauth" />
             </intent-filter>
         </activity>
+
+        <!--
+          Holds the long-lived connection to push.larpnet.pl's ntfy relay (see push/NtfyListenerService.kt).
+          specialUse is the correct Android 14+ foreground-service type for "listen for pushes without
+          Firebase/UnifiedPush": none of the other enumerated types (dataSync, connectedDevice, etc.) fit,
+          and dataSync in particular carries a 6h background execution cap on Android 15+ that would kill
+          this on a timer. specialUse has no such cap; its only OS-side requirement is this property.
+        -->
+        <service
+            android:name=".push.NtfyListenerService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="push-notifications-listener" />
+        </service>
 
         <!--
           Enables AppCompatDelegate.setApplicationLocales() to actually persist the choice

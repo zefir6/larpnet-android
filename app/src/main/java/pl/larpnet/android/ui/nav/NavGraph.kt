@@ -1,7 +1,14 @@
 package pl.larpnet.android.ui.nav
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Groups
@@ -36,6 +43,7 @@ import pl.larpnet.android.ui.login.LoginScreen
 import pl.larpnet.android.ui.messages.ConversationThreadScreen
 import pl.larpnet.android.ui.messages.ConversationsScreen
 import pl.larpnet.android.ui.notifications.NotificationsScreen
+import pl.larpnet.android.push.NtfyListenerService
 import pl.larpnet.android.ui.profile.EditProfileScreen
 import pl.larpnet.android.ui.profile.ProfileScreen
 import pl.larpnet.android.ui.search.SearchScreen
@@ -90,8 +98,30 @@ fun LarpnetNavGraph(startDestination: String) {
     // clear the stored token and bounce back to login instead of leaving screens stuck
     // showing stale data or silent failures.
     val appContainer = rememberAppContainer()
+    val context = LocalContext.current
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { /* Result doesn't change what we do -- the service starts either way, see NtfyListenerService doc comment. */ }
+
+    fun startPushIfEnabled() {
+        if (!appContainer.tokenStore.isLoggedIn || !appContainer.tokenStore.pushEnabled) return
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        NtfyListenerService.start(context)
+    }
+
+    // Resumes the push listener across process restarts while already logged in -- the actual
+    // fresh-login case is handled by the LOGIN composable's onLoggedIn below, since this effect
+    // only runs once for this NavGraph instance's lifetime and won't re-fire after that navigate.
+    LaunchedEffect(Unit) { startPushIfEnabled() }
+
     LaunchedEffect(Unit) {
         appContainer.authInterceptor.forceLogoutEvents.collect {
+            NtfyListenerService.stop(context)
             appContainer.tokenStore.clear()
             if (currentRoute != Routes.LOGIN) {
                 navController.navigate(Routes.LOGIN) {
@@ -159,6 +189,7 @@ fun LarpnetNavGraph(startDestination: String) {
             composable(Routes.LOGIN) {
                 LoginScreen(
                     onLoggedIn = {
+                        startPushIfEnabled()
                         navController.navigate(Routes.HOME) {
                             popUpTo(Routes.LOGIN) { inclusive = true }
                         }

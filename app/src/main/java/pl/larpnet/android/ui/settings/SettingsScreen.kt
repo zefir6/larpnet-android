@@ -1,13 +1,18 @@
 package pl.larpnet.android.ui.settings
 
+import android.Manifest
 import android.app.Activity
 import android.app.LocaleManager
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.browser.customtabs.CustomTabsIntent
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -60,7 +65,9 @@ import pl.larpnet.android.R
 import pl.larpnet.android.data.auth.TokenStore
 import pl.larpnet.android.data.repository.AuthRepository
 import pl.larpnet.android.data.repository.ProfileRepository
+import pl.larpnet.android.data.repository.PushRepository
 import pl.larpnet.android.di.rememberAppContainer
+import pl.larpnet.android.push.NtfyListenerService
 import pl.larpnet.android.ui.common.AvatarImage
 
 /**
@@ -92,7 +99,14 @@ fun SettingsScreen(onBack: (() -> Unit)? = null, onOpenProfile: () -> Unit, onLo
     val appContainer = rememberAppContainer()
     val viewModel: SettingsViewModel = viewModel(
         factory = viewModelFactory {
-            initializer { SettingsViewModel(appContainer.profileRepository, appContainer.authRepository, appContainer.tokenStore) }
+            initializer {
+                SettingsViewModel(
+                    appContainer.profileRepository,
+                    appContainer.authRepository,
+                    appContainer.tokenStore,
+                    appContainer.pushRepository,
+                )
+            }
         },
     )
     val state = viewModel.uiState
@@ -100,6 +114,24 @@ fun SettingsScreen(onBack: (() -> Unit)? = null, onOpenProfile: () -> Unit, onLo
 
     var appLocaleTag by remember { mutableStateOf(context.currentAppLocaleTag()) }
     var showLanguageDialog by remember { mutableStateOf(false) }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { /* Permission result doesn't change what we do -- the service starts either way, see NtfyListenerService doc comment. */ }
+
+    fun setPushEnabled(enabled: Boolean) {
+        viewModel.setPushEnabled(enabled)
+        if (enabled) {
+            if (Build.VERSION.SDK_INT >= 33 &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+            NtfyListenerService.start(context)
+        } else {
+            NtfyListenerService.stop(context)
+        }
+    }
 
     if (showLanguageDialog) {
         AppLanguageDialog(
@@ -197,6 +229,30 @@ fun SettingsScreen(onBack: (() -> Unit)? = null, onOpenProfile: () -> Unit, onLo
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
+                SectionLabel(stringResource(R.string.settings_push_section))
+                if (state.pushAvailable) {
+                    SettingsSwitchRow(
+                        label = stringResource(R.string.settings_push_enable),
+                        checked = state.pushEnabled,
+                        onCheckedChange = ::setPushEnabled,
+                    )
+                    Text(
+                        stringResource(R.string.settings_push_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
+                } else {
+                    Text(
+                        stringResource(R.string.settings_push_unavailable),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
                 SettingsLinkRow(
                     icon = Icons.AutoMirrored.Filled.OpenInNew,
                     label = stringResource(R.string.settings_open_web),
@@ -215,7 +271,7 @@ fun SettingsScreen(onBack: (() -> Unit)? = null, onOpenProfile: () -> Unit, onLo
                     icon = Icons.AutoMirrored.Filled.Logout,
                     label = stringResource(R.string.profile_logout),
                     hint = null,
-                    onClick = { viewModel.logout(); onLoggedOut() },
+                    onClick = { NtfyListenerService.stop(context); viewModel.logout(); onLoggedOut() },
                 )
 
                 state.error?.let {
@@ -345,6 +401,8 @@ private data class SettingsUiState(
     val locked: Boolean = false,
     val discoverable: Boolean = true,
     val bot: Boolean = false,
+    val pushAvailable: Boolean = false,
+    val pushEnabled: Boolean = false,
     val error: String? = null,
 )
 
@@ -352,9 +410,10 @@ private class SettingsViewModel(
     private val profileRepository: ProfileRepository,
     private val authRepository: AuthRepository,
     private val tokenStore: TokenStore,
+    private val pushRepository: PushRepository,
 ) : ViewModel() {
 
-    var uiState by mutableStateOf(SettingsUiState())
+    var uiState by mutableStateOf(SettingsUiState(pushEnabled = tokenStore.pushEnabled))
         private set
 
     init {
@@ -377,7 +436,15 @@ private class SettingsViewModel(
                 },
                 onFailure = { e -> uiState = uiState.copy(isLoading = false, error = e.message) },
             )
+            pushRepository.config().onSuccess { config ->
+                uiState = uiState.copy(pushAvailable = config.enabled)
+            }
         }
+    }
+
+    fun setPushEnabled(value: Boolean) {
+        tokenStore.pushEnabled = value
+        uiState = uiState.copy(pushEnabled = value)
     }
 
     fun webProfileSettingsUrl(): String? = tokenStore.instanceBaseUrl?.trimEnd('/')?.plus("/settings/profile")

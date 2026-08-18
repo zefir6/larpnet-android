@@ -16,6 +16,7 @@ import pl.larpnet.android.data.repository.ConversationRepository
 import pl.larpnet.android.data.repository.MediaRepository
 import pl.larpnet.android.data.repository.NotificationRepository
 import pl.larpnet.android.data.repository.ProfileRepository
+import pl.larpnet.android.data.repository.PushRepository
 import pl.larpnet.android.data.repository.StatusRepository
 import pl.larpnet.android.data.repository.TimelineRepository
 import pl.larpnet.android.network.AuthApi
@@ -89,6 +90,18 @@ class AppContainer(context: Context) {
         .addInterceptor(loggingInterceptor)
         .build()
 
+    /**
+     * Dedicated client for [pl.larpnet.android.push.NtfyListenerService]'s long-lived streaming
+     * connection to push.larpnet.pl (a different host than the Friendica instance, so this is
+     * intentionally separate from [authenticatedClient]/its Bearer token). Read timeout is
+     * disabled -- the connection is meant to stay open indefinitely, not time out between pushes.
+     */
+    val pushOkHttpClient: OkHttpClient = OkHttpClient.Builder()
+        .addInterceptor(userAgentInterceptor)
+        .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(0, java.util.concurrent.TimeUnit.SECONDS)
+        .build()
+
     private val jsonConverterFactory = friendicaJson.asConverterFactory("application/json".toMediaType())
 
     private fun retrofitFor(baseUrl: String, client: OkHttpClient): Retrofit =
@@ -124,4 +137,5 @@ class AppContainer(context: Context) {
     val profileRepository = ProfileRepository(::friendicaApi)
     val mediaRepository = MediaRepository(::friendicaApi)
     val conversationRepository = ConversationRepository(::friendicaApi)
+    val pushRepository = PushRepository(::friendicaApi)
 }

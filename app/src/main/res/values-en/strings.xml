@@ -98,6 +98,15 @@
     <string name="settings_open_web">Edit more profile fields in browser</string>
     <string name="settings_open_web_hint">For fields this app can\'t edit: birthday, address, XMPP/Matrix, homepage, keywords, custom profile fields, and language. Opens the website -- you may need to sign in there separately.</string>
 
+    <!-- Push notifications -->
+    <string name="push_channel_messages">Push notifications</string>
+    <string name="push_channel_service">Push listener</string>
+    <string name="push_service_title">Larpnet is listening for notifications</string>
+    <string name="settings_push_section">Push notifications</string>
+    <string name="settings_push_enable">Enable push notifications</string>
+    <string name="settings_push_hint">The app keeps a persistent, low-priority notification running in the background to deliver push notifications in real time.</string>
+    <string name="settings_push_unavailable">Push notifications aren\'t configured on this server.</string>
+
     <!-- Messages (Direct Messages) -->
     <string name="messages_title">Messages</string>
     <string name="messages_empty">No messages</string>

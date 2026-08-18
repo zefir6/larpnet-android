@@ -9,6 +9,7 @@ import pl.larpnet.android.data.model.Instance
 import pl.larpnet.android.data.model.MediaAttachment
 import pl.larpnet.android.data.model.Notification
 import pl.larpnet.android.data.model.Preferences
+import pl.larpnet.android.data.model.PushConfig
 import pl.larpnet.android.data.model.Relationship
 import pl.larpnet.android.data.model.Status
 import pl.larpnet.android.data.model.StatusContext
@@ -222,4 +223,10 @@ interface FriendicaApi {
 
     @GET("api/v1/instance")
     suspend fun instance(): Instance
+
+    // -- Push notifications ---------------------------------------------------
+
+    /** Server-side native-client counterpart of the larpnet_notifications theme's browser push setup. */
+    @GET("api/v1/larpnet_push_config")
+    suspend fun larpnetPushConfig(): PushConfig
 }

@@ -52,6 +52,12 @@ class TokenStore(context: Context) {
     val isLoggedIn: Boolean
         get() = !accessToken.isNullOrBlank() && !instanceBaseUrl.isNullOrBlank()
 
+    /** User-facing push toggle (Settings). Defaults on: "Add notifications" is an explicit ask, and the
+     * runtime POST_NOTIFICATIONS prompt (Android 13+) already gives the user a natural off-ramp. */
+    var pushEnabled: Boolean
+        get() = prefs.getBoolean(KEY_PUSH_ENABLED, true)
+        set(value) = prefs.edit().putBoolean(KEY_PUSH_ENABLED, value).apply()
+
     /** Clears the access token (and app registration, since it's keyed to one instance) on logout / forced re-login. */
     fun clear() {
         prefs.edit()
@@ -67,5 +73,6 @@ class TokenStore(context: Context) {
         private const val KEY_CLIENT_ID = "client_id"
         private const val KEY_CLIENT_SECRET = "client_secret"
         private const val KEY_ACCESS_TOKEN = "access_token"
+        private const val KEY_PUSH_ENABLED = "push_enabled"
     }
 }

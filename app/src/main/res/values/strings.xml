@@ -98,6 +98,15 @@
     <string name="settings_open_web">Edytuj więcej pól profilu w przeglądarce</string>
     <string name="settings_open_web_hint">Dla pól niedostępnych w aplikacji: data urodzenia, adres, XMPP/Matrix, strona domowa, słowa kluczowe, własne pola profilu i język. Otworzy stronę -- może być konieczne osobne zalogowanie się tam.</string>
 
+    <!-- Push notifications -->
+    <string name="push_channel_messages">Powiadomienia push</string>
+    <string name="push_channel_service">Nasłuchiwanie powiadomień</string>
+    <string name="push_service_title">Larpnet nasłuchuje powiadomień</string>
+    <string name="settings_push_section">Powiadomienia push</string>
+    <string name="settings_push_enable">Włącz powiadomienia push</string>
+    <string name="settings_push_hint">Aplikacja utrzymuje stałe, niskopriorytetowe powiadomienie w tle, aby dostarczać powiadomienia push na bieżąco.</string>
+    <string name="settings_push_unavailable">Powiadomienia push nie są skonfigurowane na tym serwerze.</string>
+
     <!-- Messages (Direct Messages) -->
     <string name="messages_title">Wiadomości</string>
     <string name="messages_empty">Brak wiadomości</string>
