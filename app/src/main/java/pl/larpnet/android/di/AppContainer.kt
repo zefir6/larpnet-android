@@ -12,6 +12,7 @@ import pl.larpnet.android.BuildConfig
 import pl.larpnet.android.data.auth.OAuthFlow
 import pl.larpnet.android.data.auth.TokenStore
 import pl.larpnet.android.data.repository.AuthRepository
+import pl.larpnet.android.data.repository.ConversationRepository
 import pl.larpnet.android.data.repository.MediaRepository
 import pl.larpnet.android.data.repository.NotificationRepository
 import pl.larpnet.android.data.repository.ProfileRepository
@@ -122,4 +123,5 @@ class AppContainer(context: Context) {
     val notificationRepository = NotificationRepository(::friendicaApi)
     val profileRepository = ProfileRepository(::friendicaApi)
     val mediaRepository = MediaRepository(::friendicaApi)
+    val conversationRepository = ConversationRepository(::friendicaApi)
 }

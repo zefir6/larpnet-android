@@ -32,14 +32,17 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.LaunchedEffect
 import pl.larpnet.android.R
+import pl.larpnet.android.data.model.Account
 import pl.larpnet.android.di.rememberAppContainer
 import pl.larpnet.android.ui.common.AccountRow
 
+/** [onSelectAccount], when set, replaces the default "tap opens profile" behavior -- used by the new-message recipient picker. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
     onBack: () -> Unit,
     onOpenProfile: (String) -> Unit,
+    onSelectAccount: ((Account) -> Unit)? = null,
 ) {
     val appContainer = rememberAppContainer()
     val viewModel: SearchViewModel = viewModel(
@@ -93,7 +96,7 @@ fun SearchScreen(
                         AccountRow(
                             account = account,
                             relationship = state.relationships[account.id],
-                            onClick = { onOpenProfile(account.id) },
+                            onClick = { if (onSelectAccount != null) onSelectAccount(account) else onOpenProfile(account.id) },
                             onToggleFollow = { viewModel.toggleFollow(account) },
                         )
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

@@ -33,6 +33,8 @@ import pl.larpnet.android.di.rememberAppContainer
 import pl.larpnet.android.ui.compose.ComposeScreen
 import pl.larpnet.android.ui.directory.DirectoryScreen
 import pl.larpnet.android.ui.login.LoginScreen
+import pl.larpnet.android.ui.messages.ConversationThreadScreen
+import pl.larpnet.android.ui.messages.ConversationsScreen
 import pl.larpnet.android.ui.notifications.NotificationsScreen
 import pl.larpnet.android.ui.profile.EditProfileScreen
 import pl.larpnet.android.ui.profile.ProfileScreen
@@ -55,6 +57,9 @@ private object Routes {
     const val SETTINGS = "settings"
     const val COMPOSE = "compose?replyToId={replyToId}"
     const val SEARCH = "search"
+    const val MESSAGES = "messages"
+    const val NEW_MESSAGE = "messages/new"
+    const val MESSAGE_THREAD = "messages/thread/{accountId}?conversationId={conversationId}"
 }
 
 private val bottomNavRoutes = setOf(Routes.HOME, Routes.LOCAL, Routes.DIRECTORY, Routes.NOTIFICATIONS, Routes.SETTINGS)
@@ -62,6 +67,8 @@ private val bottomNavRoutes = setOf(Routes.HOME, Routes.LOCAL, Routes.DIRECTORY,
 private fun threadRoute(statusId: String) = "thread/$statusId"
 private fun profileRoute(accountId: String) = "profile/$accountId"
 private fun composeRoute(replyToId: String? = null) = if (replyToId != null) "compose?replyToId=$replyToId" else "compose"
+private fun messageThreadRoute(accountId: String, conversationId: String? = null) =
+    if (conversationId != null) "messages/thread/$accountId?conversationId=$conversationId" else "messages/thread/$accountId"
 
 private fun NavHostController.navigateToBottomTab(route: String) {
     navigate(route) {
@@ -176,6 +183,7 @@ fun LarpnetNavGraph(startDestination: String) {
                     onOpenStatus = { navController.navigate(threadRoute(it)) },
                     onOpenProfile = onOpenProfile,
                     onSearch = onSearch,
+                    onOpenMessages = { navController.navigate(Routes.MESSAGES) },
                 )
             }
 
@@ -244,6 +252,49 @@ fun LarpnetNavGraph(startDestination: String) {
                             popUpTo(0) { inclusive = true }
                         }
                     },
+                )
+            }
+
+            composable(Routes.MESSAGES) {
+                ConversationsScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenConversation = { conversation ->
+                        val accountId = conversation.accounts.firstOrNull()?.id ?: return@ConversationsScreen
+                        navController.navigate(messageThreadRoute(accountId, conversation.id))
+                    },
+                    onNewMessage = { navController.navigate(Routes.NEW_MESSAGE) },
+                )
+            }
+
+            composable(Routes.NEW_MESSAGE) {
+                SearchScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenProfile = onOpenProfile,
+                    onSelectAccount = { account ->
+                        navController.navigate(messageThreadRoute(account.id)) {
+                            popUpTo(Routes.MESSAGES)
+                        }
+                    },
+                )
+            }
+
+            composable(
+                Routes.MESSAGE_THREAD,
+                arguments = listOf(
+                    navArgument("accountId") { type = NavType.StringType },
+                    navArgument("conversationId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
+            ) { entry ->
+                val accountId = entry.arguments?.getString("accountId").orEmpty()
+                val conversationId = entry.arguments?.getString("conversationId")
+                ConversationThreadScreen(
+                    accountId = accountId,
+                    conversationId = conversationId,
+                    onBack = { navController.popBackStack() },
                 )
             }
 

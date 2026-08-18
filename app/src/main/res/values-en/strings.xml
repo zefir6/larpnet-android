@@ -100,6 +100,13 @@
     <string name="settings_open_web">Edit more profile fields in browser</string>
     <string name="settings_open_web_hint">For fields this app can\'t edit: birthday, address, XMPP/Matrix, homepage, keywords, custom profile fields, and language. Opens the website -- you may need to sign in there separately.</string>
 
+    <!-- Messages (Direct Messages) -->
+    <string name="messages_title">Messages</string>
+    <string name="messages_empty">No messages</string>
+    <string name="messages_new">New message</string>
+    <string name="message_hint">Write a message…</string>
+    <string name="message_send">Send</string>
+
     <!-- Errors -->
     <string name="error_network">Network error. Check your connection.</string>
     <string name="error_generic">Something went wrong.</string>

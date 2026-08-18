@@ -4,6 +4,7 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import pl.larpnet.android.data.model.Account
 import pl.larpnet.android.data.model.Conversation
+import pl.larpnet.android.data.model.DirectMessage
 import pl.larpnet.android.data.model.Instance
 import pl.larpnet.android.data.model.MediaAttachment
 import pl.larpnet.android.data.model.Notification
@@ -164,9 +165,49 @@ interface FriendicaApi {
     suspend fun dismissNotification(@Path("id") id: String)
 
     // -- Conversations (DMs) ------------------------------------------------
+    //
+    // GET/DELETE/read use the Mastodon-compatible /api/v1/conversations surface, which reads
+    // and mutates Friendica's legacy `mail` table -- the same store the web UI's own Messages
+    // uses. There is no Mastodon-API endpoint to *send* into that store (POST /api/v1/statuses
+    // with visibility=direct is a fully separate, disconnected mechanism -- see
+    // ConversationRepository), so sending and fetching one conversation's full message history
+    // go through the Twitter-compat /api/direct_messages endpoints instead, which read/write
+    // the same `mail` rows. Both surfaces share the same OAuth Bearer auth via BaseApi.
 
     @GET("api/v1/conversations")
     suspend fun conversations(@Query("max_id") maxId: String? = null): Response<List<Conversation>>
+
+    /** Requires the server-side inverted-condition fix (see friendica-larpnet PR #14) to ever return non-422. */
+    @POST("api/v1/conversations/{id}/read")
+    suspend fun markConversationRead(@Path("id") id: String): Conversation
+
+    /** Requires the server-side inverted-condition fix (see friendica-larpnet PR #14) to ever return non-422. */
+    @DELETE("api/v1/conversations/{id}")
+    suspend fun deleteConversation(@Path("id") id: String)
+
+    /** All messages exchanged with one contact (both directions), newest first, Link-header paginated. */
+    @GET("api/direct_messages/all.json")
+    suspend fun directMessages(
+        @Query("profileurl") profileUrl: String,
+        @Query("count") count: Int = 40,
+        @Query("max_id") maxId: String? = null,
+    ): Response<List<DirectMessage>>
+
+    /**
+     * NewDM.php's own early guard is `empty($text) || empty($screen_name) && empty($user_id)`
+     * (note the `&&` binds tighter than `||`) -- it only checks for the presence of
+     * `screen_name` or `user_id`, never `profileurl`, even though `profileurl` is a valid
+     * resolvable identifier further down in getContactIDForSearchterm(). Passing only
+     * `profileurl` trips that guard and the endpoint silently no-ops (200, empty body) --
+     * confirmed live. `screen_name` (nickname, or `nick@host` for remote accounts -- both
+     * handled by getContactIDForSearchterm) sidesteps it entirely.
+     */
+    @FormUrlEncoded
+    @POST("api/direct_messages/new.json")
+    suspend fun sendDirectMessage(
+        @Field("screen_name") screenName: String,
+        @Field("text") text: String,
+    ): DirectMessage
 
     // -- Media ---------------------------------------------------------------
 

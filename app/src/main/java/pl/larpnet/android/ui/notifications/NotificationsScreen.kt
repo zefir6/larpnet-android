@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -46,6 +47,7 @@ fun NotificationsScreen(
     onOpenStatus: (String) -> Unit,
     onOpenProfile: (String) -> Unit,
     onSearch: () -> Unit = {},
+    onOpenMessages: () -> Unit = {},
 ) {
     val appContainer = rememberAppContainer()
     val viewModel: NotificationsViewModel = viewModel(
@@ -70,6 +72,9 @@ fun NotificationsScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.nav_notifications)) },
                 actions = {
+                    IconButton(onClick = onOpenMessages) {
+                        Icon(Icons.Filled.MailOutline, contentDescription = stringResource(R.string.messages_title))
+                    }
                     IconButton(onClick = onSearch) {
                         Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.search_title))
                     }
