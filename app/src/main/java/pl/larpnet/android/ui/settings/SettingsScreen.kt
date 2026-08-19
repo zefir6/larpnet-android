@@ -5,9 +5,12 @@ import android.app.Activity
 import android.app.LocaleManager
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
@@ -132,6 +135,20 @@ fun SettingsScreen(onBack: (() -> Unit)? = null, onOpenProfile: () -> Unit, onLo
                 ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
             ) {
                 notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+            // NtfyListenerService holds a persistent socket with no OS-scheduled wakeups behind
+            // it -- on most non-Pixel OEMs (Samsung/Xiaomi/OnePlus/...) the battery manager kills
+            // exactly this kind of "quiet" background service after the screen's been off a
+            // while, unless the app is exempted from battery optimization. Ask once, right when
+            // the user opts into push, same moment as the notification-permission prompt above.
+            val powerManager = context.getSystemService(PowerManager::class.java)
+            if (powerManager?.isIgnoringBatteryOptimizations(context.packageName) == false) {
+                context.startActivity(
+                    Intent(
+                        Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                        Uri.parse("package:${context.packageName}"),
+                    ),
+                )
             }
             NtfyListenerService.start(context)
         } else {

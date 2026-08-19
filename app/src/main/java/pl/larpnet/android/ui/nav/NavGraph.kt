@@ -1,8 +1,12 @@
 package pl.larpnet.android.ui.nav
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
@@ -110,6 +114,20 @@ fun LarpnetNavGraph(startDestination: String) {
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        // Re-check on every cold start, not just when the user flips the Settings switch: this
+        // covers installs where push was already enabled before battery-exemption requesting
+        // existed, and OEMs (MIUI in particular) that silently revoke the exemption behind the
+        // user's back. No-ops instantly if already exempted, so it's not naggy for anyone it
+        // already worked for. See SettingsScreen.setPushEnabled for why this matters at all.
+        val powerManager = context.getSystemService(PowerManager::class.java)
+        if (powerManager?.isIgnoringBatteryOptimizations(context.packageName) == false) {
+            context.startActivity(
+                Intent(
+                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    Uri.parse("package:${context.packageName}"),
+                ),
+            )
         }
         NtfyListenerService.start(context)
     }
