@@ -140,8 +140,18 @@ class ProfileViewModel(
         }
     }
 
+    /** See TimelineViewModel.applyLocalUpdate's doc comment: for a boosted status, [id] is the
+     * reblogged post's own id, not the top-level item's -- must check both. */
     private fun updateStatus(id: String, transform: (Status) -> Status) {
-        uiState = uiState.copy(statuses = uiState.statuses.map { if (it.id == id) transform(it) else it })
+        uiState = uiState.copy(
+            statuses = uiState.statuses.map { item ->
+                when {
+                    item.id == id -> transform(item)
+                    item.reblog?.id == id -> item.copy(reblog = transform(item.reblog))
+                    else -> item
+                }
+            },
+        )
     }
 
     fun deleteStatus(status: Status) {

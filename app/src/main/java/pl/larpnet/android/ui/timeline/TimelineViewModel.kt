@@ -167,8 +167,24 @@ class TimelineViewModel(
         }
     }
 
+    /**
+     * StatusCard's action buttons operate on `status.reblog ?: status` (the displayed post),
+     * so for a boosted item [statusId] is the *reblogged* post's own id, not the top-level list
+     * item's id (the boost wrapper's). Matching only `it.id` silently no-ops for every boosted
+     * post -- confirmed live: favouriting a reblog returned 200 from the server but the button
+     * never visually updated, since the list item map found no match and returned the list
+     * unchanged (structurally equal to the old one, so Compose skipped recomposition entirely).
+     */
     private fun applyLocalUpdate(statusId: String, transform: (Status) -> Status) {
-        uiState = uiState.copy(items = uiState.items.map { if (it.id == statusId) transform(it) else it })
+        uiState = uiState.copy(
+            items = uiState.items.map { item ->
+                when {
+                    item.id == statusId -> transform(item)
+                    item.reblog?.id == statusId -> item.copy(reblog = transform(item.reblog))
+                    else -> item
+                }
+            },
+        )
     }
 
     private fun replaceStatus(updated: Status) = applyLocalUpdate(updated.id) { updated }

@@ -89,12 +89,20 @@ class ThreadViewModel(
         }
     }
 
+    /** See TimelineViewModel.applyLocalUpdate's doc comment: for a boosted status, [id] is the
+     * reblogged post's own id, not the top-level item's -- must check both. */
+    private fun updateIfMatch(item: Status, id: String, transform: (Status) -> Status): Status = when {
+        item.id == id -> transform(item)
+        item.reblog?.id == id -> item.copy(reblog = transform(item.reblog))
+        else -> item
+    }
+
     private fun updateEverywhere(id: String, transform: (Status) -> Status) {
         uiState = uiState.copy(
-            ancestors = uiState.ancestors.map { if (it.id == id) transform(it) else it },
-            focus = uiState.focus?.let { if (it.id == id) transform(it) else it },
+            ancestors = uiState.ancestors.map { updateIfMatch(it, id, transform) },
+            focus = uiState.focus?.let { updateIfMatch(it, id, transform) },
             descendants = uiState.descendants.map {
-                if (it.status.id == id) it.copy(status = transform(it.status)) else it
+                it.copy(status = updateIfMatch(it.status, id, transform))
             },
         )
     }

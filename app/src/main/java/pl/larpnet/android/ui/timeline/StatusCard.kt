@@ -1,5 +1,9 @@
 package pl.larpnet.android.ui.timeline
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -10,7 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
@@ -27,6 +31,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,6 +39,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -43,7 +50,9 @@ import pl.larpnet.android.R
 import pl.larpnet.android.data.model.Status
 import pl.larpnet.android.domain.html.HtmlParser
 import pl.larpnet.android.ui.common.AvatarImage
+import pl.larpnet.android.ui.common.GalleryContext
 import pl.larpnet.android.ui.common.HtmlContent
+import pl.larpnet.android.ui.common.MediaGalleryDialog
 import pl.larpnet.android.ui.common.RelativeTime
 import pl.larpnet.android.ui.common.VisibilityIcon
 import pl.larpnet.android.ui.theme.larpnetCard
@@ -74,6 +83,7 @@ fun StatusCard(
     var contentVisible by remember(display.id) { mutableStateOf(!display.sensitive) }
     val htmlNodes = remember(display.content) { HtmlParser.parse(display.content) }
     var showDeleteConfirm by remember(display.id) { mutableStateOf(false) }
+    var galleryContext by remember { mutableStateOf<GalleryContext?>(null) }
 
     Column(
         modifier = modifier
@@ -81,7 +91,6 @@ fun StatusCard(
             .padding(horizontal = 12.dp, vertical = 6.dp)
             .larpnetCard()
             .clip(RoundedCornerShape(4.dp))
-            .clickable { onOpenThread(display) }
             .padding(16.dp),
     ) {
         if (status.reblog != null) {
@@ -100,75 +109,86 @@ fun StatusCard(
             }
         }
 
-        Row(verticalAlignment = Alignment.Top) {
-            AvatarImage(
-                url = display.account.avatar,
-                contentDescription = display.account.displayName,
-                modifier = Modifier.clickable { onOpenProfile(display.account.id) },
-            )
-            Column(modifier = Modifier.padding(start = 12.dp).weight(1f)) {
-                Text(
-                    text = display.account.displayName.ifBlank { display.account.username },
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.bodyLarge,
+        // The "open thread" tap is deliberately scoped to just this header+content block, not
+        // the whole card: the action-button row and media thumbnails handle their own taps.
+        // Putting the tap target on the entire card meant every tap in its bounds -- including
+        // ones aimed at the reply/reblog/favourite/bookmark buttons or a media thumbnail --
+        // competed with this same gesture, so tapping a thumbnail just opened the post instead
+        // of enlarging it. See the iOS app's StatusCard.swift for the same fix.
+        Column(modifier = Modifier.clickable { onOpenThread(display) }) {
+            Row(verticalAlignment = Alignment.Top) {
+                AvatarImage(
+                    url = display.account.avatar,
+                    contentDescription = display.account.displayName,
+                    modifier = Modifier.clickable { onOpenProfile(display.account.id) },
                 )
-                Text(
-                    text = "@${display.account.acct}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            VisibilityIcon(display.visibility, modifier = Modifier.size(16.dp).padding(top = 4.dp))
-            RelativeTime(display.createdAt, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
-            if (onDelete != null) {
-                IconButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.size(24.dp)) {
-                    Icon(
-                        Icons.Filled.Delete,
-                        contentDescription = stringResource(R.string.action_delete),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp),
+                Column(modifier = Modifier.padding(start = 12.dp).weight(1f)) {
+                    Text(
+                        text = display.account.displayName.ifBlank { display.account.username },
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    Text(
+                        text = "@${display.account.acct}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-            }
-        }
-
-        if (display.spoilerText.isNotBlank()) {
-            Text(
-                text = display.spoilerText,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-        }
-
-        if (display.sensitive && !contentVisible) {
-            TextButton(onClick = { contentVisible = true }) {
-                Text(stringResource(R.string.content_warning_show))
-            }
-        } else {
-            HtmlContent(htmlNodes, modifier = Modifier.padding(top = 8.dp))
-
-            if (display.mediaAttachments.isNotEmpty()) {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(top = 8.dp),
-                ) {
-                    items(display.mediaAttachments) { media ->
-                        AsyncImage(
-                            model = media.previewUrl ?: media.url,
-                            contentDescription = media.description,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .size(120.dp)
-                                .clip(RoundedCornerShape(8.dp)),
+                VisibilityIcon(display.visibility, modifier = Modifier.size(16.dp).padding(top = 4.dp))
+                RelativeTime(display.createdAt, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
+                if (onDelete != null) {
+                    IconButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.size(24.dp)) {
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = stringResource(R.string.action_delete),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp),
                         )
                     }
                 }
             }
 
-            if (display.sensitive) {
-                TextButton(onClick = { contentVisible = false }) {
-                    Text(stringResource(R.string.content_warning_hide))
+            if (display.spoilerText.isNotBlank()) {
+                Text(
+                    text = display.spoilerText,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+
+            if (display.sensitive && !contentVisible) {
+                TextButton(onClick = { contentVisible = true }) {
+                    Text(stringResource(R.string.content_warning_show))
                 }
+            } else {
+                HtmlContent(htmlNodes, modifier = Modifier.padding(top = 8.dp))
+            }
+        }
+
+        if ((!display.sensitive || contentVisible) && display.mediaAttachments.isNotEmpty()) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(top = 8.dp),
+            ) {
+                itemsIndexed(display.mediaAttachments) { index, media ->
+                    AsyncImage(
+                        model = media.previewUrl ?: media.url,
+                        contentDescription = media.description,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                galleryContext = GalleryContext(display.mediaAttachments, index)
+                            },
+                    )
+                }
+            }
+        }
+
+        if (display.sensitive && contentVisible) {
+            TextButton(onClick = { contentVisible = false }) {
+                Text(stringResource(R.string.content_warning_hide))
             }
         }
 
@@ -202,16 +222,20 @@ fun StatusCard(
                 tinted = display.favourited,
                 onClick = { onToggleFavourite(display) },
             )
-            IconButton(onClick = { onToggleBookmark(display) }) {
-                Icon(
-                    imageVector = if (display.bookmarked) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
-                    contentDescription = stringResource(
-                        if (display.bookmarked) R.string.action_unbookmark else R.string.action_bookmark,
-                    ),
-                    tint = if (display.bookmarked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            ActionButton(
+                icon = if (display.bookmarked) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
+                count = 0,
+                contentDescription = stringResource(
+                    if (display.bookmarked) R.string.action_unbookmark else R.string.action_bookmark,
+                ),
+                tinted = display.bookmarked,
+                onClick = { onToggleBookmark(display) },
+            )
         }
+    }
+
+    galleryContext?.let { context ->
+        MediaGalleryDialog(context = context, onDismiss = { galleryContext = null })
     }
 
     if (showDeleteConfirm && onDelete != null) {
@@ -243,10 +267,11 @@ private fun ActionButton(
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onClick) {
-            Icon(
-                imageVector = icon,
+            BounceIcon(
+                icon = icon,
                 contentDescription = contentDescription,
                 tint = if (tinted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                bounceKey = tinted,
             )
         }
         if (count > 0) {
@@ -257,4 +282,37 @@ private fun ActionButton(
             )
         }
     }
+}
+
+/**
+ * A scale "punch" when [bounceKey] flips -- Compose has no direct equivalent of SwiftUI's
+ * `symbolEffect(.bounce, value:)`, so this reproduces the same visible reaction by hand:
+ * skips the very first composition (matching `symbolEffect`'s value-triggered semantics, which
+ * only fires on a *change*, not on initial appear) and otherwise punches out to 1.3x then
+ * settles back to 1x with a bouncy spring on every subsequent toggle.
+ */
+@Composable
+private fun BounceIcon(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    tint: Color,
+    bounceKey: Boolean,
+) {
+    val scale = remember { Animatable(1f) }
+    var initialized by remember { mutableStateOf(false) }
+    LaunchedEffect(bounceKey) {
+        if (!initialized) {
+            initialized = true
+            return@LaunchedEffect
+        }
+        scale.snapTo(1f)
+        scale.animateTo(1.3f, animationSpec = tween(100))
+        scale.animateTo(1f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+    }
+    Icon(
+        imageVector = icon,
+        contentDescription = contentDescription,
+        tint = tint,
+        modifier = Modifier.graphicsLayer(scaleX = scale.value, scaleY = scale.value),
+    )
 }
