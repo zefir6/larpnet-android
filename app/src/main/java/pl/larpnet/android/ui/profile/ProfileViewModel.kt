@@ -108,7 +108,20 @@ class ProfileViewModel(
         // Deliberately not requiring uiState.relationship to be non-null: the button is
         // shown (defaulting to "Follow") even before/if that fetch finishes, so bailing out
         // here on a null relationship made the button silently do nothing on click.
-        val newValue = uiState.relationship?.following != true
+        val relationship = uiState.relationship
+        // A pending request (locked account, not yet approved) must unfollow to cancel it,
+        // not follow again -- following==false is true in both the "not following" and
+        // "requested" states, so requested has to be checked too.
+        val newValue = relationship?.following != true && relationship?.requested != true
+        // Optimistic update, mirroring toggleFavourite/toggleReblog/toggleBookmark below --
+        // otherwise the button only visibly changes after the round-trip completes. Locked
+        // accounts land in "requested", not "following", until the other party approves.
+        uiState = uiState.copy(
+            relationship = (relationship ?: Relationship(id = account.id)).copy(
+                following = newValue && !account.locked,
+                requested = newValue && account.locked,
+            ),
+        )
         viewModelScope.launch {
             profileRepository.setFollowing(account.id, newValue).onSuccess { updated ->
                 uiState = uiState.copy(relationship = updated)

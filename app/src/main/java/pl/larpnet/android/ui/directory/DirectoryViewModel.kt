@@ -86,7 +86,19 @@ class DirectoryViewModel(private val profileRepository: ProfileRepository) : Vie
     }
 
     fun toggleFollow(account: Account) {
-        val newValue = uiState.relationships[account.id]?.following != true
+        val relationship = uiState.relationships[account.id]
+        // A pending request (locked account, not yet approved) must unfollow to cancel it,
+        // not follow again -- following==false is true in both the "not following" and
+        // "requested" states, so requested has to be checked too.
+        val newValue = relationship?.following != true && relationship?.requested != true
+        // Optimistic update so the button changes immediately instead of only after the
+        // round-trip. Locked accounts land in "requested", not "following", until approved.
+        uiState = uiState.copy(
+            relationships = uiState.relationships + (account.id to (relationship ?: Relationship(id = account.id)).copy(
+                following = newValue && !account.locked,
+                requested = newValue && account.locked,
+            )),
+        )
         viewModelScope.launch {
             profileRepository.setFollowing(account.id, newValue).onSuccess { updated ->
                 uiState = uiState.copy(relationships = uiState.relationships + (updated.id to updated))

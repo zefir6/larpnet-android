@@ -72,7 +72,18 @@ class SearchViewModel(private val profileRepository: ProfileRepository) : ViewMo
 
     fun toggleFollow(account: Account) {
         val current = uiState.relationships[account.id]
-        val newValue = current?.following != true
+        // A pending request (locked account, not yet approved) must unfollow to cancel it,
+        // not follow again -- following==false is true in both the "not following" and
+        // "requested" states, so requested has to be checked too.
+        val newValue = current?.following != true && current?.requested != true
+        // Optimistic update so the button changes immediately instead of only after the
+        // round-trip. Locked accounts land in "requested", not "following", until approved.
+        uiState = uiState.copy(
+            relationships = uiState.relationships + (account.id to (current ?: Relationship(id = account.id)).copy(
+                following = newValue && !account.locked,
+                requested = newValue && account.locked,
+            )),
+        )
         viewModelScope.launch {
             profileRepository.setFollowing(account.id, newValue).onSuccess { updated ->
                 uiState = uiState.copy(relationships = uiState.relationships + (updated.id to updated))

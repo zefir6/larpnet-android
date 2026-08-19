@@ -177,9 +177,16 @@ private fun ProfileHeader(state: ProfileUiState, onToggleFollow: () -> Unit) {
 
         if (!state.isOwn) {
             val isFollowing = state.relationship?.following == true
-            val label = stringResource(if (isFollowing) R.string.profile_unfollow else R.string.profile_follow)
+            val isRequested = state.relationship?.requested == true
+            val label = stringResource(
+                when {
+                    isFollowing -> R.string.profile_unfollow
+                    isRequested -> R.string.profile_follow_requested
+                    else -> R.string.profile_follow
+                },
+            )
             Box(modifier = Modifier.padding(top = 12.dp)) {
-                if (isFollowing) {
+                if (isFollowing || isRequested) {
                     OutlinedButton(onClick = onToggleFollow) { Text(label) }
                 } else {
                     Button(onClick = onToggleFollow) { Text(label) }

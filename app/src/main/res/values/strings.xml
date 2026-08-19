@@ -77,6 +77,7 @@
     <string name="profile_edit">Edytuj profil</string>
     <string name="profile_follow">Obserwuj</string>
     <string name="profile_unfollow">Przestań obserwować</string>
+    <string name="profile_follow_requested">Oczekuje na potwierdzenie</string>
     <string name="profile_followers">Obserwujący</string>
     <string name="profile_following">Obserwowani</string>
     <string name="profile_posts">Wpisy</string>

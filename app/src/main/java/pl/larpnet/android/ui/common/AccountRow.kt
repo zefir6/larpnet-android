@@ -42,8 +42,14 @@ fun AccountRow(
             )
         }
         if (relationship != null) {
-            val label = stringResource(if (relationship.following) R.string.profile_unfollow else R.string.profile_follow)
-            if (relationship.following) {
+            val label = stringResource(
+                when {
+                    relationship.following -> R.string.profile_unfollow
+                    relationship.requested -> R.string.profile_follow_requested
+                    else -> R.string.profile_follow
+                },
+            )
+            if (relationship.following || relationship.requested) {
                 OutlinedButton(onClick = onToggleFollow) { Text(label) }
             } else {
                 Button(onClick = onToggleFollow) { Text(label) }
