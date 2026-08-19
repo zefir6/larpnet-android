@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 import pl.larpnet.android.BuildConfig
+import pl.larpnet.android.data.auth.TokenStore
 import pl.larpnet.android.data.repository.AuthRepository
 
 sealed interface LoginUiState {
@@ -19,10 +20,21 @@ sealed interface LoginUiState {
     data object LoggedIn : LoginUiState
 }
 
-class LoginViewModel(private val authRepository: AuthRepository) : ViewModel() {
+class LoginViewModel(
+    private val authRepository: AuthRepository,
+    private val tokenStore: TokenStore,
+) : ViewModel() {
 
-    var instanceUrl by mutableStateOf(BuildConfig.DEFAULT_INSTANCE)
-        private set
+    /**
+     * No server-address field on this screen anymore -- LARPnet is a single-instance app, so
+     * login proceeds straight to the browser. [TokenStore.instanceBaseUrl] already survives
+     * [TokenStore.clear] (logout only clears the token/app registration, not the instance), so
+     * reusing it here doubles it as "which instance to log back into" -- Settings' advanced
+     * "server address" field writes directly to this same pref for anyone who needs a different
+     * instance (e.g. a staging server), rather than adding a second, separate stored value.
+     */
+    private val instanceUrl: String
+        get() = tokenStore.instanceBaseUrl?.trim()?.takeIf { it.isNotBlank() } ?: BuildConfig.DEFAULT_INSTANCE
 
     var uiState by mutableStateOf<LoginUiState>(LoginUiState.Idle)
         private set
@@ -31,17 +43,9 @@ class LoginViewModel(private val authRepository: AuthRepository) : ViewModel() {
     private var pendingState: String? = null
     private var pendingBaseUrl: String? = null
 
-    fun onInstanceUrlChange(value: String) {
-        instanceUrl = value
-    }
-
     /** Registers the app (if needed) and opens the server's login/consent page in a Custom Tab. */
     fun startLogin(context: Context) {
-        val baseUrl = instanceUrl.trim()
-        if (baseUrl.isBlank()) {
-            uiState = LoginUiState.Error("empty_url")
-            return
-        }
+        val baseUrl = instanceUrl
         uiState = LoginUiState.AwaitingBrowser
         viewModelScope.launch {
             authRepository.beginLogin(baseUrl).fold(

@@ -28,6 +28,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -36,6 +37,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -61,6 +63,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.launch
+import pl.larpnet.android.BuildConfig
 import pl.larpnet.android.R
 import pl.larpnet.android.data.auth.TokenStore
 import pl.larpnet.android.data.repository.AuthRepository
@@ -115,6 +118,8 @@ fun SettingsScreen(onBack: (() -> Unit)? = null, onOpenProfile: () -> Unit, onLo
 
     var appLocaleTag by remember { mutableStateOf(context.currentAppLocaleTag()) }
     var showLanguageDialog by remember { mutableStateOf(false) }
+    var showServerDialog by remember { mutableStateOf(false) }
+    var serverAddress by remember { mutableStateOf(appContainer.tokenStore.instanceBaseUrl ?: BuildConfig.DEFAULT_INSTANCE) }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -132,6 +137,18 @@ fun SettingsScreen(onBack: (() -> Unit)? = null, onOpenProfile: () -> Unit, onLo
         } else {
             NtfyListenerService.stop(context)
         }
+    }
+
+    if (showServerDialog) {
+        ServerAddressDialog(
+            current = serverAddress,
+            onDismiss = { showServerDialog = false },
+            onSave = { newAddress ->
+                appContainer.tokenStore.instanceBaseUrl = newAddress
+                serverAddress = newAddress
+                showServerDialog = false
+            },
+        )
     }
 
     if (showLanguageDialog) {
@@ -269,6 +286,16 @@ fun SettingsScreen(onBack: (() -> Unit)? = null, onOpenProfile: () -> Unit, onLo
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
+                SectionLabel(stringResource(R.string.settings_advanced_section))
+                SettingsLinkRow(
+                    icon = Icons.Filled.Dns,
+                    label = serverAddress,
+                    hint = stringResource(R.string.settings_server_address_hint),
+                    onClick = { showServerDialog = true },
+                )
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
                 SettingsLinkRow(
                     icon = Icons.AutoMirrored.Filled.Logout,
                     label = stringResource(R.string.profile_logout),
@@ -342,6 +369,48 @@ private fun AppLanguageDialog(current: String, onDismiss: () -> Unit, onSelect: 
             }
         },
         confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+        },
+    )
+}
+
+/**
+ * LARPnet is a single-instance app -- Login no longer shows a server-address field, it logs
+ * straight into [BuildConfig.DEFAULT_INSTANCE] (or whatever this dialog last saved, since
+ * [pl.larpnet.android.data.auth.TokenStore.instanceBaseUrl] survives logout). This is the one
+ * escape hatch for anyone who needs a different instance (e.g. a staging server) -- the change
+ * only takes effect on the next login, not the current session.
+ */
+@Composable
+private fun ServerAddressDialog(current: String, onDismiss: () -> Unit, onSave: (String) -> Unit) {
+    var value by remember { mutableStateOf(current) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_advanced_section)) },
+        text = {
+            Column {
+                Text(
+                    stringResource(R.string.settings_server_address_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 12.dp),
+                )
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = { value = it },
+                    label = { Text(stringResource(R.string.login_instance_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { value.trim().ifBlank { null }?.let(onSave) },
+                enabled = value.isNotBlank(),
+            ) { Text(stringResource(R.string.edit_profile_save)) }
+        },
+        dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
         },
     )

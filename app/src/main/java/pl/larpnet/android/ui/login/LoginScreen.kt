@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -33,12 +32,20 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
     val context = LocalContext.current
     val viewModel: LoginViewModel = viewModel(
         factory = viewModelFactory {
-            initializer { LoginViewModel(appContainer.authRepository) }
+            initializer { LoginViewModel(appContainer.authRepository, appContainer.tokenStore) }
         },
     )
 
     LaunchedEffect(Unit) {
         appContainer.oauthCallbackEvents.collect { uri -> viewModel.handleCallback(uri) }
+    }
+
+    // Single-instance app, no server-address field on this screen anymore -- proceed straight
+    // to the browser on first landing here. Keyed on Unit so it fires once per screen entry,
+    // not on every Idle state (onScreenResumed drops back to Idle when the user backs out of
+    // the browser, which must NOT re-trigger this or backing out would be impossible to escape).
+    LaunchedEffect(Unit) {
+        if (viewModel.uiState is LoginUiState.Idle) viewModel.startLogin(context)
     }
 
     LaunchedEffect(viewModel.uiState) {
@@ -66,14 +73,6 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
             text = stringResource(R.string.login_title),
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(bottom = 24.dp),
-        )
-
-        OutlinedTextField(
-            value = viewModel.instanceUrl,
-            onValueChange = viewModel::onInstanceUrlChange,
-            label = { Text(stringResource(R.string.login_instance_label)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
         )
 
         val state = viewModel.uiState

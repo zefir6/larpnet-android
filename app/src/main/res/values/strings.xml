@@ -97,6 +97,8 @@
     <string name="settings_app_language_hint">To zmienia tylko język aplikacji. Aby zmienić język interfejsu WWW konta, zrób to na stronie</string>
     <string name="settings_open_web">Edytuj więcej pól profilu w przeglądarce</string>
     <string name="settings_open_web_hint">Dla pól niedostępnych w aplikacji: data urodzenia, adres, XMPP/Matrix, strona domowa, słowa kluczowe, własne pola profilu i język. Otworzy stronę -- może być konieczne osobne zalogowanie się tam.</string>
+    <string name="settings_advanced_section">Zaawansowane</string>
+    <string name="settings_server_address_hint">Zmiana zajmie efekt po wylogowaniu i ponownym zalogowaniu.</string>
 
     <!-- Push notifications -->
     <string name="push_channel_messages">Powiadomienia push</string>
