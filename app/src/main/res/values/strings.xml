@@ -58,8 +58,18 @@
     <string name="compose_visibility_unlisted">Niewidoczny na liście</string>
     <string name="compose_visibility_private">Tylko obserwujący</string>
     <string name="compose_visibility_direct">Wiadomość bezpośrednia</string>
+    <string name="compose_visibility_custom">Niestandardowi odbiorcy</string>
     <string name="compose_sensitive">Oznacz jako wrażliwe</string>
     <string name="compose_error">Nie udało się opublikować wpisu</string>
+
+    <!-- Custom audience picker -->
+    <string name="audience_picker_title">Wybierz odbiorców</string>
+    <string name="audience_picker_circles_section">Kręgi</string>
+    <string name="audience_picker_circles_empty">Nie masz jeszcze żadnych kręgów</string>
+    <string name="audience_picker_people_section">Osoby</string>
+    <string name="audience_picker_search_hint">Szukaj wśród obserwujących</string>
+    <string name="audience_picker_people_empty">Brak wyników</string>
+    <string name="audience_picker_confirm">Gotowe</string>
 
     <!-- Notifications -->
     <string name="notifications_empty">Brak powiadomień</string>

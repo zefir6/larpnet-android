@@ -2,6 +2,7 @@ package pl.larpnet.android.ui.common
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AlternateEmail
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Public
@@ -23,6 +24,7 @@ fun VisibilityIcon(visibility: String, modifier: Modifier = Modifier) {
         "unlisted" -> Icons.Filled.LockOpen to stringResource(R.string.compose_visibility_unlisted)
         "private" -> Icons.Filled.Lock to stringResource(R.string.compose_visibility_private)
         "direct" -> Icons.Filled.AlternateEmail to stringResource(R.string.compose_visibility_direct)
+        "custom" -> Icons.Filled.Groups to stringResource(R.string.compose_visibility_custom)
         else -> Icons.Filled.Public to visibility
     }
     Icon(
@@ -32,7 +34,7 @@ fun VisibilityIcon(visibility: String, modifier: Modifier = Modifier) {
     )
 }
 
-val visibilityOptions = listOf("public", "unlisted", "private", "direct")
+val visibilityOptions = listOf("public", "unlisted", "private", "direct", "custom")
 
 @Composable
 fun visibilityLabel(visibility: String): String = when (visibility) {
@@ -40,5 +42,6 @@ fun visibilityLabel(visibility: String): String = when (visibility) {
     "unlisted" -> stringResource(R.string.compose_visibility_unlisted)
     "private" -> stringResource(R.string.compose_visibility_private)
     "direct" -> stringResource(R.string.compose_visibility_direct)
+    "custom" -> stringResource(R.string.compose_visibility_custom)
     else -> visibility
 }

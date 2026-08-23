@@ -3,8 +3,11 @@ package pl.larpnet.android.network
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import pl.larpnet.android.data.model.Account
+import pl.larpnet.android.data.model.Circle
 import pl.larpnet.android.data.model.Conversation
 import pl.larpnet.android.data.model.DirectMessage
+import pl.larpnet.android.data.model.FollowerListResponse
+import pl.larpnet.android.data.model.LegacyStatusRef
 import pl.larpnet.android.data.model.Instance
 import pl.larpnet.android.data.model.MediaAttachment
 import pl.larpnet.android.data.model.Notification
@@ -132,6 +135,34 @@ interface FriendicaApi {
         @Field("sensitive") sensitive: Boolean? = null,
         @Field("media_ids[]") mediaIds: List<String>? = null,
     ): Status
+
+    /**
+     * Posts through the legacy Twitter-compat API instead of the Mastodon one above: it's the
+     * only endpoint that accepts an arbitrary combination of circles ([circleAllow]) and
+     * individual people ([contactAllow]) as a post's audience -- the Mastodon endpoint only
+     * accepts a single circle id in place of `visibility`. No `sensitive` param exists here
+     * (see ComposeViewModel doc). [mediaIds] is comma-separated, not repeated fields, unlike
+     * [postStatus] -- confirmed against `Module\Api\Twitter\Statuses\Update.php`. The response
+     * is Twitter-shaped; callers should re-fetch via [getStatus] using [LegacyStatusRef.idStr]
+     * (which is the item's uri-id) rather than parsing it further.
+     */
+    @FormUrlEncoded
+    @POST("api/statuses/update.json")
+    suspend fun postStatusWithAudience(
+        @Field("status") status: String,
+        @Field("in_reply_to_status_id") inReplyToStatusId: String? = null,
+        @Field("title") title: String? = null,
+        @Field("contact_allow[]") contactAllow: List<String>? = null,
+        @Field("circle_allow[]") circleAllow: List<String>? = null,
+        @Field("media_ids") mediaIds: String? = null,
+    ): LegacyStatusRef
+
+    @GET("api/friendica/circle_show.json")
+    suspend fun circles(): List<Circle>
+
+    /** [count] is capped server-side at 200 (`ContactEndpoint::MAX_COUNT`); cursor pagination beyond that is unused here. */
+    @GET("api/followers/list.json")
+    suspend fun followersList(@Query("count") count: Int = 200): FollowerListResponse
 
     @DELETE("api/v1/statuses/{id}")
     suspend fun deleteStatus(@Path("id") id: String)

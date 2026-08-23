@@ -71,7 +71,14 @@ fun ComposeScreen(
     val viewModel: ComposeViewModel = viewModel(
         key = "compose_${replyToId ?: "new"}",
         factory = viewModelFactory {
-            initializer { ComposeViewModel(replyToId, appContainer.statusRepository, appContainer.mediaRepository) }
+            initializer {
+                ComposeViewModel(
+                    replyToId,
+                    appContainer.statusRepository,
+                    appContainer.mediaRepository,
+                    appContainer.profileRepository,
+                )
+            }
         },
     )
     val state = viewModel.uiState
@@ -125,12 +132,18 @@ fun ComposeScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            val customAudienceCount = state.customAudienceCircles.size + state.customAudienceContacts.size
+            val visibilityFieldValue = if (state.visibility == "custom" && customAudienceCount > 0) {
+                "${visibilityLabel(state.visibility)} ($customAudienceCount)"
+            } else {
+                visibilityLabel(state.visibility)
+            }
             ExposedDropdownMenuBox(
                 expanded = visibilityMenuExpanded,
                 onExpandedChange = { visibilityMenuExpanded = it },
             ) {
                 OutlinedTextField(
-                    value = visibilityLabel(state.visibility),
+                    value = visibilityFieldValue,
                     onValueChange = {},
                     readOnly = true,
                     label = { Text(stringResource(R.string.compose_visibility_label)) },
@@ -147,12 +160,26 @@ fun ComposeScreen(
                         DropdownMenuItem(
                             text = { Text(visibilityLabel(option)) },
                             onClick = {
-                                viewModel.onVisibilityChange(option)
                                 visibilityMenuExpanded = false
+                                if (option == "custom") viewModel.openAudiencePicker() else viewModel.onVisibilityChange(option)
                             },
                         )
                     }
                 }
+            }
+
+            if (state.showAudiencePicker) {
+                AudiencePickerDialog(
+                    circles = state.availableCircles,
+                    followers = state.availableFollowers,
+                    isLoading = state.isLoadingAudiencePicker,
+                    selectedCircles = state.customAudienceCircles,
+                    selectedContacts = state.customAudienceContacts,
+                    onToggleCircle = viewModel::toggleCircle,
+                    onToggleContact = viewModel::toggleContact,
+                    onConfirm = viewModel::confirmAudience,
+                    onDismiss = viewModel::dismissAudiencePicker,
+                )
             }
 
             OutlinedTextField(
@@ -173,8 +200,13 @@ fun ComposeScreen(
             )
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = state.sensitive, onCheckedChange = viewModel::onSensitiveChange)
-                Text(stringResource(R.string.compose_sensitive))
+                // No `sensitive` param on the legacy endpoint custom-audience posts go through
+                // -- see FriendicaApi.postStatusWithAudience's doc comment. Hidden rather than
+                // silently ignored so it's not misleading.
+                if (state.visibility != "custom") {
+                    Checkbox(checked = state.sensitive, onCheckedChange = viewModel::onSensitiveChange)
+                    Text(stringResource(R.string.compose_sensitive))
+                }
                 Box(modifier = Modifier.weight(1f))
                 if (state.isUploadingMedia) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp).padding(end = 8.dp))

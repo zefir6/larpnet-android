@@ -1,6 +1,8 @@
 package pl.larpnet.android.data.repository
 
 import pl.larpnet.android.data.model.Account
+import pl.larpnet.android.data.model.Circle
+import pl.larpnet.android.data.model.FollowerEntry
 import pl.larpnet.android.data.model.Preferences
 import pl.larpnet.android.data.model.Relationship
 import pl.larpnet.android.network.FriendicaApi
@@ -45,4 +47,10 @@ class ProfileRepository(private val apiProvider: () -> FriendicaApi) {
     suspend fun directory(offset: Int): Result<List<Account>> = safeApiCall {
         apiProvider().directory(offset = offset, local = true)
     }
+
+    /** For the compose screen's custom-audience picker -- see [FriendicaApi.circles]. */
+    suspend fun circles(): Result<List<Circle>> = safeApiCall { apiProvider().circles() }
+
+    /** For the compose screen's custom-audience picker -- see [FriendicaApi.followersList]. */
+    suspend fun followers(): Result<List<FollowerEntry>> = safeApiCall { apiProvider().followersList().users }
 }
