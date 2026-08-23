@@ -25,8 +25,14 @@ android {
         applicationId = "pl.larpnet.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // GITHUB_RUN_NUMBER is unique and strictly increasing across every CI build, which is
+        // exactly what versionCode needs to be for Android to treat a new APK as an update
+        // rather than a same-or-older version it refuses to install over. Local (non-CI)
+        // builds fall back to 1 -- they're never what gets distributed.
+        versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+        // Semantic-ish version, bumped by hand: patch for fixes, minor for any functionality
+        // change, per user preference (2026-08-23) -- not tied to versionCode/run number.
+        versionName = "0.2.0"
 
         // Default Larpnet instance and OAuth redirect scheme. See ui/login/OAuthRedirectActivity.kt
         // and AndroidManifest.xml for the matching intent-filter -- the scheme/host here must stay
