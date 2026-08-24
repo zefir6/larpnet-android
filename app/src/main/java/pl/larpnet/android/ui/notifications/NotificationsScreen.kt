@@ -55,7 +55,7 @@ fun NotificationsScreen(
     val appContainer = rememberAppContainer()
     val viewModel: NotificationsViewModel = viewModel(
         factory = viewModelFactory {
-            initializer { NotificationsViewModel(appContainer.notificationRepository) }
+            initializer { NotificationsViewModel(appContainer.notificationRepository, appContainer.profileRepository) }
         },
     )
     val state = viewModel.uiState
@@ -112,6 +112,7 @@ fun NotificationsScreen(
                     items(state.items, key = { it.id }) { notification ->
                         NotificationRow(
                             notification = notification,
+                            selfAccountId = state.selfAccountId,
                             onClick = {
                                 val statusId = notification.status?.id
                                 if (statusId != null) onOpenStatus(statusId) else onOpenProfile(notification.account.id)
@@ -126,7 +127,7 @@ fun NotificationsScreen(
 }
 
 @Composable
-private fun NotificationRow(notification: Notification, onClick: () -> Unit) {
+private fun NotificationRow(notification: Notification, selfAccountId: String?, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -136,7 +137,8 @@ private fun NotificationRow(notification: Notification, onClick: () -> Unit) {
         AvatarImage(url = notification.account.avatar, contentDescription = notification.account.displayName)
         Column(modifier = Modifier.padding(start = 12.dp)) {
             Text(
-                text = "${notification.account.displayName.ifBlank { notification.account.username }} ${notificationTypeLabel(notification.type)}",
+                text = "${notification.account.displayName.ifBlank { notification.account.username }} " +
+                    notificationTypeLabel(notification, selfAccountId),
                 style = MaterialTheme.typography.bodyLarge,
             )
             RelativeTime(notification.createdAt)
@@ -155,14 +157,24 @@ private fun NotificationRow(notification: Notification, onClick: () -> Unit) {
     }
 }
 
+/**
+ * For `favourite`/`reblog`, Friendica's notification API only ever embeds the *thread's* status
+ * -- for a reaction to a reply (not the thread's own root post), that's someone else's post, not
+ * the user's (there's no way to ask the API which specific reply was reacted to). Saying
+ * "favourited your post" would be flatly wrong in that case, so this checks whether the embedded
+ * status is actually authored by the logged-in user ([selfAccountId]) before claiming it's theirs.
+ */
 @Composable
-private fun notificationTypeLabel(type: String): String = when (type) {
-    "favourite" -> stringResource(R.string.notification_favourite)
-    "reblog" -> stringResource(R.string.notification_reblog)
-    "mention" -> stringResource(R.string.notification_mention)
-    "follow" -> stringResource(R.string.notification_follow)
-    "follow_request" -> stringResource(R.string.notification_follow_request)
-    "poll" -> stringResource(R.string.notification_poll)
-    "quote", "quoted_update" -> stringResource(R.string.notification_quote)
-    else -> stringResource(R.string.notification_generic)
+private fun notificationTypeLabel(notification: Notification, selfAccountId: String?): String {
+    val isOwnStatus = notification.status?.account?.id != null && notification.status.account.id == selfAccountId
+    return when (notification.type) {
+        "favourite" -> stringResource(if (isOwnStatus) R.string.notification_favourite else R.string.notification_favourite_reply)
+        "reblog" -> stringResource(if (isOwnStatus) R.string.notification_reblog else R.string.notification_reblog_reply)
+        "mention" -> stringResource(R.string.notification_mention)
+        "follow" -> stringResource(R.string.notification_follow)
+        "follow_request" -> stringResource(R.string.notification_follow_request)
+        "poll" -> stringResource(R.string.notification_poll)
+        "quote", "quoted_update" -> stringResource(R.string.notification_quote)
+        else -> stringResource(R.string.notification_generic)
+    }
 }

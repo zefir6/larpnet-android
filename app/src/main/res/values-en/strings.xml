@@ -76,6 +76,8 @@
     <string name="notifications_clear">Clear all</string>
     <string name="notification_favourite">favourited your post</string>
     <string name="notification_reblog">boosted your post</string>
+    <string name="notification_favourite_reply">favourited a reply in your thread</string>
+    <string name="notification_reblog_reply">boosted a reply in your thread</string>
     <string name="notification_mention">mentioned you</string>
     <string name="notification_follow">followed you</string>
     <string name="notification_follow_request">requested to follow you</string>

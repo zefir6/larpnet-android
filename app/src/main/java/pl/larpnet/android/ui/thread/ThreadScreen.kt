@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
@@ -19,6 +20,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -49,6 +51,23 @@ fun ThreadScreen(
         },
     )
     val state = viewModel.uiState
+
+    // Opening a thread on a reply deep in a conversation otherwise leaves the view at the very
+    // top of the ancestor chain -- the focused post (always right after the ancestors, so its
+    // index is exactly ancestors.size) ends up below the fold, looking like the app reopened the
+    // root post instead of jumping to the one that was tapped. No-op for a thread with no
+    // ancestors (focus is already at index 0, already on-screen).
+    // Keyed on isLoading (not focus/ancestors themselves) so this fires once when the thread
+    // finishes its initial load, not again on every unrelated recomposition afterward --
+    // favourite/reblog/bookmark toggles replace the focus/ancestor Status objects too (see
+    // ThreadViewModel.updateEverywhere), which would otherwise yank the scroll position back
+    // to the focus item on every tap elsewhere in the thread.
+    val listState = rememberLazyListState()
+    LaunchedEffect(state.isLoading) {
+        if (!state.isLoading && state.focus != null && state.ancestors.isNotEmpty()) {
+            listState.scrollToItem(state.ancestors.size)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -82,7 +101,7 @@ fun ThreadScreen(
                 Text(state.error)
             }
 
-            else -> LazyColumn(modifier = Modifier.padding(padding)) {
+            else -> LazyColumn(state = listState, modifier = Modifier.padding(padding)) {
                 items(state.ancestors, key = { "a_${it.id}" }) { status ->
                     StatusCard(
                         status = status,

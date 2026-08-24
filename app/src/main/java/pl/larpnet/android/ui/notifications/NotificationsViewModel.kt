@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 import pl.larpnet.android.data.model.Notification
 import pl.larpnet.android.data.repository.NotificationRepository
+import pl.larpnet.android.data.repository.ProfileRepository
 
 data class NotificationsUiState(
     val items: List<Notification> = emptyList(),
@@ -16,9 +17,14 @@ data class NotificationsUiState(
     val isRefreshing: Boolean = false,
     val error: String? = null,
     val canLoadMore: Boolean = true,
+    /** Own account id -- see NotificationRow.description's doc comment for why this is needed at all. */
+    val selfAccountId: String? = null,
 )
 
-class NotificationsViewModel(private val repository: NotificationRepository) : ViewModel() {
+class NotificationsViewModel(
+    private val repository: NotificationRepository,
+    private val profileRepository: ProfileRepository,
+) : ViewModel() {
 
     var uiState by mutableStateOf(NotificationsUiState())
         private set
@@ -27,6 +33,11 @@ class NotificationsViewModel(private val repository: NotificationRepository) : V
 
     init {
         loadInitial()
+        viewModelScope.launch {
+            profileRepository.me().onSuccess { account ->
+                uiState = uiState.copy(selfAccountId = account.id)
+            }
+        }
     }
 
     fun loadInitial() {

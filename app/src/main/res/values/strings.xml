@@ -76,6 +76,8 @@
     <string name="notifications_clear">Wyczyść wszystkie</string>
     <string name="notification_favourite">polubił(a) Twój wpis</string>
     <string name="notification_reblog">udostępnił(a) Twój wpis</string>
+    <string name="notification_favourite_reply">polubił(a) odpowiedź w Twoim wątku</string>
+    <string name="notification_reblog_reply">udostępnił(a) odpowiedź w Twoim wątku</string>
     <string name="notification_mention">wspomniał(a) o Tobie</string>
     <string name="notification_follow">zaczął/zaczęła Cię obserwować</string>
     <string name="notification_follow_request">prosi o obserwowanie</string>
