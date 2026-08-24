@@ -19,9 +19,11 @@ import pl.larpnet.android.data.repository.ProfileRepository
 import pl.larpnet.android.data.repository.PushRepository
 import pl.larpnet.android.data.repository.StatusRepository
 import pl.larpnet.android.data.repository.TimelineRepository
+import pl.larpnet.android.data.repository.UpdateRepository
 import pl.larpnet.android.network.AuthApi
 import pl.larpnet.android.network.AuthInterceptor
 import pl.larpnet.android.network.FriendicaApi
+import pl.larpnet.android.network.GitHubApi
 import pl.larpnet.android.network.InstanceUrl
 import pl.larpnet.android.network.friendicaJson
 import retrofit2.Retrofit
@@ -102,6 +104,17 @@ class AppContainer(context: Context) {
         .readTimeout(0, java.util.concurrent.TimeUnit.SECONDS)
         .build()
 
+    /**
+     * Plain client for GitHub's public REST API (in-app update checks -- there's no Play Store
+     * distribution for this app). GitHub 403s requests with no User-Agent at all, so
+     * [userAgentInterceptor] is load-bearing here, not just consistency; deliberately not
+     * [authenticatedClient] -- a Friendica Bearer token has no business on a request to GitHub.
+     */
+    private val gitHubOkHttpClient = OkHttpClient.Builder()
+        .addInterceptor(userAgentInterceptor)
+        .addInterceptor(loggingInterceptor)
+        .build()
+
     private val jsonConverterFactory = friendicaJson.asConverterFactory("application/json".toMediaType())
 
     private fun retrofitFor(baseUrl: String, client: OkHttpClient): Retrofit =
@@ -138,4 +151,13 @@ class AppContainer(context: Context) {
     val mediaRepository = MediaRepository(::friendicaApi)
     val conversationRepository = ConversationRepository(::friendicaApi)
     val pushRepository = PushRepository(::friendicaApi)
+
+    private val gitHubApi: GitHubApi = Retrofit.Builder()
+        .baseUrl("https://api.github.com/")
+        .client(gitHubOkHttpClient)
+        .addConverterFactory(jsonConverterFactory)
+        .build()
+        .create(GitHubApi::class.java)
+
+    val updateRepository = UpdateRepository(gitHubApi, tokenStore)
 }

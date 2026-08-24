@@ -33,6 +33,7 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -72,6 +73,7 @@ import pl.larpnet.android.data.auth.TokenStore
 import pl.larpnet.android.data.repository.AuthRepository
 import pl.larpnet.android.data.repository.ProfileRepository
 import pl.larpnet.android.data.repository.PushRepository
+import pl.larpnet.android.data.repository.UpdateRepository
 import pl.larpnet.android.di.rememberAppContainer
 import pl.larpnet.android.push.NtfyListenerService
 import pl.larpnet.android.ui.common.AvatarImage
@@ -112,6 +114,7 @@ fun SettingsScreen(onBack: (() -> Unit)? = null, onOpenProfile: () -> Unit, onLo
                     appContainer.authRepository,
                     appContainer.tokenStore,
                     appContainer.pushRepository,
+                    appContainer.updateRepository,
                 )
             }
         },
@@ -313,6 +316,20 @@ fun SettingsScreen(onBack: (() -> Unit)? = null, onOpenProfile: () -> Unit, onLo
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
+                SectionLabel(stringResource(R.string.settings_update_section))
+                SettingsLinkRow(
+                    icon = Icons.Filled.SystemUpdate,
+                    label = stringResource(R.string.settings_check_for_updates),
+                    hint = when {
+                        state.isCheckingForUpdate -> stringResource(R.string.settings_checking_for_updates)
+                        state.upToDateMessageVisible -> stringResource(R.string.settings_up_to_date)
+                        else -> stringResource(R.string.settings_current_version, BuildConfig.VERSION_NAME)
+                    },
+                    onClick = viewModel::checkForUpdates,
+                )
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
                 SettingsLinkRow(
                     icon = Icons.AutoMirrored.Filled.Logout,
                     label = stringResource(R.string.profile_logout),
@@ -491,6 +508,8 @@ private data class SettingsUiState(
     val bot: Boolean = false,
     val pushAvailable: Boolean = false,
     val pushEnabled: Boolean = false,
+    val isCheckingForUpdate: Boolean = false,
+    val upToDateMessageVisible: Boolean = false,
     val error: String? = null,
 )
 
@@ -499,6 +518,7 @@ private class SettingsViewModel(
     private val authRepository: AuthRepository,
     private val tokenStore: TokenStore,
     private val pushRepository: PushRepository,
+    private val updateRepository: UpdateRepository,
 ) : ViewModel() {
 
     var uiState by mutableStateOf(SettingsUiState(pushEnabled = tokenStore.pushEnabled))
@@ -533,6 +553,19 @@ private class SettingsViewModel(
     fun setPushEnabled(value: Boolean) {
         tokenStore.pushEnabled = value
         uiState = uiState.copy(pushEnabled = value)
+    }
+
+    /** Manual check, unlike the cold-start one in NavGraph -- always hits the network and always
+     * reports the truth (see UpdateRepository.checkNow), even for a previously-dismissed version. */
+    fun checkForUpdates() {
+        uiState = uiState.copy(isCheckingForUpdate = true, upToDateMessageVisible = false)
+        viewModelScope.launch {
+            updateRepository.checkNow()
+            uiState = uiState.copy(
+                isCheckingForUpdate = false,
+                upToDateMessageVisible = updateRepository.updateAvailable.value == null,
+            )
+        }
     }
 
     fun webProfileSettingsUrl(): String? = tokenStore.instanceBaseUrl?.trimEnd('/')?.plus("/settings/profile")

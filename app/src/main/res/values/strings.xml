@@ -111,6 +111,16 @@
     <string name="settings_advanced_section">Zaawansowane</string>
     <string name="settings_server_address_hint">Zmiana zajmie efekt po wylogowaniu i ponownym zalogowaniu.</string>
 
+    <!-- Updates -->
+    <string name="settings_update_section">Aktualizacje</string>
+    <string name="settings_current_version">Wersja %1$s</string>
+    <string name="settings_check_for_updates">Sprawdź aktualizacje</string>
+    <string name="settings_checking_for_updates">Sprawdzanie…</string>
+    <string name="settings_up_to_date">Masz najnowszą wersję</string>
+    <string name="update_banner_message">Dostępna jest nowa wersja Larpnet (%1$s)</string>
+    <string name="update_banner_download">Pobierz</string>
+    <string name="update_banner_dismiss">Zamknij</string>
+
     <!-- Push notifications -->
     <string name="push_channel_messages">Powiadomienia push</string>
     <string name="push_channel_service">Nasłuchiwanie powiadomień</string>

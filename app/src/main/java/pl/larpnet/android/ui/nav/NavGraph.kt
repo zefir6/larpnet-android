@@ -9,6 +9,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
@@ -27,6 +28,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -48,6 +50,7 @@ import pl.larpnet.android.ui.messages.ConversationThreadScreen
 import pl.larpnet.android.ui.messages.ConversationsScreen
 import pl.larpnet.android.ui.notifications.NotificationsScreen
 import pl.larpnet.android.push.NtfyListenerService
+import pl.larpnet.android.ui.common.UpdateBanner
 import pl.larpnet.android.ui.profile.EditProfileScreen
 import pl.larpnet.android.ui.profile.ProfileScreen
 import pl.larpnet.android.ui.search.SearchScreen
@@ -137,6 +140,12 @@ fun LarpnetNavGraph(startDestination: String) {
     // only runs once for this NavGraph instance's lifetime and won't re-fire after that navigate.
     LaunchedEffect(Unit) { startPushIfEnabled() }
 
+    // No Play Store distribution, so the app has to notice its own updates -- see
+    // UpdateRepository. Throttled internally to at most once/24h; the banner below reflects
+    // whatever it finds, and Settings' manual "Check for updates" shares the same state.
+    LaunchedEffect(Unit) { appContainer.updateRepository.checkIfDue() }
+    val availableUpdate by appContainer.updateRepository.updateAvailable.collectAsState()
+
     LaunchedEffect(Unit) {
         appContainer.authInterceptor.forceLogoutEvents.collect {
             NtfyListenerService.stop(context)
@@ -199,11 +208,20 @@ fun LarpnetNavGraph(startDestination: String) {
             }
         },
     ) { padding ->
-        NavHost(
-            navController = navController,
-            startDestination = startDestination,
-            modifier = Modifier.padding(padding),
-        ) {
+        Column(modifier = Modifier.padding(padding)) {
+            availableUpdate?.let { update ->
+                UpdateBanner(
+                    update = update,
+                    onDownload = {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.downloadUrl)))
+                    },
+                    onDismiss = { appContainer.updateRepository.dismiss() },
+                )
+            }
+            NavHost(
+                navController = navController,
+                startDestination = startDestination,
+            ) {
             composable(Routes.LOGIN) {
                 LoginScreen(
                     onLoggedIn = {
@@ -363,6 +381,7 @@ fun LarpnetNavGraph(startDestination: String) {
                     onPosted = { navController.popBackStack() },
                 )
             }
+        }
         }
     }
 }

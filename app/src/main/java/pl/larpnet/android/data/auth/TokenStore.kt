@@ -58,6 +58,16 @@ class TokenStore(context: Context) {
         get() = prefs.getBoolean(KEY_PUSH_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_PUSH_ENABLED, value).apply()
 
+    /** Epoch millis of the last in-app update check (any account) -- see UpdateRepository.checkIfDue. */
+    var lastUpdateCheckAt: Long
+        get() = prefs.getLong(KEY_LAST_UPDATE_CHECK_AT, 0L)
+        set(value) = prefs.edit().putLong(KEY_LAST_UPDATE_CHECK_AT, value).apply()
+
+    /** versionCode of the update the user last dismissed the banner for -- see UpdateRepository.dismiss. */
+    var dismissedUpdateVersionCode: Int
+        get() = prefs.getInt(KEY_DISMISSED_UPDATE_VERSION_CODE, 0)
+        set(value) = prefs.edit().putInt(KEY_DISMISSED_UPDATE_VERSION_CODE, value).apply()
+
     /** Clears the access token (and app registration, since it's keyed to one instance) on logout / forced re-login. */
     fun clear() {
         prefs.edit()
@@ -74,5 +84,7 @@ class TokenStore(context: Context) {
         private const val KEY_CLIENT_SECRET = "client_secret"
         private const val KEY_ACCESS_TOKEN = "access_token"
         private const val KEY_PUSH_ENABLED = "push_enabled"
+        private const val KEY_LAST_UPDATE_CHECK_AT = "last_update_check_at"
+        private const val KEY_DISMISSED_UPDATE_VERSION_CODE = "dismissed_update_version_code"
     }
 }
