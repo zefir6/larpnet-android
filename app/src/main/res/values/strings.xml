@@ -58,6 +58,7 @@
     <string name="compose_visibility_unlisted">Niewidoczny na liście</string>
     <string name="compose_visibility_private">Tylko obserwujący</string>
     <string name="compose_visibility_direct">Wiadomość bezpośrednia</string>
+    <string name="compose_visibility_local">Tylko na Larpnet</string>
     <string name="compose_visibility_custom">Niestandardowi odbiorcy</string>
     <string name="compose_sensitive">Oznacz jako wrażliwe</string>
     <string name="compose_error">Nie udało się opublikować wpisu</string>

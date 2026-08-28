@@ -6,6 +6,7 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -13,9 +14,11 @@ import androidx.compose.ui.res.stringResource
 import pl.larpnet.android.R
 
 /**
- * [visibility] is the raw server string ("public"|"unlisted"|"private") -- "direct" is
+ * [visibility] is the raw server string ("public"|"unlisted"|"private"|"local") -- "direct" is
  * included for compose-time selection even though the server never round-trips it back
- * (see data/model/Status.kt doc comment).
+ * (see data/model/Status.kt doc comment). "local" is LARPnet's own SERVER_ONLY level (visible
+ * to all local logged-in users, never federated) -- unlike "custom" it's a real value the
+ * server understands directly via the standard postStatus() call, not a compose-only sentinel.
  */
 @Composable
 fun VisibilityIcon(visibility: String, modifier: Modifier = Modifier) {
@@ -24,6 +27,7 @@ fun VisibilityIcon(visibility: String, modifier: Modifier = Modifier) {
         "unlisted" -> Icons.Filled.LockOpen to stringResource(R.string.compose_visibility_unlisted)
         "private" -> Icons.Filled.Lock to stringResource(R.string.compose_visibility_private)
         "direct" -> Icons.Filled.AlternateEmail to stringResource(R.string.compose_visibility_direct)
+        "local" -> Icons.Filled.Storage to stringResource(R.string.compose_visibility_local)
         "custom" -> Icons.Filled.Groups to stringResource(R.string.compose_visibility_custom)
         else -> Icons.Filled.Public to visibility
     }
@@ -34,7 +38,7 @@ fun VisibilityIcon(visibility: String, modifier: Modifier = Modifier) {
     )
 }
 
-val visibilityOptions = listOf("public", "unlisted", "private", "direct", "custom")
+val visibilityOptions = listOf("public", "unlisted", "private", "direct", "local", "custom")
 
 @Composable
 fun visibilityLabel(visibility: String): String = when (visibility) {
@@ -42,6 +46,7 @@ fun visibilityLabel(visibility: String): String = when (visibility) {
     "unlisted" -> stringResource(R.string.compose_visibility_unlisted)
     "private" -> stringResource(R.string.compose_visibility_private)
     "direct" -> stringResource(R.string.compose_visibility_direct)
+    "local" -> stringResource(R.string.compose_visibility_local)
     "custom" -> stringResource(R.string.compose_visibility_custom)
     else -> visibility
 }
