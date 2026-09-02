@@ -32,7 +32,7 @@ android {
         versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
         // Semantic-ish version, bumped by hand: patch for fixes, minor for any functionality
         // change, per user preference (2026-08-23) -- not tied to versionCode/run number.
-        versionName = "0.4.0"
+        versionName = "0.5.0"
 
         // Default Larpnet instance and OAuth redirect scheme. See ui/login/OAuthRedirectActivity.kt
         // and AndroidManifest.xml for the matching intent-filter -- the scheme/host here must stay
@@ -40,6 +40,11 @@ android {
         // exchange all match on this string).
         buildConfigField("String", "DEFAULT_INSTANCE", "\"larpnet.pl\"")
         buildConfigField("String", "OAUTH_REDIRECT_URI", "\"pl.larpnet.android://oauth\"")
+
+        // GitHub-Releases self-update check (UpdateRepository) makes no sense for a Play
+        // Store build -- Play handles updates itself. True here on main (the GitHub-distributed
+        // build); the play-store branch carries this one line flipped to false.
+        buildConfigField("boolean", "UPDATE_CHECK_ENABLED", "true")
     }
 
     signingConfigs {

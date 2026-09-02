@@ -40,6 +40,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import pl.larpnet.android.BuildConfig
 import pl.larpnet.android.R
 import pl.larpnet.android.data.model.Status
 import pl.larpnet.android.di.rememberAppContainer
@@ -140,10 +141,13 @@ fun LarpnetNavGraph(startDestination: String) {
     // only runs once for this NavGraph instance's lifetime and won't re-fire after that navigate.
     LaunchedEffect(Unit) { startPushIfEnabled() }
 
-    // No Play Store distribution, so the app has to notice its own updates -- see
-    // UpdateRepository. Throttled internally to at most once/24h; the banner below reflects
-    // whatever it finds, and Settings' manual "Check for updates" shares the same state.
-    LaunchedEffect(Unit) { appContainer.updateRepository.checkIfDue() }
+    // GitHub-distributed builds have to notice their own updates -- see UpdateRepository.
+    // Throttled internally to at most once/24h; the banner below reflects whatever it finds,
+    // and Settings' manual "Check for updates" shares the same state. Play Store builds skip
+    // this entirely (BuildConfig.UPDATE_CHECK_ENABLED is false there) -- Play handles updates.
+    if (BuildConfig.UPDATE_CHECK_ENABLED) {
+        LaunchedEffect(Unit) { appContainer.updateRepository.checkIfDue() }
+    }
     val availableUpdate by appContainer.updateRepository.updateAvailable.collectAsState()
 
     LaunchedEffect(Unit) {

@@ -316,19 +316,24 @@ fun SettingsScreen(onBack: (() -> Unit)? = null, onOpenProfile: () -> Unit, onLo
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-                SectionLabel(stringResource(R.string.settings_update_section))
-                SettingsLinkRow(
-                    icon = Icons.Filled.SystemUpdate,
-                    label = stringResource(R.string.settings_check_for_updates),
-                    hint = when {
-                        state.isCheckingForUpdate -> stringResource(R.string.settings_checking_for_updates)
-                        state.upToDateMessageVisible -> stringResource(R.string.settings_up_to_date)
-                        else -> stringResource(R.string.settings_current_version, BuildConfig.VERSION_NAME)
-                    },
-                    onClick = viewModel::checkForUpdates,
-                )
+                // Play Store builds skip this section entirely -- Play handles updates, and
+                // there's no GitHub release to check against (BuildConfig.UPDATE_CHECK_ENABLED
+                // is false there).
+                if (BuildConfig.UPDATE_CHECK_ENABLED) {
+                    SectionLabel(stringResource(R.string.settings_update_section))
+                    SettingsLinkRow(
+                        icon = Icons.Filled.SystemUpdate,
+                        label = stringResource(R.string.settings_check_for_updates),
+                        hint = when {
+                            state.isCheckingForUpdate -> stringResource(R.string.settings_checking_for_updates)
+                            state.upToDateMessageVisible -> stringResource(R.string.settings_up_to_date)
+                            else -> stringResource(R.string.settings_current_version, BuildConfig.VERSION_NAME)
+                        },
+                        onClick = viewModel::checkForUpdates,
+                    )
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                }
 
                 SettingsLinkRow(
                     icon = Icons.AutoMirrored.Filled.Logout,
