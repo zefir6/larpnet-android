@@ -19,12 +19,12 @@ val hasReleaseSigning = !releaseKeystorePath.isNullOrBlank() &&
 
 android {
     namespace = "pl.larpnet.android"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "pl.larpnet.android"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         // GITHUB_RUN_NUMBER is unique and strictly increasing across every CI build, which is
         // exactly what versionCode needs to be for Android to treat a new APK as an update
         // rather than a same-or-older version it refuses to install over. Local (non-CI)
@@ -32,7 +32,7 @@ android {
         versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
         // Semantic-ish version, bumped by hand: patch for fixes, minor for any functionality
         // change, per user preference (2026-08-23) -- not tied to versionCode/run number.
-        versionName = "0.5.0"
+        versionName = "0.5.1"
 
         // Default Larpnet instance and OAuth redirect scheme. See ui/login/OAuthRedirectActivity.kt
         // and AndroidManifest.xml for the matching intent-filter -- the scheme/host here must stay
