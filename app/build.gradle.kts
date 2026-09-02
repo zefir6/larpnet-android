@@ -44,7 +44,7 @@ android {
         // GitHub-Releases self-update check (UpdateRepository) makes no sense for a Play
         // Store build -- Play handles updates itself. True here on main (the GitHub-distributed
         // build); the play-store branch carries this one line flipped to false.
-        buildConfigField("boolean", "UPDATE_CHECK_ENABLED", "true")
+        buildConfigField("boolean", "UPDATE_CHECK_ENABLED", "false")
     }
 
     signingConfigs {
