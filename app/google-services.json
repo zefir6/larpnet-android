@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "302932074800",
+    "project_id": "larpnet-7e660",
+    "storage_bucket": "larpnet-7e660.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:302932074800:android:aabe073efbc5391452a8f5",
+        "android_client_info": {
+          "package_name": "pl.larpnet.android"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBYFuA77BM6ns0q-3l2iI61VbvKVgMizxI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

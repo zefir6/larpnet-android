@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.google.services)
 }
 
 // Release signing comes from the environment (CI secrets), never from committed files -- see
@@ -19,12 +20,12 @@ val hasReleaseSigning = !releaseKeystorePath.isNullOrBlank() &&
 
 android {
     namespace = "pl.larpnet.android"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "pl.larpnet.android"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         // GITHUB_RUN_NUMBER is unique and strictly increasing across every CI build, which is
         // exactly what versionCode needs to be for Android to treat a new APK as an update
         // rather than a same-or-older version it refuses to install over. Local (non-CI)
@@ -32,7 +33,7 @@ android {
         versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
         // Semantic-ish version, bumped by hand: patch for fixes, minor for any functionality
         // change, per user preference (2026-08-23) -- not tied to versionCode/run number.
-        versionName = "0.5.0"
+        versionName = "0.6.0"
 
         // Default Larpnet instance and OAuth redirect scheme. See ui/login/OAuthRedirectActivity.kt
         // and AndroidManifest.xml for the matching intent-filter -- the scheme/host here must stay
@@ -45,6 +46,12 @@ android {
         // Store build -- Play handles updates itself. True here on main (the GitHub-distributed
         // build); the play-store branch carries this one line flipped to false.
         buildConfigField("boolean", "UPDATE_CHECK_ENABLED", "false")
+
+        // Push transport: the GitHub-distributed build listens to the ntfy relay directly
+        // (NtfyListenerService, no Google Play Services dependency -- see its doc comment).
+        // Play Store builds use Firebase Cloud Messaging instead (PushControl.kt), which drops
+        // the specialUse foreground service Play's review flags. False on main; true here.
+        buildConfigField("boolean", "FCM_PUSH_ENABLED", "true")
     }
 
     signingConfigs {
@@ -124,4 +131,7 @@ dependencies {
     implementation(libs.coil.network.okhttp)
 
     implementation(libs.jsoup)
+
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
 }

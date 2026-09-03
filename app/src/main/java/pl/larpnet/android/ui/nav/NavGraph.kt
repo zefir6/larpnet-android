@@ -50,7 +50,7 @@ import pl.larpnet.android.ui.login.LoginScreen
 import pl.larpnet.android.ui.messages.ConversationThreadScreen
 import pl.larpnet.android.ui.messages.ConversationsScreen
 import pl.larpnet.android.ui.notifications.NotificationsScreen
-import pl.larpnet.android.push.NtfyListenerService
+import pl.larpnet.android.push.PushControl
 import pl.larpnet.android.ui.common.UpdateBanner
 import pl.larpnet.android.ui.profile.EditProfileScreen
 import pl.larpnet.android.ui.profile.ProfileScreen
@@ -110,7 +110,7 @@ fun LarpnetNavGraph(startDestination: String) {
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
-    ) { /* Result doesn't change what we do -- the service starts either way, see NtfyListenerService doc comment. */ }
+    ) { /* Result doesn't change what we do -- push starts either way, see PushControl. */ }
 
     fun startPushIfEnabled() {
         if (!appContainer.tokenStore.isLoggedIn || !appContainer.tokenStore.pushEnabled) return
@@ -119,21 +119,26 @@ fun LarpnetNavGraph(startDestination: String) {
         ) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
-        // Re-check on every cold start, not just when the user flips the Settings switch: this
-        // covers installs where push was already enabled before battery-exemption requesting
-        // existed, and OEMs (MIUI in particular) that silently revoke the exemption behind the
-        // user's back. No-ops instantly if already exempted, so it's not naggy for anyone it
-        // already worked for. See SettingsScreen.setPushEnabled for why this matters at all.
-        val powerManager = context.getSystemService(PowerManager::class.java)
-        if (powerManager?.isIgnoringBatteryOptimizations(context.packageName) == false) {
-            context.startActivity(
-                Intent(
-                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                    Uri.parse("package:${context.packageName}"),
-                ),
-            )
+        // Battery-exemption nagging is specific to NtfyListenerService's persistent socket --
+        // FCM (Play Store build, BuildConfig.FCM_PUSH_ENABLED) is OS-scheduled delivery, no
+        // always-on connection to protect from the battery manager.
+        if (!BuildConfig.FCM_PUSH_ENABLED) {
+            // Re-check on every cold start, not just when the user flips the Settings switch:
+            // this covers installs where push was already enabled before battery-exemption
+            // requesting existed, and OEMs (MIUI in particular) that silently revoke the
+            // exemption behind the user's back. No-ops instantly if already exempted, so it's
+            // not naggy for anyone it already worked for. See SettingsScreen.setPushEnabled.
+            val powerManager = context.getSystemService(PowerManager::class.java)
+            if (powerManager?.isIgnoringBatteryOptimizations(context.packageName) == false) {
+                context.startActivity(
+                    Intent(
+                        Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                        Uri.parse("package:${context.packageName}"),
+                    ),
+                )
+            }
         }
-        NtfyListenerService.start(context)
+        PushControl.start(context, appContainer)
     }
 
     // Resumes the push listener across process restarts while already logged in -- the actual
@@ -152,7 +157,7 @@ fun LarpnetNavGraph(startDestination: String) {
 
     LaunchedEffect(Unit) {
         appContainer.authInterceptor.forceLogoutEvents.collect {
-            NtfyListenerService.stop(context)
+            PushControl.stop(context, appContainer)
             appContainer.tokenStore.clear()
             if (currentRoute != Routes.LOGIN) {
                 navController.navigate(Routes.LOGIN) {

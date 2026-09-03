@@ -75,7 +75,7 @@ import pl.larpnet.android.data.repository.ProfileRepository
 import pl.larpnet.android.data.repository.PushRepository
 import pl.larpnet.android.data.repository.UpdateRepository
 import pl.larpnet.android.di.rememberAppContainer
-import pl.larpnet.android.push.NtfyListenerService
+import pl.larpnet.android.push.PushControl
 import pl.larpnet.android.ui.common.AvatarImage
 import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 
@@ -129,7 +129,7 @@ fun SettingsScreen(onBack: (() -> Unit)? = null, onOpenProfile: () -> Unit, onLo
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
-    ) { /* Permission result doesn't change what we do -- the service starts either way, see NtfyListenerService doc comment. */ }
+    ) { /* Permission result doesn't change what we do -- push starts either way, see PushControl. */ }
 
     fun setPushEnabled(enabled: Boolean) {
         viewModel.setPushEnabled(enabled)
@@ -139,23 +139,27 @@ fun SettingsScreen(onBack: (() -> Unit)? = null, onOpenProfile: () -> Unit, onLo
             ) {
                 notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
-            // NtfyListenerService holds a persistent socket with no OS-scheduled wakeups behind
-            // it -- on most non-Pixel OEMs (Samsung/Xiaomi/OnePlus/...) the battery manager kills
-            // exactly this kind of "quiet" background service after the screen's been off a
-            // while, unless the app is exempted from battery optimization. Ask once, right when
-            // the user opts into push, same moment as the notification-permission prompt above.
-            val powerManager = context.getSystemService(PowerManager::class.java)
-            if (powerManager?.isIgnoringBatteryOptimizations(context.packageName) == false) {
-                context.startActivity(
-                    Intent(
-                        Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                        Uri.parse("package:${context.packageName}"),
-                    ),
-                )
+            // NtfyListenerService (ntfy-based build only, BuildConfig.FCM_PUSH_ENABLED false)
+            // holds a persistent socket with no OS-scheduled wakeups behind it -- on most
+            // non-Pixel OEMs (Samsung/Xiaomi/OnePlus/...) the battery manager kills exactly this
+            // kind of "quiet" background service after the screen's been off a while, unless the
+            // app is exempted from battery optimization. Ask once, right when the user opts into
+            // push, same moment as the notification-permission prompt above. FCM (Play Store
+            // build) is OS-scheduled delivery, no always-on connection to protect.
+            if (!BuildConfig.FCM_PUSH_ENABLED) {
+                val powerManager = context.getSystemService(PowerManager::class.java)
+                if (powerManager?.isIgnoringBatteryOptimizations(context.packageName) == false) {
+                    context.startActivity(
+                        Intent(
+                            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                            Uri.parse("package:${context.packageName}"),
+                        ),
+                    )
+                }
             }
-            NtfyListenerService.start(context)
+            PushControl.start(context, appContainer)
         } else {
-            NtfyListenerService.stop(context)
+            PushControl.stop(context, appContainer)
         }
     }
 
@@ -339,7 +343,7 @@ fun SettingsScreen(onBack: (() -> Unit)? = null, onOpenProfile: () -> Unit, onLo
                     icon = Icons.AutoMirrored.Filled.Logout,
                     label = stringResource(R.string.profile_logout),
                     hint = null,
-                    onClick = { NtfyListenerService.stop(context); viewModel.logout(); onLoggedOut() },
+                    onClick = { PushControl.stop(context, appContainer); viewModel.logout(); onLoggedOut() },
                 )
 
                 state.error?.let {

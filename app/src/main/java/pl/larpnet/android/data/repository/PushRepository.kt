@@ -6,4 +6,10 @@ import pl.larpnet.android.network.safeApiCall
 
 class PushRepository(private val apiProvider: () -> FriendicaApi) {
     suspend fun config(): Result<PushConfig> = safeApiCall { apiProvider().larpnetPushConfig() }
+
+    suspend fun registerFcmToken(token: String): Result<Unit> =
+        safeApiCall { apiProvider().registerFcmToken(token) }.map {}
+
+    suspend fun unregisterFcmToken(token: String): Result<Unit> =
+        safeApiCall { apiProvider().registerFcmToken(token, unregister = 1) }.map {}
 }
