@@ -114,6 +114,14 @@
     <string name="settings_advanced_section">Advanced</string>
     <string name="settings_server_address_hint">Takes effect after you log out and log back in.</string>
 
+    <!-- Safety -->
+    <string name="settings_safety_section">Safety</string>
+    <string name="settings_report_abuse">Report abuse</string>
+    <string name="settings_report_abuse_hint">Opens an email to the Larpnet administrator</string>
+    <string name="settings_report_abuse_subject">Report from the Larpnet app</string>
+    <string name="settings_child_safety_standards">Child safety standards</string>
+    <string name="settings_child_safety_standards_hint">Our policy on preventing child exploitation</string>
+
     <!-- Updates -->
     <string name="settings_update_section">Updates</string>
     <string name="settings_current_version">Version %1$s</string>

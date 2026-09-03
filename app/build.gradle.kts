@@ -33,7 +33,7 @@ android {
         versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
         // Semantic-ish version, bumped by hand: patch for fixes, minor for any functionality
         // change, per user preference (2026-08-23) -- not tied to versionCode/run number.
-        versionName = "0.6.0"
+        versionName = "0.7.0"
 
         // Default Larpnet instance and OAuth redirect scheme. See ui/login/OAuthRedirectActivity.kt
         // and AndroidManifest.xml for the matching intent-filter -- the scheme/host here must stay
