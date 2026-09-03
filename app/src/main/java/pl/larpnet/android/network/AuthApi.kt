@@ -8,10 +8,12 @@ import retrofit2.http.POST
 
 /**
  * Unauthenticated endpoints: OAuth client registration and token exchange. Built on the
- * default `read write follow` scope -- must be sent identically here, in the /oauth/authorize
- * URL (see data/auth/OAuthFlow.kt), and here again at token exchange, since
- * Module\Api\Mastodon\Apps.php derives read/write/follow flags from this exact string and
- * write endpoints 401 unless "write" was granted at registration.
+ * default `read write follow push` scope -- must be sent identically here, in the
+ * /oauth/authorize URL (see data/auth/OAuthFlow.kt), and here again at token exchange, since
+ * Module\Api\Mastodon\Apps.php derives read/write/follow/push flags from this exact string and
+ * write endpoints 401 unless "write" was granted at registration. "push" is what
+ * POST /larpnet_fcm (PushRepository, FCM token registration) requires -- see its
+ * BaseApi::getCurrentApplication()['push'] check server-side.
  */
 interface AuthApi {
 
@@ -44,6 +46,6 @@ interface AuthApi {
     )
 
     companion object {
-        const val OAUTH_SCOPES = "read write follow"
+        const val OAUTH_SCOPES = "read write follow push"
     }
 }

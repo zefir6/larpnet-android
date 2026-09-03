@@ -62,21 +62,28 @@ object PushNotifications {
     }
 
     fun postMessage(context: Context, msg: NtfyMessage) {
+        postMessage(context, requestCode = msg.id.hashCode(), title = msg.title, body = msg.message, click = null)
+    }
+
+    /** Shared by both push transports -- ntfy (above) and FCM (LarpnetFirebaseMessagingService).
+     * [requestCode] should be unique per message, so each notification's tap action gets its
+     * own PendingIntent instead of FLAG_UPDATE_CURRENT silently rewriting a shared one. */
+    fun postMessage(context: Context, requestCode: Int, title: String?, body: String?, click: String?) {
         ensureChannels(context)
         val openIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val pendingIntent = PendingIntent.getActivity(
             context,
-            msg.id.hashCode(),
+            requestCode,
             openIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val body = msg.message.orEmpty()
+        val text = body.orEmpty()
         val notification = NotificationCompat.Builder(context, CHANNEL_MESSAGES)
-            .setContentTitle(msg.title ?: context.getString(R.string.app_name))
-            .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentTitle(title ?: context.getString(R.string.app_name))
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setSmallIcon(R.mipmap.ic_launcher)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)

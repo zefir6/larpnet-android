@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.google.services)
 }
 
 // Release signing comes from the environment (CI secrets), never from committed files -- see
@@ -45,6 +46,13 @@ android {
         // Store build -- Play handles updates itself. True here on main (the GitHub-distributed
         // build); the play-store branch carries this one line flipped to false.
         buildConfigField("boolean", "UPDATE_CHECK_ENABLED", "true")
+
+        // Push transport: the GitHub-distributed build listens to the ntfy relay directly
+        // (NtfyListenerService, no Google Play Services dependency -- see its doc comment).
+        // Play Store builds use Firebase Cloud Messaging instead (PushControl.kt), which drops
+        // the specialUse foreground service Play's review flags. False here on main; the
+        // play-store branch carries this one line flipped to true.
+        buildConfigField("boolean", "FCM_PUSH_ENABLED", "false")
     }
 
     signingConfigs {
@@ -124,4 +132,7 @@ dependencies {
     implementation(libs.coil.network.okhttp)
 
     implementation(libs.jsoup)
+
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
 }

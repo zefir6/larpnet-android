@@ -64,6 +64,33 @@
         </service>
 
         <!--
+          Play Store build's push transport (see BuildConfig.FCM_PUSH_ENABLED, push/PushControl.kt).
+          Declared unconditionally (harmless on the ntfy-based build too) since auto-init is off
+          by default just below: Firebase never generates a token, so this service never
+          receives anything, unless PushControl explicitly turns auto-init on.
+        -->
+        <service
+            android:name=".push.LarpnetFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <meta-data
+            android:name="firebase_messaging_auto_init_enabled"
+            android:value="false" />
+        <!-- Used only when a notification arrives while the app is backgrounded/killed, in
+          which case the system builds and posts it directly, bypassing onMessageReceived. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@mipmap/ic_launcher" />
+        <!-- Must stay byte-identical to PushNotifications.CHANNEL_MESSAGES. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="larpnet_push_messages" />
+
+        <!--
           Enables AppCompatDelegate.setApplicationLocales() to actually persist the choice
           and apply it on next launch. MainActivity is a plain ComponentActivity, not
           AppCompatActivity, so without this the call only affects the current process's

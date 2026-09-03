@@ -6,6 +6,7 @@ import pl.larpnet.android.data.model.Account
 import pl.larpnet.android.data.model.Circle
 import pl.larpnet.android.data.model.Conversation
 import pl.larpnet.android.data.model.DirectMessage
+import pl.larpnet.android.data.model.FcmRegistrationResult
 import pl.larpnet.android.data.model.FollowerListResponse
 import pl.larpnet.android.data.model.LegacyStatusRef
 import pl.larpnet.android.data.model.Instance
@@ -260,4 +261,16 @@ interface FriendicaApi {
     /** Server-side native-client counterpart of the larpnet_notifications theme's browser push setup. */
     @GET("api/v1/larpnet_push_config")
     suspend fun larpnetPushConfig(): PushConfig
+
+    /**
+     * Registers (or, with unregister=1, deletes) an FCM device token -- see the larpnet_fcm
+     * addon server-side. Not under api/v1/: it's a plain Friendica module route, not a
+     * Mastodon-API-compatible endpoint. Requires the "push" OAuth scope.
+     */
+    @FormUrlEncoded
+    @POST("larpnet_fcm")
+    suspend fun registerFcmToken(
+        @Field("token") token: String,
+        @Field("unregister") unregister: Int? = null,
+    ): FcmRegistrationResult
 }
