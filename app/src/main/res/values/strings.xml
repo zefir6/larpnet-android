@@ -114,6 +114,14 @@
     <string name="settings_advanced_section">Zaawansowane</string>
     <string name="settings_server_address_hint">Zmiana zajmie efekt po wylogowaniu i ponownym zalogowaniu.</string>
 
+    <!-- Safety -->
+    <string name="settings_safety_section">Bezpieczeństwo</string>
+    <string name="settings_report_abuse">Zgłoś nadużycie</string>
+    <string name="settings_report_abuse_hint">Otworzy wiadomość e-mail do administratora Larpnet</string>
+    <string name="settings_report_abuse_subject">Zgłoszenie z aplikacji Larpnet</string>
+    <string name="settings_child_safety_standards">Standardy bezpieczeństwa dzieci</string>
+    <string name="settings_child_safety_standards_hint">Zasady dotyczące przeciwdziałania wykorzystywaniu dzieci</string>
+
     <!-- Updates -->
     <string name="settings_update_section">Aktualizacje</string>
     <string name="settings_current_version">Wersja %1$s</string>

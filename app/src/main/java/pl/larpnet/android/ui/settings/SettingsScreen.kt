@@ -33,6 +33,8 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Report
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -316,6 +318,30 @@ fun SettingsScreen(onBack: (() -> Unit)? = null, onOpenProfile: () -> Unit, onLo
                     label = serverAddress,
                     hint = stringResource(R.string.settings_server_address_hint),
                     onClick = { showServerDialog = true },
+                )
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                SectionLabel(stringResource(R.string.settings_safety_section))
+                SettingsLinkRow(
+                    icon = Icons.Filled.Report,
+                    label = stringResource(R.string.settings_report_abuse),
+                    hint = stringResource(R.string.settings_report_abuse_hint),
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:admin@larpnet.pl")).apply {
+                            putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.settings_report_abuse_subject))
+                        }
+                        context.startActivity(intent)
+                    },
+                )
+                SettingsLinkRow(
+                    icon = Icons.Filled.Shield,
+                    label = stringResource(R.string.settings_child_safety_standards),
+                    hint = stringResource(R.string.settings_child_safety_standards_hint),
+                    onClick = {
+                        CustomTabsIntent.Builder().build()
+                            .launchUrl(context, Uri.parse("https://larpnet.pl/child-safety-standards.html"))
+                    },
                 )
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
