@@ -1,5 +1,4 @@
 # Add project specific ProGuard rules here.
-# Minify is disabled for v1 (see app/build.gradle.kts); these rules matter once it's enabled.
 
 # kotlinx.serialization: keep serializer() for @Serializable classes
 -keepattributes *Annotation*, InnerClasses
