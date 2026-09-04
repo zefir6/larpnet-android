@@ -1,5 +1,4 @@
 # Add project specific ProGuard rules here.
-# Minify is disabled for v1 (see app/build.gradle.kts); these rules matter once it's enabled.
 
 # kotlinx.serialization: keep serializer() for @Serializable classes
 -keepattributes *Annotation*, InnerClasses
@@ -17,3 +16,13 @@
 -keepclasseswithmembers class pl.larpnet.android.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
+
+# Retrofit service interfaces are only ever implemented by a java.lang.reflect.Proxy created at
+# runtime (Retrofit.create()) -- R8 full mode has no visibility into that and otherwise leaves
+# these interfaces in a state where the Proxy's checkcast back to the interface type fails with
+# a ClassCastException at construction time (verified against a real minified build: AppContainer
+# crashes in App.onCreate() constructing GitHubApi). The default retrofit2.pro consumer rule only
+# keeps annotated methods; keep the whole interface to be safe for all three service interfaces.
+-keep interface pl.larpnet.android.network.AuthApi { *; }
+-keep interface pl.larpnet.android.network.FriendicaApi { *; }
+-keep interface pl.larpnet.android.network.GitHubApi { *; }
