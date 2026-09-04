@@ -3,8 +3,8 @@
 # (see README "Setup" section). These versions are best-effort as of the time of writing;
 # when you first open the project, let Android Studio's Gradle sync / Upgrade Assistant
 # reconcile AGP/Kotlin/Compose-BOM versions rather than trusting these blindly.
-agp = "8.7.2"
-kotlin = "2.0.21"
+agp = "9.4.0"
+kotlin = "2.2.10"
 coreKtx = "1.15.0"
 appcompat = "1.7.0"
 lifecycle = "2.8.7"
@@ -56,7 +56,6 @@ firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
