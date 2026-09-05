@@ -16,11 +16,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Groups
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.PeopleAlt
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -60,7 +55,7 @@ import pl.larpnet.android.ui.thread.ThreadScreen
 import pl.larpnet.android.ui.timeline.TimelineKind
 import pl.larpnet.android.ui.timeline.TimelineScreen
 
-private object Routes {
+internal object Routes {
     const val LOGIN = "login"
     const val HOME = "home"
     const val LOCAL = "local"
@@ -78,7 +73,7 @@ private object Routes {
     const val MESSAGE_THREAD = "messages/thread/{accountId}?conversationId={conversationId}"
 }
 
-private val bottomNavRoutes = setOf(Routes.HOME, Routes.LOCAL, Routes.DIRECTORY, Routes.NOTIFICATIONS, Routes.SETTINGS)
+private val bottomNavRoutes = BottomTab.entries.map { it.route }.toSet()
 
 private fun threadRoute(statusId: String) = "thread/$statusId"
 private fun profileRoute(accountId: String) = "profile/$accountId"
@@ -172,40 +167,20 @@ fun LarpnetNavGraph(startDestination: String) {
     val onReply: (Status) -> Unit = { navController.navigate(composeRoute(it.id)) }
     val onSearch: () -> Unit = { navController.navigate(Routes.SEARCH) }
 
+    val bottomTabOrder by appContainer.bottomNavOrderStore.order.collectAsState()
+
     Scaffold(
         bottomBar = {
             if (currentRoute in bottomNavRoutes) {
                 NavigationBar {
-                    NavigationBarItem(
-                        selected = currentRoute == Routes.HOME,
-                        onClick = { navController.navigateToBottomTab(Routes.HOME) },
-                        icon = { Icon(Icons.Filled.Home, contentDescription = null) },
-                        label = { Text(stringResource(R.string.nav_home)) },
-                    )
-                    NavigationBarItem(
-                        selected = currentRoute == Routes.LOCAL,
-                        onClick = { navController.navigateToBottomTab(Routes.LOCAL) },
-                        icon = { Icon(Icons.Filled.Groups, contentDescription = null) },
-                        label = { Text(stringResource(R.string.nav_local)) },
-                    )
-                    NavigationBarItem(
-                        selected = currentRoute == Routes.DIRECTORY,
-                        onClick = { navController.navigateToBottomTab(Routes.DIRECTORY) },
-                        icon = { Icon(Icons.Filled.PeopleAlt, contentDescription = null) },
-                        label = { Text(stringResource(R.string.nav_directory)) },
-                    )
-                    NavigationBarItem(
-                        selected = currentRoute == Routes.NOTIFICATIONS,
-                        onClick = { navController.navigateToBottomTab(Routes.NOTIFICATIONS) },
-                        icon = { Icon(Icons.Filled.Notifications, contentDescription = null) },
-                        label = { Text(stringResource(R.string.nav_notifications)) },
-                    )
-                    NavigationBarItem(
-                        selected = currentRoute == Routes.SETTINGS,
-                        onClick = { navController.navigateToBottomTab(Routes.SETTINGS) },
-                        icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
-                        label = { Text(stringResource(R.string.settings_title)) },
-                    )
+                    bottomTabOrder.forEach { tab ->
+                        NavigationBarItem(
+                            selected = currentRoute == tab.route,
+                            onClick = { navController.navigateToBottomTab(tab.route) },
+                            icon = { Icon(tab.icon, contentDescription = null) },
+                            label = { Text(stringResource(tab.labelRes)) },
+                        )
+                    }
                 }
             }
         },

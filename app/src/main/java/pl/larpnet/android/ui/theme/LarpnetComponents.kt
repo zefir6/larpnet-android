@@ -3,6 +3,8 @@ package pl.larpnet.android.ui.theme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.SelectableChipColors
 import androidx.compose.material3.TopAppBarColors
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -32,3 +34,14 @@ fun Modifier.larpnetCard(): Modifier {
         .shadow(elevation = 2.dp, shape = shape, clip = false)
         .background(LarpnetCardBackground, shape)
 }
+
+/** Accent-filled when selected, transparent/muted-text otherwise -- used by [TagsSection]'s tag chips. */
+@Composable
+fun larpnetChipColors(): SelectableChipColors = FilterChipDefaults.filterChipColors(
+    containerColor = Color.Transparent,
+    labelColor = LarpnetMutedText,
+    iconColor = LarpnetMutedText,
+    selectedContainerColor = LarpnetAccent,
+    selectedLabelColor = Color.White,
+    selectedTrailingIconColor = Color.White,
+)

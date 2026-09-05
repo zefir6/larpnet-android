@@ -30,6 +30,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Language
@@ -51,6 +53,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -79,6 +82,7 @@ import pl.larpnet.android.data.repository.UpdateRepository
 import pl.larpnet.android.di.rememberAppContainer
 import pl.larpnet.android.push.PushControl
 import pl.larpnet.android.ui.common.AvatarImage
+import pl.larpnet.android.ui.nav.BottomTab
 import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 
 /**
@@ -271,6 +275,28 @@ fun SettingsScreen(onBack: (() -> Unit)? = null, onOpenProfile: () -> Unit, onLo
                     hint = stringResource(R.string.settings_app_language_hint),
                     onClick = { showLanguageDialog = true },
                 )
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                SectionLabel(stringResource(R.string.settings_bottom_nav_order_section))
+                val bottomTabOrder by appContainer.bottomNavOrderStore.order.collectAsState()
+                bottomTabOrder.forEachIndexed { index, tab ->
+                    BottomNavOrderRow(
+                        tab = tab,
+                        canMoveUp = index > 0,
+                        canMoveDown = index < bottomTabOrder.lastIndex,
+                        onMoveUp = {
+                            appContainer.bottomNavOrderStore.setOrder(
+                                bottomTabOrder.toMutableList().apply { add(index - 1, removeAt(index)) },
+                            )
+                        },
+                        onMoveDown = {
+                            appContainer.bottomNavOrderStore.setOrder(
+                                bottomTabOrder.toMutableList().apply { add(index + 1, removeAt(index)) },
+                            )
+                        },
+                    )
+                }
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -508,6 +534,31 @@ private fun SettingsSwitchRow(label: String, checked: Boolean, onCheckedChange: 
     }
 }
 
+
+@Composable
+private fun BottomNavOrderRow(
+    tab: BottomTab,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(tab.icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(tab.labelRes), modifier = Modifier.padding(start = 16.dp).weight(1f))
+        IconButton(onClick = onMoveUp, enabled = canMoveUp) {
+            Icon(Icons.Filled.ArrowUpward, contentDescription = stringResource(R.string.settings_bottom_nav_move_up))
+        }
+        IconButton(onClick = onMoveDown, enabled = canMoveDown) {
+            Icon(Icons.Filled.ArrowDownward, contentDescription = stringResource(R.string.settings_bottom_nav_move_down))
+        }
+    }
+}
 
 @Composable
 private fun SettingsLinkRow(
