@@ -18,6 +18,9 @@ import pl.larpnet.android.data.repository.MediaRepository
 import pl.larpnet.android.data.repository.ProfileRepository
 import pl.larpnet.android.data.repository.StatusRepository
 
+/** Predefined tags always offered in [TagsSection], ahead of the user's recent tags. */
+val PREDEFINED_TAGS = listOf("larp", "random")
+
 /** [visibility] is "custom" as a compose-only sentinel (like "direct", see VisibilityIcon.kt)
  * when the user has picked a hand-built audience via [ComposeViewModel.confirmAudience] --
  * the actual selection lives in [customAudienceCircles]/[customAudienceContacts]. */
@@ -38,9 +41,21 @@ data class ComposeUiState(
     val availableFollowers: List<FollowerEntry> = emptyList(),
     val customAudienceCircles: Set<Int> = emptySet(),
     val customAudienceContacts: Set<Int> = emptySet(),
+    val recentTags: List<String> = emptyList(),
+    val selectedTags: Set<String> = emptySet(),
+    val customTags: List<String> = emptyList(),
+    val customTagInput: String = "",
 ) {
     val canPublish: Boolean
         get() = (text.isNotBlank() || mediaAttachments.isNotEmpty()) && !isPosting && !isUploadingMedia
+
+    /** Predefined + recent tags, deduped and in a stable order, offered as toggle chips. */
+    val toggleableTags: List<String>
+        get() = (PREDEFINED_TAGS + recentTags.filterNot { it in PREDEFINED_TAGS }).distinct()
+
+    /** The tags that will actually be appended to the post body on publish. */
+    val tagsToPublish: List<String>
+        get() = toggleableTags.filter { it in selectedTags } + customTags
 }
 
 class ComposeViewModel(
@@ -48,9 +63,12 @@ class ComposeViewModel(
     private val statusRepository: StatusRepository,
     private val mediaRepository: MediaRepository,
     private val profileRepository: ProfileRepository,
+    private val recentTagsStore: RecentTagsStore,
 ) : ViewModel() {
 
-    var uiState by mutableStateOf(ComposeUiState(replyToId = replyToId))
+    var uiState by mutableStateOf(
+        ComposeUiState(replyToId = replyToId, recentTags = recentTagsStore.recentTags.value),
+    )
         private set
 
     fun onTextChange(value: String) {
@@ -111,6 +129,44 @@ class ComposeViewModel(
         uiState = uiState.copy(sensitive = value)
     }
 
+    fun toggleTag(tag: String) {
+        val current = uiState.selectedTags
+        uiState = uiState.copy(selectedTags = if (tag in current) current - tag else current + tag)
+    }
+
+    fun onCustomTagInputChange(value: String) {
+        uiState = uiState.copy(customTagInput = value)
+    }
+
+    /** Adds [ComposeUiState.customTagInput] as a custom tag, or -- if it matches an existing
+     * predefined/recent tag -- toggles that one on instead of creating a redundant custom chip.
+     * No-ops (just clears the input) on blank/whitespace-only text. */
+    fun addCustomTag() {
+        val normalized = normalizeTag(uiState.customTagInput)
+        uiState = uiState.copy(customTagInput = "")
+        if (normalized == null) return
+        val existingToggleable = uiState.toggleableTags.firstOrNull { it.equals(normalized, ignoreCase = true) }
+        if (existingToggleable != null) {
+            if (existingToggleable !in uiState.selectedTags) toggleTag(existingToggleable)
+            return
+        }
+        if (uiState.customTags.none { it.equals(normalized, ignoreCase = true) }) {
+            uiState = uiState.copy(customTags = uiState.customTags + normalized)
+        }
+    }
+
+    fun removeCustomTag(tag: String) {
+        uiState = uiState.copy(customTags = uiState.customTags - tag)
+    }
+
+    /** Trims, strips one leading '#', and lowercases [raw]; returns null if the result is blank
+     * or still contains whitespace (a space would end the hashtag when the server parses it). */
+    private fun normalizeTag(raw: String): String? {
+        val trimmed = raw.trim().removePrefix("#").trim().lowercase()
+        if (trimmed.isBlank() || trimmed.any { it.isWhitespace() }) return null
+        return trimmed
+    }
+
     fun addMedia(context: Context, uri: Uri) {
         uiState = uiState.copy(isUploadingMedia = true, error = null)
         viewModelScope.launch {
@@ -140,11 +196,13 @@ class ComposeViewModel(
 
     fun publish() {
         if (!uiState.canPublish) return
+        val tags = uiState.tagsToPublish
+        val text = buildStatusText(uiState.text, tags)
         uiState = uiState.copy(isPosting = true, error = null)
         viewModelScope.launch {
             val result = if (uiState.visibility == "custom") {
                 statusRepository.postWithAudience(
-                    text = uiState.text,
+                    text = text,
                     inReplyToId = uiState.replyToId,
                     spoilerText = uiState.spoilerText,
                     mediaIds = uiState.mediaAttachments.map { it.id },
@@ -153,7 +211,7 @@ class ComposeViewModel(
                 )
             } else {
                 statusRepository.post(
-                    text = uiState.text,
+                    text = text,
                     inReplyToId = uiState.replyToId,
                     visibility = uiState.visibility,
                     spoilerText = uiState.spoilerText,
@@ -162,9 +220,20 @@ class ComposeViewModel(
                 )
             }
             result.fold(
-                onSuccess = { uiState = uiState.copy(isPosting = false, posted = true) },
+                onSuccess = {
+                    tags.forEach(recentTagsStore::recordUsed)
+                    uiState = uiState.copy(isPosting = false, posted = true)
+                },
                 onFailure = { e -> uiState = uiState.copy(isPosting = false, error = e.message) },
             )
         }
+    }
+
+    /** Appends [tags] as "#tag1 #tag2" to [body] -- the API has no separate tags field, so
+     * hashtags only take effect if the server finds them as tokens in the plain text body. */
+    private fun buildStatusText(body: String, tags: List<String>): String {
+        if (tags.isEmpty()) return body
+        val tagLine = tags.joinToString(" ") { "#$it" }
+        return if (body.isBlank()) tagLine else "$body\n\n$tagLine"
     }
 }

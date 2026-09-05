@@ -62,6 +62,10 @@
     <string name="compose_visibility_custom">Niestandardowi odbiorcy</string>
     <string name="compose_sensitive">Oznacz jako wrażliwe</string>
     <string name="compose_error">Nie udało się opublikować wpisu</string>
+    <string name="compose_tags_label">Tagi</string>
+    <string name="compose_tags_add_hint">Dodaj własny tag</string>
+    <string name="compose_tags_add_cd">Dodaj tag</string>
+    <string name="compose_tags_remove_cd">Usuń tag</string>
 
     <!-- Custom audience picker -->
     <string name="audience_picker_title">Wybierz odbiorców</string>

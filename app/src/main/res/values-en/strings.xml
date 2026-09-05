@@ -62,6 +62,10 @@
     <string name="compose_visibility_custom">Custom audience</string>
     <string name="compose_sensitive">Mark as sensitive</string>
     <string name="compose_error">Failed to publish post</string>
+    <string name="compose_tags_label">Tags</string>
+    <string name="compose_tags_add_hint">Add a custom tag</string>
+    <string name="compose_tags_add_cd">Add tag</string>
+    <string name="compose_tags_remove_cd">Remove tag</string>
 
     <!-- Custom audience picker -->
     <string name="audience_picker_title">Choose audience</string>

@@ -77,6 +77,7 @@ fun ComposeScreen(
                     appContainer.statusRepository,
                     appContainer.mediaRepository,
                     appContainer.profileRepository,
+                    appContainer.recentTagsStore,
                 )
             }
         },
@@ -197,6 +198,17 @@ fun ComposeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
+            )
+
+            TagsSection(
+                availableTags = state.toggleableTags,
+                selectedTags = state.selectedTags,
+                customTags = state.customTags,
+                customTagInput = state.customTagInput,
+                onToggleTag = viewModel::toggleTag,
+                onCustomTagInputChange = viewModel::onCustomTagInputChange,
+                onAddCustomTag = viewModel::addCustomTag,
+                onRemoveCustomTag = viewModel::removeCustomTag,
             )
 
             Row(verticalAlignment = Alignment.CenterVertically) {
