@@ -3,7 +3,12 @@ name: Release
 on:
   push:
     branches: [main]
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      list_tracks_only:
+        description: "Diagnostic only: list Play Console tracks via the API, skip building/publishing"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -14,6 +19,7 @@ concurrency:
 
 jobs:
   github-release:
+    if: ${{ !inputs.list_tracks_only }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -73,6 +79,7 @@ jobs:
           generate_release_notes: true
 
   play-store-release:
+    if: ${{ !inputs.list_tracks_only }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -138,3 +145,32 @@ jobs:
           releaseFiles: dist/*.aab
           tracks: internal
           status: draft
+
+  # Diagnostic only, run via "Run workflow" with list_tracks_only checked. Play Console's UI only
+  # shows a numeric track ID in the URL for custom tracks (e.g. closed testing), not the string
+  # the Play Developer API expects in the `tracks:` input above -- this looks it up directly.
+  list-play-tracks:
+    if: ${{ inputs.list_tracks_only }}
+    runs-on: ubuntu-latest
+    steps:
+      - id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          credentials_json: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/androidpublisher
+
+      - name: List tracks via Play Developer API
+        run: |
+          set -euo pipefail
+          TOKEN="${{ steps.auth.outputs.access_token }}"
+          PKG="pl.larpnet.android"
+          EDIT_ID=$(curl -sf -X POST -H "Authorization: Bearer $TOKEN" \
+            "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/$PKG/edits" \
+            | jq -r .id)
+          curl -sf -H "Authorization: Bearer $TOKEN" \
+            "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/$PKG/edits/$EDIT_ID/tracks" \
+            | jq .
+          curl -sf -X POST -H "Authorization: Bearer $TOKEN" \
+            "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/$PKG/edits/$EDIT_ID:delete" \
+            -o /dev/null -w "Edit cleanup HTTP status: %{http_code}\n"
