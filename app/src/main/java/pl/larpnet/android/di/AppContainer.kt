@@ -27,6 +27,7 @@ import pl.larpnet.android.network.GitHubApi
 import pl.larpnet.android.network.InstanceUrl
 import pl.larpnet.android.network.friendicaJson
 import pl.larpnet.android.ui.compose.RecentTagsStore
+import pl.larpnet.android.ui.nav.BottomNavOrderStore
 import retrofit2.Retrofit
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import okhttp3.MediaType.Companion.toMediaType
@@ -40,6 +41,8 @@ import okhttp3.MediaType.Companion.toMediaType
 class AppContainer(context: Context) {
 
     val tokenStore = TokenStore(context)
+
+    val bottomNavOrderStore = BottomNavOrderStore(tokenStore)
 
     val recentTagsStore = RecentTagsStore(tokenStore)
 

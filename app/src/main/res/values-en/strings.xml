@@ -117,6 +117,9 @@
     <string name="settings_open_web_hint">For fields this app can\'t edit: birthday, address, XMPP/Matrix, homepage, keywords, custom profile fields, and language. Opens the website -- you may need to sign in there separately.</string>
     <string name="settings_advanced_section">Advanced</string>
     <string name="settings_server_address_hint">Takes effect after you log out and log back in.</string>
+    <string name="settings_bottom_nav_order_section">Bottom bar icon order</string>
+    <string name="settings_bottom_nav_move_up">Move up</string>
+    <string name="settings_bottom_nav_move_down">Move down</string>
 
     <!-- Safety -->
     <string name="settings_safety_section">Safety</string>
