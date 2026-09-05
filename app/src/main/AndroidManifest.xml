@@ -1,13 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!--
-      Branch-only diff from main: this build uses FCM (BuildConfig.FCM_PUSH_ENABLED = true,
-      see app/build.gradle.kts), so it needs neither NtfyListenerService's specialUse
-      foreground service nor the battery-optimization-exemption request that goes with its
-      persistent socket (see push/PushControl.kt). Dropping FOREGROUND_SERVICE(_SPECIAL_USE)
-      is the actual point: it's what Play Console's review was flagging.
-    -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
@@ -52,9 +45,11 @@
         </activity>
 
         <!--
-          This build's push transport (see BuildConfig.FCM_PUSH_ENABLED, push/PushControl.kt).
-          main also declares NtfyListenerService here (the ntfy-based GitHub build's specialUse
-          foreground service); this branch drops it entirely since it's never used once FCM is on.
+          Play Store flavor's push transport (see BuildConfig.FCM_PUSH_ENABLED, push/PushControl.kt).
+          Declared unconditionally (harmless on the github flavor too, which declares its own
+          NtfyListenerService in src/github/AndroidManifest.xml) since auto-init is off by default
+          just below: Firebase never generates a token, so this service never receives anything,
+          unless PushControl explicitly turns auto-init on.
         -->
         <service
             android:name=".push.LarpnetFirebaseMessagingService"

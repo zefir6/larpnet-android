@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      Github-flavor-only additions (see app/build.gradle.kts productFlavors): this build listens
+      for pushes via NtfyListenerService instead of FCM (BuildConfig.FCM_PUSH_ENABLED = false), so
+      it needs the permissions that service's persistent connection depends on. The playstore
+      flavor carries neither; FOREGROUND_SERVICE_SPECIAL_USE in particular is what Play Console's
+      review flags, which is why that flavor must never declare it.
+    -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <application>
+        <!--
+          Holds the long-lived connection to push.larpnet.pl's ntfy relay (see push/NtfyListenerService.kt).
+          specialUse is the correct Android 14+ foreground-service type for "listen for pushes without
+          Firebase/UnifiedPush": none of the other enumerated types (dataSync, connectedDevice, etc.) fit,
+          and dataSync in particular carries a 6h background execution cap on Android 15+ that would kill
+          this on a timer. specialUse has no such cap; its only OS-side requirement is this property.
+        -->
+        <service
+            android:name="pl.larpnet.android.push.NtfyListenerService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="push-notifications-listener" />
+        </service>
+    </application>
+
+</manifest>

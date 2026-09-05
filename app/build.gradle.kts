@@ -6,8 +6,9 @@ plugins {
 }
 
 // Release signing comes from the environment (CI secrets), never from committed files -- see
-// .github/workflows/release.yml. Absent locally, so a plain `./gradlew assembleRelease` on a
-// dev machine still builds (just unsigned); CI is the only place these are ever set.
+// .github/workflows/release.yml. Absent locally, so a plain `./gradlew assembleGithubRelease` /
+// `bundlePlaystoreRelease` on a dev machine still builds (just unsigned); CI is the only place
+// these are ever set.
 val releaseKeystorePath: String? = System.getenv("RELEASE_KEYSTORE_PATH")
 val releaseKeystorePassword: String? = System.getenv("RELEASE_KEYSTORE_PASSWORD")
 val releaseKeyAlias: String? = System.getenv("RELEASE_KEY_ALIAS")
@@ -40,17 +41,26 @@ android {
         // exchange all match on this string).
         buildConfigField("String", "DEFAULT_INSTANCE", "\"larpnet.pl\"")
         buildConfigField("String", "OAUTH_REDIRECT_URI", "\"pl.larpnet.android://oauth\"")
+    }
 
-        // GitHub-Releases self-update check (UpdateRepository) makes no sense for a Play
-        // Store build -- Play handles updates itself. True here on main (the GitHub-distributed
-        // build); the play-store branch carries this one line flipped to false.
-        buildConfigField("boolean", "UPDATE_CHECK_ENABLED", "false")
-
-        // Push transport: the GitHub-distributed build listens to the ntfy relay directly
-        // (NtfyListenerService, no Google Play Services dependency -- see its doc comment).
-        // Play Store builds use Firebase Cloud Messaging instead (PushControl.kt), which drops
-        // the specialUse foreground service Play's review flags. False on main; true here.
-        buildConfigField("boolean", "FCM_PUSH_ENABLED", "true")
+    // Two distribution channels built from the same main branch/tree (see .github/workflows/release.yml,
+    // which builds and publishes both from every push): "github" self-updates via UpdateRepository and
+    // listens for pushes via NtfyListenerService (no Google Play Services dependency); "playstore" lets
+    // Play handle updates and uses Firebase Cloud Messaging instead (PushControl.kt), which is also why
+    // it drops the specialUse foreground-service permission Play's review flags -- see
+    // app/src/github/AndroidManifest.xml for the manifest pieces unique to the github flavor.
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("github") {
+            dimension = "distribution"
+            buildConfigField("boolean", "UPDATE_CHECK_ENABLED", "true")
+            buildConfigField("boolean", "FCM_PUSH_ENABLED", "false")
+        }
+        create("playstore") {
+            dimension = "distribution"
+            buildConfigField("boolean", "UPDATE_CHECK_ENABLED", "false")
+            buildConfigField("boolean", "FCM_PUSH_ENABLED", "true")
+        }
     }
 
     signingConfigs {
