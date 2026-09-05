@@ -78,7 +78,7 @@ import pl.larpnet.android.data.auth.TokenStore
 import pl.larpnet.android.data.repository.AuthRepository
 import pl.larpnet.android.data.repository.ProfileRepository
 import pl.larpnet.android.data.repository.PushRepository
-import pl.larpnet.android.data.repository.UpdateRepository
+import pl.larpnet.android.data.repository.UpdateChecker
 import pl.larpnet.android.di.rememberAppContainer
 import pl.larpnet.android.push.PushControl
 import pl.larpnet.android.ui.common.AvatarImage
@@ -120,7 +120,7 @@ fun SettingsScreen(onBack: (() -> Unit)? = null, onOpenProfile: () -> Unit, onLo
                     appContainer.authRepository,
                     appContainer.tokenStore,
                     appContainer.pushRepository,
-                    appContainer.updateRepository,
+                    appContainer.updateChecker,
                 )
             }
         },
@@ -372,9 +372,8 @@ fun SettingsScreen(onBack: (() -> Unit)? = null, onOpenProfile: () -> Unit, onLo
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-                // Play Store builds skip this section entirely -- Play handles updates, and
-                // there's no GitHub release to check against (BuildConfig.UPDATE_CHECK_ENABLED
-                // is false there).
+                // Both distribution flavors check for updates (GitHub Releases or Play Core --
+                // see di/UpdateCheckerFactory.kt), so this section shows for both.
                 if (BuildConfig.UPDATE_CHECK_ENABLED) {
                     SectionLabel(stringResource(R.string.settings_update_section))
                     SettingsLinkRow(
@@ -604,7 +603,7 @@ private class SettingsViewModel(
     private val authRepository: AuthRepository,
     private val tokenStore: TokenStore,
     private val pushRepository: PushRepository,
-    private val updateRepository: UpdateRepository,
+    private val updateChecker: UpdateChecker,
 ) : ViewModel() {
 
     var uiState by mutableStateOf(SettingsUiState(pushEnabled = tokenStore.pushEnabled))
@@ -642,14 +641,14 @@ private class SettingsViewModel(
     }
 
     /** Manual check, unlike the cold-start one in NavGraph -- always hits the network and always
-     * reports the truth (see UpdateRepository.checkNow), even for a previously-dismissed version. */
+     * reports the truth (see UpdateChecker.checkNow), even for a previously-dismissed version. */
     fun checkForUpdates() {
         uiState = uiState.copy(isCheckingForUpdate = true, upToDateMessageVisible = false)
         viewModelScope.launch {
-            updateRepository.checkNow()
+            updateChecker.checkNow()
             uiState = uiState.copy(
                 isCheckingForUpdate = false,
-                upToDateMessageVisible = updateRepository.updateAvailable.value == null,
+                upToDateMessageVisible = updateChecker.updateAvailable.value == null,
             )
         }
     }

@@ -44,11 +44,13 @@ android {
     }
 
     // Two distribution channels built from the same main branch/tree (see .github/workflows/release.yml,
-    // which builds and publishes both from every push): "github" self-updates via UpdateRepository and
-    // listens for pushes via NtfyListenerService (no Google Play Services dependency); "playstore" lets
-    // Play handle updates and uses Firebase Cloud Messaging instead (PushControl.kt), which is also why
-    // it drops the specialUse foreground-service permission Play's review flags -- see
-    // app/src/github/AndroidManifest.xml for the manifest pieces unique to the github flavor.
+    // which builds and publishes both from every push): "github" self-updates via UpdateRepository (GitHub
+    // Releases) and listens for pushes via NtfyListenerService (no Google Play Services dependency);
+    // "playstore" checks for updates via the Play Core In-App Update API (PlayUpdateRepository) and uses
+    // Firebase Cloud Messaging instead (PushControl.kt), which is also why it drops the specialUse
+    // foreground-service permission Play's review flags -- see app/src/github/AndroidManifest.xml for the
+    // manifest pieces unique to the github flavor. UPDATE_CHECK_ENABLED just means "some update-check
+    // mechanism is active for this flavor" -- which one is selected per-flavor in di/UpdateCheckerFactory.kt.
     flavorDimensions += "distribution"
     productFlavors {
         create("github") {
@@ -58,7 +60,7 @@ android {
         }
         create("playstore") {
             dimension = "distribution"
-            buildConfigField("boolean", "UPDATE_CHECK_ENABLED", "false")
+            buildConfigField("boolean", "UPDATE_CHECK_ENABLED", "true")
             buildConfigField("boolean", "FCM_PUSH_ENABLED", "true")
         }
     }
@@ -146,4 +148,6 @@ dependencies {
 
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
+
+    "playstoreImplementation"(libs.play.app.update.ktx)
 }

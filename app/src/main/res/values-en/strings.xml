@@ -136,7 +136,9 @@
     <string name="settings_checking_for_updates">Checking…</string>
     <string name="settings_up_to_date">You\'re on the latest version</string>
     <string name="update_banner_message">A new version of Larpnet is available (%1$s)</string>
+    <string name="update_banner_message_generic">A new version of Larpnet is available</string>
     <string name="update_banner_download">Download</string>
+    <string name="update_banner_update">Update</string>
     <string name="update_banner_dismiss">Dismiss</string>
 
     <!-- Push notifications -->
