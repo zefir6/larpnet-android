@@ -12,3 +12,8 @@ local.properties
 /app/release
 *.hprof
 .kotlin
+
+# Signing / Play Console credentials -- these only ever belong in GitHub Secrets, never committed
+*.jks
+*.keystore
+play-service-account*.json
