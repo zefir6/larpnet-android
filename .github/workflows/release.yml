@@ -136,5 +136,5 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: pl.larpnet.android
           releaseFiles: dist/*.aab
-          track: internal
+          tracks: internal
           status: draft
