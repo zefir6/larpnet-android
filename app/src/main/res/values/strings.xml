@@ -113,6 +113,9 @@
     <string name="settings_open_web_hint">Dla pól niedostępnych w aplikacji: data urodzenia, adres, XMPP/Matrix, strona domowa, słowa kluczowe, własne pola profilu i język. Otworzy stronę -- może być konieczne osobne zalogowanie się tam.</string>
     <string name="settings_advanced_section">Zaawansowane</string>
     <string name="settings_server_address_hint">Zmiana zajmie efekt po wylogowaniu i ponownym zalogowaniu.</string>
+    <string name="settings_bottom_nav_order_section">Kolejność ikon dolnego paska</string>
+    <string name="settings_bottom_nav_move_up">Przesuń w górę</string>
+    <string name="settings_bottom_nav_move_down">Przesuń w dół</string>
 
     <!-- Safety -->
     <string name="settings_safety_section">Bezpieczeństwo</string>

@@ -68,6 +68,13 @@ class TokenStore(context: Context) {
         get() = prefs.getInt(KEY_DISMISSED_UPDATE_VERSION_CODE, 0)
         set(value) = prefs.edit().putInt(KEY_DISMISSED_UPDATE_VERSION_CODE, value).apply()
 
+    /** Comma-separated [pl.larpnet.android.ui.nav.BottomTab] enum names, user-customizable order of the
+     * bottom navigation bar -- see [pl.larpnet.android.ui.nav.BottomNavOrderStore]. Null until the user
+     * reorders it for the first time. */
+    var bottomNavOrder: String?
+        get() = prefs.getString(KEY_BOTTOM_NAV_ORDER, null)
+        set(value) = prefs.edit().putString(KEY_BOTTOM_NAV_ORDER, value).apply()
+
     /** Clears the access token (and app registration, since it's keyed to one instance) on logout / forced re-login. */
     fun clear() {
         prefs.edit()
@@ -86,5 +93,6 @@ class TokenStore(context: Context) {
         private const val KEY_PUSH_ENABLED = "push_enabled"
         private const val KEY_LAST_UPDATE_CHECK_AT = "last_update_check_at"
         private const val KEY_DISMISSED_UPDATE_VERSION_CODE = "dismissed_update_version_code"
+        private const val KEY_BOTTOM_NAV_ORDER = "bottom_nav_order"
     }
 }
