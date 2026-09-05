@@ -32,7 +32,7 @@ android {
         versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
         // Semantic-ish version, bumped by hand: patch for fixes, minor for any functionality
         // change, per user preference (2026-08-23) -- not tied to versionCode/run number.
-        versionName = "0.7.1"
+        versionName = "0.7.2"
 
         // Default Larpnet instance and OAuth redirect scheme. See ui/login/OAuthRedirectActivity.kt
         // and AndroidManifest.xml for the matching intent-filter -- the scheme/host here must stay
@@ -71,6 +71,12 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("release")
+            }
+            // We ship no native code ourselves, but bundled deps (e.g. Firebase Messaging) do.
+            // Without this, Play Console warns that the App Bundle has native libs but no debug
+            // symbols were uploaded, which would otherwise leave native crashes/ANRs unsymbolicated.
+            ndk {
+                debugSymbolLevel = "FULL"
             }
         }
         debug {
