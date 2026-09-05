@@ -1,25 +1,28 @@
 package pl.larpnet.android.data.repository
 
+import android.content.Context
+import com.google.android.play.core.appupdate.AppUpdateManager
+import com.google.android.play.core.appupdate.AppUpdateManagerFactory
+import com.google.android.play.core.install.model.UpdateAvailability
+import com.google.android.play.core.ktx.requestAppUpdateInfo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import pl.larpnet.android.BuildConfig
 import pl.larpnet.android.data.auth.TokenStore
-import pl.larpnet.android.network.GitHubApi
-import pl.larpnet.android.network.safeApiCall
-
-/** The run-number suffix GitHub Actions puts on every release tag ("v0.2.0-3") -- see .github/workflows/release.yml. */
-private val VERSION_CODE_FROM_TAG = Regex("-(\\d+)$")
 
 /**
- * In-app update checking against GitHub Releases, for the "github" distribution flavor. Owns both
- * the fetch and the "have we already told the user about this one" state, so every caller
- * (cold-start auto-check, Settings' manual check, the global banner) shares one source of truth.
+ * In-app update checking against the Play Core In-App Update API, for the "playstore" distribution
+ * flavor. Only queries availability -- never drives Play Core's own update-flow UI -- so the banner
+ * just opens the Play Store listing, same as the GitHub flow opens a browser download.
  */
-class UpdateRepository(
-    private val gitHubApi: GitHubApi,
+class PlayUpdateRepository(
+    context: Context,
     private val tokenStore: TokenStore,
 ) : UpdateChecker {
+    private val appUpdateManager: AppUpdateManager = AppUpdateManagerFactory.create(context)
+    private val packageName = context.packageName
+
     private val _updateAvailable = MutableStateFlow<AppUpdate?>(null)
     override val updateAvailable: StateFlow<AppUpdate?> = _updateAvailable.asStateFlow()
 
@@ -41,20 +44,21 @@ class UpdateRepository(
     }
 
     private suspend fun fetchLatest(): AppUpdate? {
-        val release = safeApiCall { gitHubApi.latestRelease() }.getOrNull() ?: return null
-        val remoteVersionCode = VERSION_CODE_FROM_TAG.find(release.tagName)
-            ?.groupValues
-            ?.get(1)
-            ?.toIntOrNull()
-            ?: return null
+        val info = try {
+            appUpdateManager.requestAppUpdateInfo()
+        } catch (e: Exception) {
+            // Sideloaded install / no Play association / API genuinely unavailable -- no-op
+            // silently, never crash, never show a banner.
+            return null
+        }
+        if (info.updateAvailability() != UpdateAvailability.UPDATE_AVAILABLE) return null
+        val remoteVersionCode = info.availableVersionCode()
         if (remoteVersionCode <= BuildConfig.VERSION_CODE) return null
-        val downloadUrl = release.assets.firstOrNull { it.name.endsWith(".apk") }?.browserDownloadUrl ?: return null
-        val versionName = release.tagName.removePrefix("v").substringBeforeLast('-')
         return AppUpdate(
-            versionName = versionName,
+            versionName = null,
             versionCode = remoteVersionCode,
-            downloadUrl = downloadUrl,
-            source = UpdateSource.GITHUB,
+            downloadUrl = "market://details?id=$packageName",
+            source = UpdateSource.PLAY_STORE,
         )
     }
 }

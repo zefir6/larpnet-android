@@ -129,7 +129,9 @@
     <string name="settings_checking_for_updates">Sprawdzanie…</string>
     <string name="settings_up_to_date">Masz najnowszą wersję</string>
     <string name="update_banner_message">Dostępna jest nowa wersja Larpnet (%1$s)</string>
+    <string name="update_banner_message_generic">Dostępna jest nowa wersja Larpnet</string>
     <string name="update_banner_download">Pobierz</string>
+    <string name="update_banner_update">Aktualizuj</string>
     <string name="update_banner_dismiss">Zamknij</string>
 
     <!-- Push notifications -->

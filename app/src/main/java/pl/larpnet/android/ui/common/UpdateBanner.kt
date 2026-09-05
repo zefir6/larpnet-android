@@ -19,8 +19,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import pl.larpnet.android.R
 import pl.larpnet.android.data.repository.AppUpdate
+import pl.larpnet.android.data.repository.UpdateSource
 
-/** Global "new version available" banner -- see UpdateRepository. Shown once above the NavHost so it survives switching bottom-nav tabs. */
+/** Global "new version available" banner -- see UpdateChecker. Shown once above the NavHost so it survives switching bottom-nav tabs. */
 @Composable
 fun UpdateBanner(update: AppUpdate, onDownload: () -> Unit, onDismiss: () -> Unit) {
     Card(
@@ -35,12 +36,24 @@ fun UpdateBanner(update: AppUpdate, onDownload: () -> Unit, onDismiss: () -> Uni
             modifier = Modifier.padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
         ) {
             Text(
-                stringResource(R.string.update_banner_message, update.versionName),
+                update.versionName
+                    ?.let { stringResource(R.string.update_banner_message, it) }
+                    ?: stringResource(R.string.update_banner_message_generic),
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),
             )
-            TextButton(onClick = onDownload) { Text(stringResource(R.string.update_banner_download)) }
+            TextButton(onClick = onDownload) {
+                Text(
+                    stringResource(
+                        if (update.source == UpdateSource.PLAY_STORE) {
+                            R.string.update_banner_update
+                        } else {
+                            R.string.update_banner_download
+                        },
+                    ),
+                )
+            }
             IconButton(onClick = onDismiss) {
                 Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.update_banner_dismiss))
             }

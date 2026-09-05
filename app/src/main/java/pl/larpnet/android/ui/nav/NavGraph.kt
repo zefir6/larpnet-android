@@ -1,6 +1,7 @@
 package pl.larpnet.android.ui.nav
 
 import android.Manifest
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -146,14 +147,14 @@ fun LarpnetNavGraph(startDestination: String) {
     // only runs once for this NavGraph instance's lifetime and won't re-fire after that navigate.
     LaunchedEffect(Unit) { startPushIfEnabled() }
 
-    // GitHub-distributed builds have to notice their own updates -- see UpdateRepository.
-    // Throttled internally to at most once/24h; the banner below reflects whatever it finds,
-    // and Settings' manual "Check for updates" shares the same state. Play Store builds skip
-    // this entirely (BuildConfig.UPDATE_CHECK_ENABLED is false there) -- Play handles updates.
+    // Both distribution flavors notice their own updates -- GitHub Releases polling or the Play
+    // Core In-App Update API, see di/UpdateCheckerFactory.kt for which. Throttled internally to
+    // at most once/24h; the banner below reflects whatever it finds, and Settings' manual
+    // "Check for updates" shares the same state.
     if (BuildConfig.UPDATE_CHECK_ENABLED) {
-        LaunchedEffect(Unit) { appContainer.updateRepository.checkIfDue() }
+        LaunchedEffect(Unit) { appContainer.updateChecker.checkIfDue() }
     }
-    val availableUpdate by appContainer.updateRepository.updateAvailable.collectAsState()
+    val availableUpdate by appContainer.updateChecker.updateAvailable.collectAsState()
 
     LaunchedEffect(Unit) {
         appContainer.authInterceptor.forceLogoutEvents.collect {
@@ -222,9 +223,18 @@ fun LarpnetNavGraph(startDestination: String) {
                 UpdateBanner(
                     update = update,
                     onDownload = {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.downloadUrl)))
+                        try {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.downloadUrl)))
+                        } catch (e: ActivityNotFoundException) {
+                            context.startActivity(
+                                Intent(
+                                    Intent.ACTION_VIEW,
+                                    Uri.parse("https://play.google.com/store/apps/details?id=${context.packageName}"),
+                                ),
+                            )
+                        }
                     },
-                    onDismiss = { appContainer.updateRepository.dismiss() },
+                    onDismiss = { appContainer.updateChecker.dismiss() },
                 )
             }
             NavHost(

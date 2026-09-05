@@ -19,7 +19,7 @@ import pl.larpnet.android.data.repository.ProfileRepository
 import pl.larpnet.android.data.repository.PushRepository
 import pl.larpnet.android.data.repository.StatusRepository
 import pl.larpnet.android.data.repository.TimelineRepository
-import pl.larpnet.android.data.repository.UpdateRepository
+import pl.larpnet.android.data.repository.UpdateChecker
 import pl.larpnet.android.network.AuthApi
 import pl.larpnet.android.network.AuthInterceptor
 import pl.larpnet.android.network.FriendicaApi
@@ -159,5 +159,5 @@ class AppContainer(context: Context) {
         .build()
         .create(GitHubApi::class.java)
 
-    val updateRepository = UpdateRepository(gitHubApi, tokenStore)
+    val updateChecker: UpdateChecker = createUpdateChecker(context, gitHubApi, tokenStore)
 }
