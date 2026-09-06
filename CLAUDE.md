@@ -69,3 +69,12 @@ Before reporting a UI/behavior change as done, build and run the app on the Andr
 (`app-github-debug` flavor) and actually exercise the change (tap through it, take screenshots)
 rather than relying on compile success or type-checking alone. Only skip this and say so
 explicitly if the emulator genuinely can't be used for the change at hand.
+
+Point the emulator at `test.larpnet.pl` (not production `larpnet.pl`) for this — same test
+account as used elsewhere against this server. Prefer this even for read-only checks; it
+matters most before any action that writes data (favouriting, replying, following, etc.),
+since those hit the account/server for real.
+
+When a change is visual (layout, colors, icons, spacing, new UI element), attach a screenshot
+showing it to the PR (`gh pr comment <number> --attach <path>#<alt text>`) — don't just describe
+it in words.
