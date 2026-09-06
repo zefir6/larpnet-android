@@ -20,8 +20,10 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -40,6 +42,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import pl.larpnet.android.R
 import pl.larpnet.android.data.model.Status
 import pl.larpnet.android.di.rememberAppContainer
+import pl.larpnet.android.ui.theme.LarpnetAccent
 import pl.larpnet.android.ui.theme.LarpnetHighlight
 import pl.larpnet.android.ui.theme.LarpnetPageBackground
 import pl.larpnet.android.ui.theme.larpnetCard
@@ -176,15 +179,22 @@ fun ThreadScreen(
                                     Box(modifier = Modifier.width((indentDepth * 16).dp))
                                 }
                                 if (renderItem.hasChildren) {
-                                    IconButton(
+                                    FilledTonalIconButton(
                                         onClick = { viewModel.toggleCollapsed(renderItem.status.id) },
-                                        modifier = Modifier.size(24.dp),
+                                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                            containerColor = LarpnetHighlight,
+                                            contentColor = LarpnetAccent,
+                                        ),
+                                        modifier = Modifier
+                                            .padding(top = 8.dp, end = 4.dp)
+                                            .size(32.dp),
                                     ) {
                                         Icon(
                                             if (renderItem.isCollapsed) Icons.Filled.KeyboardArrowRight else Icons.Filled.KeyboardArrowDown,
                                             contentDescription = stringResource(
                                                 if (renderItem.isCollapsed) R.string.thread_expand_replies else R.string.thread_collapse_replies,
                                             ),
+                                            modifier = Modifier.size(22.dp),
                                         )
                                     }
                                 }
