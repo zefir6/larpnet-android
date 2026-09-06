@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.ChatBubbleOutline
@@ -199,10 +200,16 @@ fun StatusCard(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             ActionButton(
-                icon = Icons.Filled.ChatBubbleOutline,
-                count = display.repliesCount,
+                icon = Icons.AutoMirrored.Filled.Reply,
+                count = 0,
                 contentDescription = stringResource(R.string.action_reply),
                 onClick = { onReply(display) },
+            )
+            ActionButton(
+                icon = Icons.Filled.ChatBubbleOutline,
+                count = display.repliesCount,
+                contentDescription = stringResource(R.string.action_open_thread),
+                onClick = { onOpenThread(display) },
             )
             ActionButton(
                 icon = Icons.Filled.Repeat,
