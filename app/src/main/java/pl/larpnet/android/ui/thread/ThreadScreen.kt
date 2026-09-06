@@ -11,13 +11,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -28,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -36,6 +40,9 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import pl.larpnet.android.R
 import pl.larpnet.android.data.model.Status
 import pl.larpnet.android.di.rememberAppContainer
+import pl.larpnet.android.ui.theme.LarpnetHighlight
+import pl.larpnet.android.ui.theme.LarpnetPageBackground
+import pl.larpnet.android.ui.theme.larpnetCard
 import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 import pl.larpnet.android.ui.timeline.StatusCard
 
@@ -110,77 +117,102 @@ fun ThreadScreen(
                 Text(state.error)
             }
 
-            else -> LazyColumn(state = listState, modifier = Modifier.padding(padding)) {
-                items(state.ancestors, key = { "a_${it.id}" }) { status ->
-                    StatusCard(
-                        status = status,
-                        onOpenThread = onOpenThread,
-                        onOpenProfile = onOpenProfile,
-                        onReply = onReply,
-                        onToggleFavourite = viewModel::toggleFavourite,
-                        onToggleReblog = viewModel::toggleReblog,
-                        onToggleBookmark = viewModel::toggleBookmark,
-                    )
-                }
-
-                state.focus?.let { focus ->
-                    item(key = "focus_${focus.id}") {
-                        Box(modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant)) {
-                            StatusCard(
-                                status = focus,
-                                onOpenThread = {},
-                                onOpenProfile = onOpenProfile,
-                                onReply = onReply,
-                                onToggleFavourite = viewModel::toggleFavourite,
-                                onToggleReblog = viewModel::toggleReblog,
-                                onToggleBookmark = viewModel::toggleBookmark,
-                            )
-                        }
+            // The whole conversation -- ancestors, the focused post, every reply -- lives inside
+            // one shared panel (rather than each post getting its own floating card) so it reads
+            // as a single thread, not a stack of separate posts; StatusCard's flat = true drops
+            // its own per-post card chrome accordingly. Thin dividers between rows stand in for
+            // the card boundaries that would otherwise separate one post from the next.
+            else -> Box(
+                modifier = Modifier
+                    .padding(padding)
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                    .larpnetCard()
+                    .clip(RoundedCornerShape(4.dp)),
+            ) {
+                LazyColumn(state = listState) {
+                    items(state.ancestors, key = { "a_${it.id}" }) { status ->
+                        StatusCard(
+                            status = status,
+                            onOpenThread = onOpenThread,
+                            onOpenProfile = onOpenProfile,
+                            onReply = onReply,
+                            onToggleFavourite = viewModel::toggleFavourite,
+                            onToggleReblog = viewModel::toggleReblog,
+                            onToggleBookmark = viewModel::toggleBookmark,
+                            flat = true,
+                        )
+                        HorizontalDivider(color = LarpnetPageBackground)
                     }
-                }
 
-                items(state.descendants, key = { "d_${it.status.id}" }) { renderItem ->
-                    // Deep replies would otherwise squeeze the card down to nothing, so indent
-                    // stops growing past MAX_INDENT_DEPTH levels -- further nesting stays flat.
-                    val indentDepth = renderItem.depth.coerceAtMost(MAX_INDENT_DEPTH)
-                    Column(modifier = Modifier.animateItem()) {
-                        Row(verticalAlignment = Alignment.Top) {
-                            if (indentDepth > 0) {
-                                Box(modifier = Modifier.width((indentDepth * 16).dp))
-                            }
-                            if (renderItem.hasChildren) {
-                                IconButton(
-                                    onClick = { viewModel.toggleCollapsed(renderItem.status.id) },
-                                    modifier = Modifier.size(24.dp),
-                                ) {
-                                    Icon(
-                                        if (renderItem.isCollapsed) Icons.Filled.KeyboardArrowRight else Icons.Filled.KeyboardArrowDown,
-                                        contentDescription = stringResource(
-                                            if (renderItem.isCollapsed) R.string.thread_expand_replies else R.string.thread_collapse_replies,
-                                        ),
+                    state.focus?.let { focus ->
+                        item(key = "focus_${focus.id}") {
+                            Column {
+                                Box(modifier = Modifier.background(LarpnetHighlight)) {
+                                    StatusCard(
+                                        status = focus,
+                                        onOpenThread = {},
+                                        onOpenProfile = onOpenProfile,
+                                        onReply = onReply,
+                                        onToggleFavourite = viewModel::toggleFavourite,
+                                        onToggleReblog = viewModel::toggleReblog,
+                                        onToggleBookmark = viewModel::toggleBookmark,
+                                        flat = true,
                                     )
                                 }
+                                if (state.descendants.isNotEmpty()) {
+                                    HorizontalDivider(color = LarpnetPageBackground)
+                                }
                             }
-                            StatusCard(
-                                status = renderItem.status,
-                                onOpenThread = onOpenThread,
-                                onOpenProfile = onOpenProfile,
-                                onReply = onReply,
-                                onToggleFavourite = viewModel::toggleFavourite,
-                                onToggleReblog = viewModel::toggleReblog,
-                                onToggleBookmark = viewModel::toggleBookmark,
-                                modifier = Modifier.weight(1f),
-                            )
                         }
-                        if (renderItem.isCollapsed) {
-                            Text(
-                                text = stringResource(R.string.thread_hidden_replies, renderItem.hiddenDescendantCount),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier
-                                    .padding(start = (indentDepth * 16 + 40).dp, bottom = 8.dp)
-                                    .clickable { viewModel.toggleCollapsed(renderItem.status.id) },
-                            )
+                    }
+
+                    itemsIndexed(state.descendants, key = { _, it -> "d_${it.status.id}" }) { index, renderItem ->
+                        // Deep replies would otherwise squeeze the card down to nothing, so indent
+                        // stops growing past MAX_INDENT_DEPTH levels -- further nesting stays flat.
+                        val indentDepth = renderItem.depth.coerceAtMost(MAX_INDENT_DEPTH)
+                        Column(modifier = Modifier.animateItem()) {
+                            Row(verticalAlignment = Alignment.Top) {
+                                if (indentDepth > 0) {
+                                    Box(modifier = Modifier.width((indentDepth * 16).dp))
+                                }
+                                if (renderItem.hasChildren) {
+                                    IconButton(
+                                        onClick = { viewModel.toggleCollapsed(renderItem.status.id) },
+                                        modifier = Modifier.size(24.dp),
+                                    ) {
+                                        Icon(
+                                            if (renderItem.isCollapsed) Icons.Filled.KeyboardArrowRight else Icons.Filled.KeyboardArrowDown,
+                                            contentDescription = stringResource(
+                                                if (renderItem.isCollapsed) R.string.thread_expand_replies else R.string.thread_collapse_replies,
+                                            ),
+                                        )
+                                    }
+                                }
+                                StatusCard(
+                                    status = renderItem.status,
+                                    onOpenThread = onOpenThread,
+                                    onOpenProfile = onOpenProfile,
+                                    onReply = onReply,
+                                    onToggleFavourite = viewModel::toggleFavourite,
+                                    onToggleReblog = viewModel::toggleReblog,
+                                    onToggleBookmark = viewModel::toggleBookmark,
+                                    modifier = Modifier.weight(1f),
+                                    flat = true,
+                                )
+                            }
+                            if (renderItem.isCollapsed) {
+                                Text(
+                                    text = stringResource(R.string.thread_hidden_replies, renderItem.hiddenDescendantCount),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier
+                                        .padding(start = (indentDepth * 16 + 40).dp, bottom = 8.dp)
+                                        .clickable { viewModel.toggleCollapsed(renderItem.status.id) },
+                                )
+                            }
+                            if (index != state.descendants.lastIndex) {
+                                HorizontalDivider(color = LarpnetPageBackground)
+                            }
                         }
                     }
                 }

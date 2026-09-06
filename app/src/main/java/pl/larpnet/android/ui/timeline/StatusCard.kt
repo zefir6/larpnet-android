@@ -79,6 +79,12 @@ fun StatusCard(
     onToggleBookmark: (Status) -> Unit,
     onDelete: ((Status) -> Unit)? = null,
     modifier: Modifier = Modifier,
+    // Timelines render each post as its own floating white panel (the site's `.panel` look).
+    // A thread is conceptually one conversation, not a stack of separate posts, so ThreadScreen
+    // passes flat = true to render every ancestor/focus/reply as a condensed row sharing one
+    // surrounding panel (see ThreadScreen's own larpnetCard()) instead of nesting a shadowed
+    // card inside a card.
+    flat: Boolean = false,
 ) {
     val display = status.reblog ?: status
     var contentVisible by remember(display.id) { mutableStateOf(!display.sensitive) }
@@ -89,10 +95,17 @@ fun StatusCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp)
-            .larpnetCard()
-            .clip(RoundedCornerShape(4.dp))
-            .padding(16.dp),
+            .then(
+                if (flat) {
+                    Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                } else {
+                    Modifier
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .larpnetCard()
+                        .clip(RoundedCornerShape(4.dp))
+                        .padding(16.dp)
+                }
+            ),
     ) {
         if (status.reblog != null) {
             Row(verticalAlignment = Alignment.CenterVertically) {
