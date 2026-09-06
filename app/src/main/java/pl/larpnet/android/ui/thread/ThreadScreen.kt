@@ -1,16 +1,21 @@
 package pl.larpnet.android.ui.thread
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
@@ -33,6 +38,10 @@ import pl.larpnet.android.data.model.Status
 import pl.larpnet.android.di.rememberAppContainer
 import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 import pl.larpnet.android.ui.timeline.StatusCard
+
+// Beyond this many levels, further nesting stops indenting further -- otherwise a long reply
+// chain squeezes the card down to nothing.
+private const val MAX_INDENT_DEPTH = 6
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -131,20 +140,48 @@ fun ThreadScreen(
                 }
 
                 items(state.descendants, key = { "d_${it.status.id}" }) { renderItem ->
-                    Row {
-                        if (renderItem.depth > 0) {
-                            Box(modifier = Modifier.width((renderItem.depth * 16).dp))
+                    // Deep replies would otherwise squeeze the card down to nothing, so indent
+                    // stops growing past MAX_INDENT_DEPTH levels -- further nesting stays flat.
+                    val indentDepth = renderItem.depth.coerceAtMost(MAX_INDENT_DEPTH)
+                    Column(modifier = Modifier.animateItem()) {
+                        Row(verticalAlignment = Alignment.Top) {
+                            if (indentDepth > 0) {
+                                Box(modifier = Modifier.width((indentDepth * 16).dp))
+                            }
+                            if (renderItem.hasChildren) {
+                                IconButton(
+                                    onClick = { viewModel.toggleCollapsed(renderItem.status.id) },
+                                    modifier = Modifier.size(24.dp),
+                                ) {
+                                    Icon(
+                                        if (renderItem.isCollapsed) Icons.Filled.KeyboardArrowRight else Icons.Filled.KeyboardArrowDown,
+                                        contentDescription = stringResource(
+                                            if (renderItem.isCollapsed) R.string.thread_expand_replies else R.string.thread_collapse_replies,
+                                        ),
+                                    )
+                                }
+                            }
+                            StatusCard(
+                                status = renderItem.status,
+                                onOpenThread = onOpenThread,
+                                onOpenProfile = onOpenProfile,
+                                onReply = onReply,
+                                onToggleFavourite = viewModel::toggleFavourite,
+                                onToggleReblog = viewModel::toggleReblog,
+                                onToggleBookmark = viewModel::toggleBookmark,
+                                modifier = Modifier.weight(1f),
+                            )
                         }
-                        StatusCard(
-                            status = renderItem.status,
-                            onOpenThread = onOpenThread,
-                            onOpenProfile = onOpenProfile,
-                            onReply = onReply,
-                            onToggleFavourite = viewModel::toggleFavourite,
-                            onToggleReblog = viewModel::toggleReblog,
-                            onToggleBookmark = viewModel::toggleBookmark,
-                            modifier = Modifier,
-                        )
+                        if (renderItem.isCollapsed) {
+                            Text(
+                                text = stringResource(R.string.thread_hidden_replies, renderItem.hiddenDescendantCount),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .padding(start = (indentDepth * 16 + 40).dp, bottom = 8.dp)
+                                    .clickable { viewModel.toggleCollapsed(renderItem.status.id) },
+                            )
+                        }
                     }
                 }
             }

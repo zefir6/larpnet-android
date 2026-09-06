@@ -46,6 +46,9 @@
 
     <!-- Thread -->
     <string name="thread_title">Wątek</string>
+    <string name="thread_collapse_replies">Zwiń odpowiedzi</string>
+    <string name="thread_expand_replies">Rozwiń odpowiedzi</string>
+    <string name="thread_hidden_replies">%1$d odpowiedzi</string>
 
     <!-- Compose -->
     <string name="compose_title_new">Nowy wpis</string>

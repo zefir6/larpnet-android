@@ -11,7 +11,13 @@ import pl.larpnet.android.data.repository.StatusRepository
 import pl.larpnet.android.domain.thread.ThreadNode
 import pl.larpnet.android.domain.thread.buildThreadTree
 
-data class ThreadRenderItem(val status: Status, val depth: Int)
+data class ThreadRenderItem(
+    val status: Status,
+    val depth: Int,
+    val hasChildren: Boolean,
+    val isCollapsed: Boolean,
+    val hiddenDescendantCount: Int,
+)
 
 data class ThreadUiState(
     val isLoading: Boolean = true,
@@ -19,6 +25,7 @@ data class ThreadUiState(
     val ancestors: List<Status> = emptyList(),
     val focus: Status? = null,
     val descendants: List<ThreadRenderItem> = emptyList(),
+    val collapsedIds: Set<String> = emptySet(),
 )
 
 class ThreadViewModel(
@@ -28,6 +35,13 @@ class ThreadViewModel(
 
     var uiState by mutableStateOf(ThreadUiState())
         private set
+
+    // The full reply tree, kept around so toggling collapse/expand can recompute the visible
+    // (flattened) list without a re-fetch. Not part of uiState -- it's an intermediate structure,
+    // not directly rendered -- but updateEverywhere must keep it in sync with uiState.descendants
+    // (see updateTreeStatus) or a favourite/reblog/bookmark toggle would get silently reverted
+    // the next time a sibling branch is collapsed or expanded.
+    private var tree: ThreadNode? = null
 
     init {
         load()
@@ -48,18 +62,50 @@ class ThreadViewModel(
                 return@launch
             }
 
-            val tree = buildThreadTree(focus, context.descendants)
+            tree = buildThreadTree(focus, context.descendants)
             uiState = uiState.copy(
                 isLoading = false,
                 ancestors = context.ancestors,
                 focus = focus,
-                descendants = tree.children.flatMap { flattenNode(it, depth = 0) },
+                collapsedIds = emptySet(),
             )
+            refreshDescendants()
         }
     }
 
-    private fun flattenNode(node: ThreadNode, depth: Int): List<ThreadRenderItem> =
-        listOf(ThreadRenderItem(node.status, depth)) + node.children.flatMap { flattenNode(it, depth + 1) }
+    fun toggleCollapsed(statusId: String) {
+        val collapsedIds = uiState.collapsedIds
+        uiState = uiState.copy(
+            collapsedIds = if (statusId in collapsedIds) collapsedIds - statusId else collapsedIds + statusId,
+        )
+        refreshDescendants()
+    }
+
+    private fun refreshDescendants() {
+        val root = tree ?: return
+        uiState = uiState.copy(
+            descendants = root.children.flatMap { flattenNode(it, depth = 0, uiState.collapsedIds) },
+        )
+    }
+
+    private fun flattenNode(node: ThreadNode, depth: Int, collapsedIds: Set<String>): List<ThreadRenderItem> {
+        val isCollapsed = node.status.id in collapsedIds
+        val item = ThreadRenderItem(
+            status = node.status,
+            depth = depth,
+            hasChildren = node.children.isNotEmpty(),
+            isCollapsed = isCollapsed,
+            hiddenDescendantCount = if (isCollapsed) countDescendants(node) else 0,
+        )
+        return if (isCollapsed) {
+            listOf(item)
+        } else {
+            listOf(item) + node.children.flatMap { flattenNode(it, depth + 1, collapsedIds) }
+        }
+    }
+
+    private fun countDescendants(node: ThreadNode): Int =
+        node.children.size + node.children.sumOf { countDescendants(it) }
 
     fun toggleFavourite(status: Status) {
         val newValue = !status.favourited
@@ -98,6 +144,7 @@ class ThreadViewModel(
     }
 
     private fun updateEverywhere(id: String, transform: (Status) -> Status) {
+        tree = tree?.let { updateTreeStatus(it, id, transform) }
         uiState = uiState.copy(
             ancestors = uiState.ancestors.map { updateIfMatch(it, id, transform) },
             focus = uiState.focus?.let { updateIfMatch(it, id, transform) },
@@ -106,4 +153,10 @@ class ThreadViewModel(
             },
         )
     }
+
+    private fun updateTreeStatus(node: ThreadNode, id: String, transform: (Status) -> Status): ThreadNode =
+        node.copy(
+            status = updateIfMatch(node.status, id, transform),
+            children = node.children.map { updateTreeStatus(it, id, transform) },
+        )
 }
