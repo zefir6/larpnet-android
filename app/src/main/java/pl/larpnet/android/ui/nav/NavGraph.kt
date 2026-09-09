@@ -47,7 +47,14 @@ import pl.larpnet.android.ui.messages.ConversationThreadScreen
 import pl.larpnet.android.ui.messages.ConversationsScreen
 import pl.larpnet.android.ui.notifications.NotificationsScreen
 import pl.larpnet.android.push.PushControl
+import pl.larpnet.android.ui.albums.AlbumDetailScreen
+import pl.larpnet.android.ui.albums.AlbumsScreen
 import pl.larpnet.android.ui.common.UpdateBanner
+import pl.larpnet.android.ui.following.FollowedThreadsScreen
+import pl.larpnet.android.ui.media.MediaGridScreen
+import pl.larpnet.android.ui.moderation.BlockedAccountsScreen
+import pl.larpnet.android.ui.moderation.LocalPostListKind
+import pl.larpnet.android.ui.moderation.LocalPostListScreen
 import pl.larpnet.android.ui.profile.EditProfileScreen
 import pl.larpnet.android.ui.profile.ProfileScreen
 import pl.larpnet.android.ui.search.SearchScreen
@@ -55,6 +62,8 @@ import pl.larpnet.android.ui.settings.SettingsScreen
 import pl.larpnet.android.ui.thread.ThreadScreen
 import pl.larpnet.android.ui.timeline.TimelineKind
 import pl.larpnet.android.ui.timeline.TimelineScreen
+import java.net.URLDecoder
+import java.net.URLEncoder
 
 internal object Routes {
     const val LOGIN = "login"
@@ -72,6 +81,14 @@ internal object Routes {
     const val MESSAGES = "messages"
     const val NEW_MESSAGE = "messages/new"
     const val MESSAGE_THREAD = "messages/thread/{accountId}?conversationId={conversationId}"
+    const val TAG = "tag/{hashtag}"
+    const val BLOCKED_ACCOUNTS = "blocked_accounts"
+    const val HIDDEN_POSTS = "hidden_posts"
+    const val BLOCKED_POSTS = "blocked_posts"
+    const val FOLLOWED_THREADS = "followed_threads"
+    const val ALBUMS = "albums"
+    const val ALBUM_DETAIL = "albums/{album}"
+    const val MEDIA = "media"
 }
 
 private val bottomNavRoutes = BottomTab.entries.map { it.route }.toSet()
@@ -81,6 +98,8 @@ private fun profileRoute(accountId: String) = "profile/$accountId"
 private fun composeRoute(replyToId: String? = null) = if (replyToId != null) "compose?replyToId=$replyToId" else "compose"
 private fun messageThreadRoute(accountId: String, conversationId: String? = null) =
     if (conversationId != null) "messages/thread/$accountId?conversationId=$conversationId" else "messages/thread/$accountId"
+private fun tagRoute(hashtag: String) = "tag/${URLEncoder.encode(hashtag, "UTF-8")}"
+private fun albumDetailRoute(album: String) = "albums/${URLEncoder.encode(album, "UTF-8")}"
 
 private fun NavHostController.navigateToBottomTab(route: String) {
     navigate(route) {
@@ -164,9 +183,11 @@ fun LarpnetNavGraph(startDestination: String) {
     }
 
     val onOpenThread: (Status) -> Unit = { navController.navigate(threadRoute(it.id)) }
+    val onOpenThreadById: (String) -> Unit = { navController.navigate(threadRoute(it)) }
     val onOpenProfile: (String) -> Unit = { navController.navigate(profileRoute(it)) }
     val onReply: (Status) -> Unit = { navController.navigate(composeRoute(it.id)) }
     val onSearch: () -> Unit = { navController.navigate(Routes.SEARCH) }
+    val onOpenHashtag: (String) -> Unit = { navController.navigate(tagRoute(it)) }
 
     val bottomTabOrder by appContainer.bottomNavOrderStore.order.collectAsState()
 
@@ -228,11 +249,19 @@ fun LarpnetNavGraph(startDestination: String) {
             }
 
             composable(Routes.HOME) {
-                TimelineScreen(TimelineKind.Home, onOpenThread, onOpenProfile, onReply, onSearch)
+                TimelineScreen(TimelineKind.Home, onOpenThread, onOpenProfile, onReply, onSearch, onOpenHashtag)
             }
 
             composable(Routes.LOCAL) {
-                TimelineScreen(TimelineKind.Local, onOpenThread, onOpenProfile, onReply, onSearch)
+                TimelineScreen(TimelineKind.Local, onOpenThread, onOpenProfile, onReply, onSearch, onOpenHashtag)
+            }
+
+            composable(
+                Routes.TAG,
+                arguments = listOf(navArgument("hashtag") { type = NavType.StringType }),
+            ) { entry ->
+                val hashtag = URLDecoder.decode(entry.arguments?.getString("hashtag").orEmpty(), "UTF-8")
+                TimelineScreen(TimelineKind.Tag(hashtag), onOpenThread, onOpenProfile, onReply, onSearch, onOpenHashtag)
             }
 
             composable(Routes.DIRECTORY) {
@@ -257,6 +286,9 @@ fun LarpnetNavGraph(startDestination: String) {
                     onReply = onReply,
                     onEditProfile = { navController.navigate(Routes.EDIT_PROFILE) },
                     onSearch = onSearch,
+                    onOpenHashtag = onOpenHashtag,
+                    onOpenAlbums = { navController.navigate(Routes.ALBUMS) },
+                    onOpenMedia = { navController.navigate(Routes.MEDIA) },
                 )
             }
 
@@ -278,6 +310,7 @@ fun LarpnetNavGraph(startDestination: String) {
                     onOpenThread = onOpenThread,
                     onOpenProfile = onOpenProfile,
                     onReply = onReply,
+                    onOpenHashtag = onOpenHashtag,
                 )
             }
 
@@ -294,6 +327,7 @@ fun LarpnetNavGraph(startDestination: String) {
                     onReply = onReply,
                     onEditProfile = { navController.navigate(Routes.EDIT_PROFILE) },
                     onSearch = onSearch,
+                    onOpenHashtag = onOpenHashtag,
                 )
             }
 
@@ -313,7 +347,46 @@ fun LarpnetNavGraph(startDestination: String) {
                             popUpTo(0) { inclusive = true }
                         }
                     },
+                    onOpenBlockedAccounts = { navController.navigate(Routes.BLOCKED_ACCOUNTS) },
+                    onOpenHiddenPosts = { navController.navigate(Routes.HIDDEN_POSTS) },
+                    onOpenBlockedPosts = { navController.navigate(Routes.BLOCKED_POSTS) },
+                    onOpenFollowedThreads = { navController.navigate(Routes.FOLLOWED_THREADS) },
                 )
+            }
+
+            composable(Routes.BLOCKED_ACCOUNTS) {
+                BlockedAccountsScreen(onBack = { navController.popBackStack() })
+            }
+
+            composable(Routes.HIDDEN_POSTS) {
+                LocalPostListScreen(LocalPostListKind.HIDDEN, onBack = { navController.popBackStack() }, onOpenThread = onOpenThreadById)
+            }
+
+            composable(Routes.BLOCKED_POSTS) {
+                LocalPostListScreen(LocalPostListKind.BLOCKED, onBack = { navController.popBackStack() }, onOpenThread = onOpenThreadById)
+            }
+
+            composable(Routes.FOLLOWED_THREADS) {
+                FollowedThreadsScreen(onBack = { navController.popBackStack() }, onOpenThread = onOpenThreadById)
+            }
+
+            composable(Routes.ALBUMS) {
+                AlbumsScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenAlbum = { album -> navController.navigate(albumDetailRoute(album)) },
+                )
+            }
+
+            composable(
+                Routes.ALBUM_DETAIL,
+                arguments = listOf(navArgument("album") { type = NavType.StringType }),
+            ) { entry ->
+                val album = URLDecoder.decode(entry.arguments?.getString("album").orEmpty(), "UTF-8")
+                AlbumDetailScreen(album = album, onBack = { navController.popBackStack() })
+            }
+
+            composable(Routes.MEDIA) {
+                MediaGridScreen(onBack = { navController.popBackStack() })
             }
 
             composable(Routes.MESSAGES) {

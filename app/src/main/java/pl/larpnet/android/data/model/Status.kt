@@ -14,6 +14,9 @@ data class MediaAttachment(
 )
 
 @Serializable
+data class StatusTag(val name: String, val url: String = "")
+
+@Serializable
 data class PollOption(
     val title: String,
     @SerialName("votes_count") val votesCount: Long? = null,
@@ -66,6 +69,7 @@ data class Status(
     @SerialName("reblogs_count") val reblogsCount: Long = 0,
     @SerialName("replies_count") val repliesCount: Long = 0,
     val language: String? = null,
+    val tags: List<StatusTag> = emptyList(),
 ) : Identifiable
 
 @Serializable

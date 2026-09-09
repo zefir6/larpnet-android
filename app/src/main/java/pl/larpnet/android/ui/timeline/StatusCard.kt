@@ -6,6 +6,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,17 +16,26 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Reply
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Report
 import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -59,6 +69,19 @@ import pl.larpnet.android.ui.common.VisibilityIcon
 import pl.larpnet.android.ui.theme.larpnetCard
 
 /**
+ * Bundled instead of six loose lambda params. Null on a [StatusCard] means "no moderation menu
+ * content" (own posts, which use [StatusCard.onDelete] instead) -- mirrors the iOS app's
+ * `hasMenuContent` gate on the same "⋯" affordance.
+ */
+data class StatusModerationActions(
+    val onHidePost: (Status) -> Unit,
+    val onBlockPost: (Status) -> Unit,
+    val onBlockAccount: (Status) -> Unit,
+    val onReportPost: (Status) -> Unit,
+    val onReportAccount: (Status) -> Unit,
+)
+
+/**
  * Renders one post (or a boost of one). [status] is always the top-level API object; when it's
  * a reblog, the boosted-by banner refers to [status.account] while everything else (body,
  * actions, etc.) operates on the boosted post ([Status.reblog]) -- same distinction Mastodon
@@ -78,6 +101,8 @@ fun StatusCard(
     onToggleReblog: (Status) -> Unit,
     onToggleBookmark: (Status) -> Unit,
     onDelete: ((Status) -> Unit)? = null,
+    moderationActions: StatusModerationActions? = null,
+    onOpenHashtag: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier,
     // Timelines render each post as its own floating white panel (the site's `.panel` look).
     // A thread is conceptually one conversation, not a stack of separate posts, so ThreadScreen
@@ -90,6 +115,7 @@ fun StatusCard(
     var contentVisible by remember(display.id) { mutableStateOf(!display.sensitive) }
     val htmlNodes = remember(display.content) { HtmlParser.parse(display.content) }
     var showDeleteConfirm by remember(display.id) { mutableStateOf(false) }
+    var showModerationMenu by remember(display.id) { mutableStateOf(false) }
     var galleryContext by remember { mutableStateOf<GalleryContext?>(null) }
 
     Column(
@@ -160,6 +186,46 @@ fun StatusCard(
                         )
                     }
                 }
+                if (moderationActions != null) {
+                    Box {
+                        IconButton(onClick = { showModerationMenu = true }, modifier = Modifier.size(24.dp)) {
+                            Icon(
+                                Icons.Filled.MoreVert,
+                                contentDescription = stringResource(R.string.moderation_menu),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                        DropdownMenu(expanded = showModerationMenu, onDismissRequest = { showModerationMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.moderation_hide_post)) },
+                                leadingIcon = { Icon(Icons.Filled.VisibilityOff, contentDescription = null) },
+                                onClick = { showModerationMenu = false; moderationActions.onHidePost(display) },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.moderation_block_post)) },
+                                leadingIcon = { Icon(Icons.Filled.Block, contentDescription = null) },
+                                onClick = { showModerationMenu = false; moderationActions.onBlockPost(display) },
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.moderation_block_account, display.account.acct)) },
+                                leadingIcon = { Icon(Icons.Filled.Block, contentDescription = null) },
+                                onClick = { showModerationMenu = false; moderationActions.onBlockAccount(display) },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.moderation_report_post)) },
+                                leadingIcon = { Icon(Icons.Filled.Report, contentDescription = null) },
+                                onClick = { showModerationMenu = false; moderationActions.onReportPost(display) },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.moderation_report_account, display.account.acct)) },
+                                leadingIcon = { Icon(Icons.Filled.Report, contentDescription = null) },
+                                onClick = { showModerationMenu = false; moderationActions.onReportAccount(display) },
+                            )
+                        }
+                    }
+                }
             }
 
             if (display.spoilerText.isNotBlank()) {
@@ -176,6 +242,20 @@ fun StatusCard(
                 }
             } else {
                 HtmlContent(htmlNodes, modifier = Modifier.padding(top = 8.dp))
+            }
+        }
+
+        if ((!display.sensitive || contentVisible) && display.tags.isNotEmpty() && onOpenHashtag != null) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.padding(top = 6.dp),
+            ) {
+                items(display.tags, key = { it.name }) { tag ->
+                    AssistChip(
+                        onClick = { onOpenHashtag(tag.name) },
+                        label = { Text("#${tag.name}", style = MaterialTheme.typography.labelSmall) },
+                    )
+                }
             }
         }
 

@@ -3,14 +3,18 @@ package pl.larpnet.android.di
 import android.content.Context
 import android.net.Uri
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import pl.larpnet.android.BuildConfig
 import pl.larpnet.android.data.auth.OAuthFlow
 import pl.larpnet.android.data.auth.TokenStore
+import pl.larpnet.android.data.repository.AlbumRepository
 import pl.larpnet.android.data.repository.AuthRepository
 import pl.larpnet.android.data.repository.ConversationRepository
 import pl.larpnet.android.data.repository.MediaRepository
@@ -27,6 +31,8 @@ import pl.larpnet.android.network.GitHubApi
 import pl.larpnet.android.network.InstanceUrl
 import pl.larpnet.android.network.friendicaJson
 import pl.larpnet.android.ui.compose.RecentTagsStore
+import pl.larpnet.android.ui.following.FollowedThreadsStore
+import pl.larpnet.android.ui.moderation.LocalPostFilterStore
 import pl.larpnet.android.ui.nav.BottomNavOrderStore
 import retrofit2.Retrofit
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
@@ -46,6 +52,18 @@ class AppContainer(context: Context) {
 
     val recentTagsStore = RecentTagsStore(tokenStore)
 
+    val hiddenPostsStore = LocalPostFilterStore(
+        tokenStore,
+        read = { it.hiddenPostIds },
+        write = { store, value -> store.hiddenPostIds = value },
+    )
+    val blockedPostsStore = LocalPostFilterStore(
+        tokenStore,
+        read = { it.blockedPostIds },
+        write = { store, value -> store.blockedPostIds = value },
+    )
+    val followedThreadsStore = FollowedThreadsStore(tokenStore)
+
     val authInterceptor = AuthInterceptor(tokenStore)
 
     /** Forwarded from OAuthRedirectActivity when the OAuth browser redirect lands; collected by LoginViewModel. */
@@ -53,6 +71,18 @@ class AppContainer(context: Context) {
     val oauthCallbackEvents: SharedFlow<Uri> = _oauthCallbackEvents.asSharedFlow()
     fun emitOAuthCallback(uri: Uri) {
         _oauthCallbackEvents.tryEmit(uri)
+    }
+
+    /**
+     * Bumped after a successful avatar upload so every [pl.larpnet.android.ui.common.AvatarImage]
+     * showing the logged-in user's own avatar can cache-bust (Coil keys its cache on the URL
+     * string, which the server may reuse unchanged even though the underlying bytes changed --
+     * see ProfileRepository.uploadAvatar's own byte-verify check for the same underlying issue).
+     */
+    private val _avatarVersion = MutableStateFlow(0L)
+    val avatarVersion: StateFlow<Long> = _avatarVersion.asStateFlow()
+    fun bumpAvatarVersion() {
+        _avatarVersion.value = System.currentTimeMillis()
     }
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
@@ -157,6 +187,7 @@ class AppContainer(context: Context) {
     val mediaRepository = MediaRepository(::friendicaApi)
     val conversationRepository = ConversationRepository(::friendicaApi)
     val pushRepository = PushRepository(::friendicaApi)
+    val albumRepository = AlbumRepository(::friendicaApi)
 
     private val gitHubApi: GitHubApi = Retrofit.Builder()
         .baseUrl("https://api.github.com/")

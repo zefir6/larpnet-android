@@ -49,6 +49,45 @@
     <string name="thread_collapse_replies">Collapse replies</string>
     <string name="thread_expand_replies">Expand replies</string>
     <string name="thread_hidden_replies">%1$d replies</string>
+    <string name="thread_follow">Follow thread</string>
+    <string name="thread_unfollow">Unfollow thread</string>
+
+    <!-- Moderation -->
+    <string name="moderation_menu">More options</string>
+    <string name="moderation_hide_post">Hide post</string>
+    <string name="moderation_block_post">Block post</string>
+    <string name="moderation_block_post_confirm">You won\'t see this post again. You can undo this in Settings.</string>
+    <string name="moderation_block_account">Block @%1$s</string>
+    <string name="moderation_block_account_confirm">Block @%1$s? Neither of you will be able to follow or message each other, and you won\'t see their posts anymore.</string>
+    <string name="moderation_block_account_confirm_button">Block</string>
+    <string name="moderation_report_post">Report post…</string>
+    <string name="moderation_report_account">Report @%1$s…</string>
+
+    <!-- Report -->
+    <string name="report_title">Report @%1$s</string>
+    <string name="report_category_spam">Spam</string>
+    <string name="report_category_violation">Rule violation</string>
+    <string name="report_category_other">Other</string>
+    <string name="report_comment_label">Comment (optional)</string>
+    <string name="report_submit">Submit report</string>
+
+    <!-- Blocked accounts -->
+    <string name="blocked_accounts_title">Blocked users</string>
+    <string name="blocked_accounts_empty">You haven\'t blocked anyone</string>
+    <string name="blocked_accounts_unblock">Unblock</string>
+
+    <!-- Locally hidden/blocked posts -->
+    <string name="hidden_posts_title">Hidden posts</string>
+    <string name="hidden_posts_empty">No hidden posts</string>
+    <string name="blocked_posts_title">Blocked posts</string>
+    <string name="blocked_posts_empty">No blocked posts</string>
+    <string name="local_post_list_unhide">Unhide</string>
+    <string name="local_post_list_unblock">Unblock</string>
+    <string name="local_post_list_unavailable">This post is unavailable</string>
+
+    <!-- Followed threads -->
+    <string name="followed_threads_title">Followed threads</string>
+    <string name="followed_threads_empty">You aren\'t following any threads</string>
 
     <!-- Compose -->
     <string name="compose_title_new">New post</string>
@@ -109,6 +148,22 @@
     <string name="edit_profile_discoverable">Show in directories and search</string>
     <string name="edit_profile_bot">Automated account (bot)</string>
     <string name="edit_profile_save">Save</string>
+    <string name="edit_profile_change_avatar">Change profile photo</string>
+    <string name="avatar_crop_title">Adjust photo</string>
+    <string name="avatar_crop_confirm">Done</string>
+
+    <!-- Photo albums & media -->
+    <string name="albums_title">Photo albums</string>
+    <string name="albums_new">New album</string>
+    <string name="albums_empty">No albums yet</string>
+    <string name="albums_photo_count">%1$d photos</string>
+    <string name="albums_new_name_label">Album name</string>
+    <string name="albums_new_create">Create</string>
+    <string name="album_detail_add_photos">Add photos</string>
+    <string name="album_detail_empty">No photos in this album yet</string>
+    <string name="album_detail_delete_photo">Delete this photo?</string>
+    <string name="media_title">Media</string>
+    <string name="media_empty">No media yet</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
@@ -123,6 +178,8 @@
     <string name="settings_bottom_nav_order_section">Bottom bar icon order</string>
     <string name="settings_bottom_nav_move_up">Move up</string>
     <string name="settings_bottom_nav_move_down">Move down</string>
+    <string name="settings_moderation_section">Moderation</string>
+    <string name="settings_following_section">Following</string>
 
     <!-- Safety -->
     <string name="settings_safety_section">Safety</string>

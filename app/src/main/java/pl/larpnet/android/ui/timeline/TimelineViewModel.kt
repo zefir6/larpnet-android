@@ -7,11 +7,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import pl.larpnet.android.data.model.Status
 import pl.larpnet.android.data.repository.StatusRepository
 import pl.larpnet.android.data.repository.TimelineRepository
+import pl.larpnet.android.ui.moderation.LocalPostFilterStore
 
 sealed interface TimelineKind {
     data object Home : TimelineKind
@@ -28,7 +30,16 @@ data class TimelineUiState(
     val error: String? = null,
     val pendingNewCount: Int = 0,
     val canLoadMore: Boolean = true,
-)
+    val excludedIds: Set<String> = emptySet(),
+) {
+    /** [items] minus anything locally hidden/blocked on this device -- see LocalPostFilterStore.
+     * Doesn't need a server-side blocked-accounts filter here: blocking an account server-side
+     * already excludes their posts from every timeline the API returns going forward (see
+     * TimelineViewModel.removeStatuses for the one-off local prune needed for already-fetched
+     * posts at the moment of blocking). */
+    val visibleItems: List<Status>
+        get() = items.filterNot { it.id in excludedIds || it.reblog?.id in excludedIds }
+}
 
 /**
  * Backs a single timeline (home/public/tag). Since the server has no working streaming
@@ -41,6 +52,8 @@ class TimelineViewModel(
     private val kind: TimelineKind,
     private val timelineRepository: TimelineRepository,
     private val statusRepository: StatusRepository,
+    private val hiddenPostsStore: LocalPostFilterStore,
+    private val blockedPostsStore: LocalPostFilterStore,
 ) : ViewModel() {
 
     var uiState by mutableStateOf(TimelineUiState())
@@ -52,6 +65,10 @@ class TimelineViewModel(
 
     init {
         loadInitial()
+        viewModelScope.launch {
+            combine(hiddenPostsStore.ids, blockedPostsStore.ids) { hidden, blocked -> (hidden + blocked).toSet() }
+                .collect { excluded -> uiState = uiState.copy(excludedIds = excluded) }
+        }
     }
 
     private suspend fun fetchPage(maxId: String?) = when (val k = kind) {
@@ -188,6 +205,15 @@ class TimelineViewModel(
     }
 
     private fun replaceStatus(updated: Status) = applyLocalUpdate(updated.id) { updated }
+
+    /** Locally prunes a just-blocked account's posts from the already-fetched list, without
+     * waiting for the next poll/refresh (the server excludes them from future fetches on its
+     * own once blocked). */
+    fun removeStatuses(byAccountId: String) {
+        uiState = uiState.copy(
+            items = uiState.items.filterNot { it.account.id == byAccountId || it.reblog?.account?.id == byAccountId },
+        )
+    }
 
     override fun onCleared() {
         stopPolling()

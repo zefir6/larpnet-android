@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.CircularProgressIndicator
@@ -42,6 +44,8 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import pl.larpnet.android.R
 import pl.larpnet.android.data.model.Status
 import pl.larpnet.android.di.rememberAppContainer
+import pl.larpnet.android.ui.moderation.PostModerationDialogs
+import pl.larpnet.android.ui.moderation.rememberPostModerationHost
 import pl.larpnet.android.ui.theme.LarpnetAccent
 import pl.larpnet.android.ui.theme.LarpnetHighlight
 import pl.larpnet.android.ui.theme.LarpnetPageBackground
@@ -61,15 +65,30 @@ fun ThreadScreen(
     onOpenThread: (Status) -> Unit,
     onOpenProfile: (String) -> Unit,
     onReply: (Status) -> Unit,
+    onOpenHashtag: (String) -> Unit = {},
 ) {
     val appContainer = rememberAppContainer()
     val viewModel: ThreadViewModel = viewModel(
         key = "thread_$statusId",
         factory = viewModelFactory {
-            initializer { ThreadViewModel(statusId, appContainer.statusRepository) }
+            initializer {
+                ThreadViewModel(
+                    statusId,
+                    appContainer.statusRepository,
+                    appContainer.hiddenPostsStore,
+                    appContainer.blockedPostsStore,
+                    appContainer.followedThreadsStore,
+                )
+            }
         },
     )
     val state = viewModel.uiState
+    val moderationHost = rememberPostModerationHost(
+        appContainer.profileRepository,
+        appContainer.hiddenPostsStore,
+        appContainer.blockedPostsStore,
+        onAccountBlocked = viewModel::removeStatuses,
+    )
 
     // Opening a thread on a reply deep in a conversation otherwise leaves the view at the very
     // top of the ancestor chain -- the focused post (always right after the ancestors, so its
@@ -96,6 +115,18 @@ fun ThreadScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                    }
+                },
+                actions = {
+                    if (!state.isLoading && state.focus != null) {
+                        IconButton(onClick = viewModel::toggleFollow) {
+                            Icon(
+                                if (viewModel.isFollowingThread) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
+                                contentDescription = stringResource(
+                                    if (viewModel.isFollowingThread) R.string.thread_unfollow else R.string.thread_follow,
+                                ),
+                            )
+                        }
                     }
                 },
             )
@@ -142,6 +173,8 @@ fun ThreadScreen(
                             onToggleFavourite = viewModel::toggleFavourite,
                             onToggleReblog = viewModel::toggleReblog,
                             onToggleBookmark = viewModel::toggleBookmark,
+                            moderationActions = moderationHost.actionsFor(status),
+                            onOpenHashtag = onOpenHashtag,
                             flat = true,
                         )
                         HorizontalDivider(color = LarpnetPageBackground)
@@ -159,6 +192,8 @@ fun ThreadScreen(
                                         onToggleFavourite = viewModel::toggleFavourite,
                                         onToggleReblog = viewModel::toggleReblog,
                                         onToggleBookmark = viewModel::toggleBookmark,
+                                        moderationActions = moderationHost.actionsFor(focus),
+                                        onOpenHashtag = onOpenHashtag,
                                         flat = true,
                                     )
                                 }
@@ -206,6 +241,8 @@ fun ThreadScreen(
                                     onToggleFavourite = viewModel::toggleFavourite,
                                     onToggleReblog = viewModel::toggleReblog,
                                     onToggleBookmark = viewModel::toggleBookmark,
+                                    moderationActions = moderationHost.actionsFor(renderItem.status),
+                                    onOpenHashtag = onOpenHashtag,
                                     modifier = Modifier.weight(1f),
                                     flat = true,
                                 )
@@ -229,4 +266,5 @@ fun ThreadScreen(
             }
         }
     }
+    PostModerationDialogs(moderationHost)
 }

@@ -40,6 +40,8 @@ import kotlinx.coroutines.launch
 import pl.larpnet.android.R
 import pl.larpnet.android.data.model.Status
 import pl.larpnet.android.di.rememberAppContainer
+import pl.larpnet.android.ui.moderation.PostModerationDialogs
+import pl.larpnet.android.ui.moderation.rememberPostModerationHost
 import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,12 +52,21 @@ fun TimelineScreen(
     onOpenProfile: (String) -> Unit,
     onReply: (Status) -> Unit,
     onSearch: () -> Unit = {},
+    onOpenHashtag: (String) -> Unit = {},
 ) {
     val appContainer = rememberAppContainer()
     val viewModel: TimelineViewModel = viewModel(
         key = "timeline_$kind",
         factory = viewModelFactory {
-            initializer { TimelineViewModel(kind, appContainer.timelineRepository, appContainer.statusRepository) }
+            initializer {
+                TimelineViewModel(
+                    kind,
+                    appContainer.timelineRepository,
+                    appContainer.statusRepository,
+                    appContainer.hiddenPostsStore,
+                    appContainer.blockedPostsStore,
+                )
+            }
         },
     )
 
@@ -75,11 +86,17 @@ fun TimelineScreen(
     val state = viewModel.uiState
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    val moderationHost = rememberPostModerationHost(
+        appContainer.profileRepository,
+        appContainer.hiddenPostsStore,
+        appContainer.blockedPostsStore,
+        onAccountBlocked = viewModel::removeStatuses,
+    )
 
-    LaunchedEffect(listState, state.items.size, state.canLoadMore) {
+    LaunchedEffect(listState, state.visibleItems.size, state.canLoadMore) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
             .collect { lastVisible ->
-                if (lastVisible != null && state.items.isNotEmpty() && lastVisible >= state.items.size - 3) {
+                if (lastVisible != null && state.visibleItems.isNotEmpty() && lastVisible >= state.visibleItems.size - 3) {
                     viewModel.loadMore()
                 }
             }
@@ -113,14 +130,14 @@ fun TimelineScreen(
             )
 
             when {
-                state.isLoading && state.items.isEmpty() -> Box(
+                state.isLoading && state.visibleItems.isEmpty() -> Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
                     CircularProgressIndicator()
                 }
 
-                state.error != null && state.items.isEmpty() -> Box(
+                state.error != null && state.visibleItems.isEmpty() -> Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -132,7 +149,7 @@ fun TimelineScreen(
                     }
                 }
 
-                state.items.isEmpty() -> Box(
+                state.visibleItems.isEmpty() -> Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -140,7 +157,7 @@ fun TimelineScreen(
                 }
 
                 else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-                    items(state.items, key = { it.id }) { status ->
+                    items(state.visibleItems, key = { it.id }) { status ->
                         StatusCard(
                             status = status,
                             onOpenThread = onOpenThread,
@@ -149,6 +166,8 @@ fun TimelineScreen(
                             onToggleFavourite = viewModel::toggleFavourite,
                             onToggleReblog = viewModel::toggleReblog,
                             onToggleBookmark = viewModel::toggleBookmark,
+                            moderationActions = moderationHost.actionsFor(status),
+                            onOpenHashtag = onOpenHashtag,
                         )
                     }
                     if (state.isLoadingMore) {
@@ -168,6 +187,7 @@ fun TimelineScreen(
         }
     }
     }
+    PostModerationDialogs(moderationHost)
 }
 
 @Composable
