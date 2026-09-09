@@ -32,12 +32,15 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Report
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -110,7 +113,15 @@ import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: (() -> Unit)? = null, onOpenProfile: () -> Unit, onLoggedOut: () -> Unit) {
+fun SettingsScreen(
+    onBack: (() -> Unit)? = null,
+    onOpenProfile: () -> Unit,
+    onLoggedOut: () -> Unit,
+    onOpenBlockedAccounts: () -> Unit = {},
+    onOpenHiddenPosts: () -> Unit = {},
+    onOpenBlockedPosts: () -> Unit = {},
+    onOpenFollowedThreads: () -> Unit = {},
+) {
     val appContainer = rememberAppContainer()
     val viewModel: SettingsViewModel = viewModel(
         factory = viewModelFactory {
@@ -344,6 +355,38 @@ fun SettingsScreen(onBack: (() -> Unit)? = null, onOpenProfile: () -> Unit, onLo
                     label = serverAddress,
                     hint = stringResource(R.string.settings_server_address_hint),
                     onClick = { showServerDialog = true },
+                )
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                SectionLabel(stringResource(R.string.settings_moderation_section))
+                SettingsLinkRow(
+                    icon = Icons.Filled.Block,
+                    label = stringResource(R.string.blocked_accounts_title),
+                    hint = null,
+                    onClick = onOpenBlockedAccounts,
+                )
+                SettingsLinkRow(
+                    icon = Icons.Filled.VisibilityOff,
+                    label = stringResource(R.string.hidden_posts_title),
+                    hint = null,
+                    onClick = onOpenHiddenPosts,
+                )
+                SettingsLinkRow(
+                    icon = Icons.Filled.Block,
+                    label = stringResource(R.string.blocked_posts_title),
+                    hint = null,
+                    onClick = onOpenBlockedPosts,
+                )
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                SectionLabel(stringResource(R.string.settings_following_section))
+                SettingsLinkRow(
+                    icon = Icons.Filled.Bookmarks,
+                    label = stringResource(R.string.followed_threads_title),
+                    hint = null,
+                    onClick = onOpenFollowedThreads,
                 )
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))

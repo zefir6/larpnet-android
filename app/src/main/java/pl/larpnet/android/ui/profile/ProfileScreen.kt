@@ -12,7 +12,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Collections
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -27,6 +29,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -43,6 +47,8 @@ import pl.larpnet.android.di.rememberAppContainer
 import pl.larpnet.android.domain.html.HtmlParser
 import pl.larpnet.android.ui.common.AvatarImage
 import pl.larpnet.android.ui.common.HtmlContent
+import pl.larpnet.android.ui.moderation.PostModerationDialogs
+import pl.larpnet.android.ui.moderation.rememberPostModerationHost
 import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 import pl.larpnet.android.ui.timeline.StatusCard
 
@@ -56,6 +62,9 @@ fun ProfileScreen(
     onReply: (Status) -> Unit,
     onEditProfile: () -> Unit,
     onSearch: () -> Unit = {},
+    onOpenHashtag: (String) -> Unit = {},
+    onOpenAlbums: () -> Unit = {},
+    onOpenMedia: () -> Unit = {},
 ) {
     val appContainer = rememberAppContainer()
     val viewModel: ProfileViewModel = viewModel(
@@ -68,17 +77,33 @@ fun ProfileScreen(
                     appContainer.timelineRepository,
                     appContainer.statusRepository,
                     appContainer.authRepository,
+                    appContainer.hiddenPostsStore,
+                    appContainer.blockedPostsStore,
                 )
             }
         },
     )
     val state = viewModel.uiState
     val listState = rememberLazyListState()
+    val moderationHost = rememberPostModerationHost(
+        appContainer.profileRepository,
+        appContainer.hiddenPostsStore,
+        appContainer.blockedPostsStore,
+        onAccountBlocked = viewModel::removeStatuses,
+    )
+    val avatarVersion by appContainer.avatarVersion.collectAsState()
 
-    LaunchedEffect(listState, state.statuses.size, state.canLoadMore) {
+    // Fires once per fresh composition of this screen -- Navigation-Compose disposes and
+    // recomposes this composable's body on every visit (unlike the bottom-tab destinations,
+    // which use saveState/restoreState), while the ViewModel instance itself persists across
+    // that round trip. So this re-fetches on every return to Profile, including after Edit
+    // Profile changes the avatar/bio -- mirrors the iOS app's ProfileView.onAppear reload.
+    LaunchedEffect(Unit) { viewModel.load() }
+
+    LaunchedEffect(listState, state.visibleStatuses.size, state.canLoadMore) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
             .collect { last ->
-                if (last != null && state.statuses.isNotEmpty() && last >= state.statuses.size - 3) {
+                if (last != null && state.visibleStatuses.isNotEmpty() && last >= state.visibleStatuses.size - 3) {
                     viewModel.loadMore()
                 }
             }
@@ -101,6 +126,12 @@ fun ProfileScreen(
                         Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.search_title))
                     }
                     if (state.isOwn) {
+                        IconButton(onClick = onOpenAlbums) {
+                            Icon(Icons.Filled.PhotoLibrary, contentDescription = stringResource(R.string.albums_title))
+                        }
+                        IconButton(onClick = onOpenMedia) {
+                            Icon(Icons.Filled.Collections, contentDescription = stringResource(R.string.media_title))
+                        }
                         IconButton(onClick = onEditProfile) {
                             Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.profile_edit))
                         }
@@ -126,10 +157,10 @@ fun ProfileScreen(
 
             else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(padding)) {
                 item {
-                    ProfileHeader(state = state, onToggleFollow = viewModel::toggleFollow)
+                    ProfileHeader(state = state, avatarVersion = avatarVersion, onToggleFollow = viewModel::toggleFollow)
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
-                items(state.statuses, key = { it.id }) { status ->
+                items(state.visibleStatuses, key = { it.id }) { status ->
                     StatusCard(
                         status = status,
                         onOpenThread = onOpenThread,
@@ -139,21 +170,30 @@ fun ProfileScreen(
                         onToggleReblog = viewModel::toggleReblog,
                         onToggleBookmark = viewModel::toggleBookmark,
                         onDelete = if (state.isOwn) viewModel::deleteStatus else null,
+                        moderationActions = if (state.isOwn) null else moderationHost.actionsFor(status),
+                        onOpenHashtag = onOpenHashtag,
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
         }
     }
+    PostModerationDialogs(moderationHost)
 }
 
 @Composable
-private fun ProfileHeader(state: ProfileUiState, onToggleFollow: () -> Unit) {
+private fun ProfileHeader(state: ProfileUiState, avatarVersion: Long, onToggleFollow: () -> Unit) {
     val account = state.account ?: return
     val bioNodes = remember(account.note) { HtmlParser.parse(account.note) }
+    // Cache-busts only the logged-in user's own avatar -- see AppContainer.avatarVersion.
+    val avatarUrl = if (state.isOwn && avatarVersion > 0 && account.avatar.isNotBlank()) {
+        "${account.avatar}${if ("?" in account.avatar) "&" else "?"}_v=$avatarVersion"
+    } else {
+        account.avatar
+    }
 
     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-        AvatarImage(url = account.avatar, contentDescription = account.displayName, size = 72.dp)
+        AvatarImage(url = avatarUrl, contentDescription = account.displayName, size = 72.dp)
         Text(
             text = account.displayName.ifBlank { account.username },
             style = MaterialTheme.typography.titleLarge,

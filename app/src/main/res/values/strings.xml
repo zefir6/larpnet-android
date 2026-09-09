@@ -49,6 +49,45 @@
     <string name="thread_collapse_replies">Zwiń odpowiedzi</string>
     <string name="thread_expand_replies">Rozwiń odpowiedzi</string>
     <string name="thread_hidden_replies">%1$d odpowiedzi</string>
+    <string name="thread_follow">Obserwuj wątek</string>
+    <string name="thread_unfollow">Przestań obserwować wątek</string>
+
+    <!-- Moderation -->
+    <string name="moderation_menu">Więcej opcji</string>
+    <string name="moderation_hide_post">Ukryj wpis</string>
+    <string name="moderation_block_post">Zablokuj wpis</string>
+    <string name="moderation_block_post_confirm">Nie zobaczysz już tego wpisu. Możesz to cofnąć w Ustawieniach.</string>
+    <string name="moderation_block_account">Zablokuj @%1$s</string>
+    <string name="moderation_block_account_confirm">Zablokować @%1$s? Nie będziecie mogli się obserwować ani wysyłać sobie wiadomości, a Ty nie zobaczysz już jego/jej wpisów.</string>
+    <string name="moderation_block_account_confirm_button">Zablokuj</string>
+    <string name="moderation_report_post">Zgłoś wpis…</string>
+    <string name="moderation_report_account">Zgłoś @%1$s…</string>
+
+    <!-- Report -->
+    <string name="report_title">Zgłoś @%1$s</string>
+    <string name="report_category_spam">Spam</string>
+    <string name="report_category_violation">Naruszenie zasad</string>
+    <string name="report_category_other">Inne</string>
+    <string name="report_comment_label">Komentarz (opcjonalnie)</string>
+    <string name="report_submit">Wyślij zgłoszenie</string>
+
+    <!-- Blocked accounts -->
+    <string name="blocked_accounts_title">Zablokowani użytkownicy</string>
+    <string name="blocked_accounts_empty">Nie zablokowano nikogo</string>
+    <string name="blocked_accounts_unblock">Odblokuj</string>
+
+    <!-- Locally hidden/blocked posts -->
+    <string name="hidden_posts_title">Ukryte wpisy</string>
+    <string name="hidden_posts_empty">Brak ukrytych wpisów</string>
+    <string name="blocked_posts_title">Zablokowane wpisy</string>
+    <string name="blocked_posts_empty">Brak zablokowanych wpisów</string>
+    <string name="local_post_list_unhide">Odkryj</string>
+    <string name="local_post_list_unblock">Odblokuj</string>
+    <string name="local_post_list_unavailable">Ten wpis jest niedostępny</string>
+
+    <!-- Followed threads -->
+    <string name="followed_threads_title">Obserwowane wątki</string>
+    <string name="followed_threads_empty">Nie obserwujesz żadnych wątków</string>
 
     <!-- Compose -->
     <string name="compose_title_new">Nowy wpis</string>
@@ -109,6 +148,22 @@
     <string name="edit_profile_discoverable">Widoczny w katalogach i wyszukiwarkach</string>
     <string name="edit_profile_bot">Konto zautomatyzowane (bot)</string>
     <string name="edit_profile_save">Zapisz</string>
+    <string name="edit_profile_change_avatar">Zmień zdjęcie profilowe</string>
+    <string name="avatar_crop_title">Dopasuj zdjęcie</string>
+    <string name="avatar_crop_confirm">Gotowe</string>
+
+    <!-- Photo albums & media -->
+    <string name="albums_title">Albumy zdjęć</string>
+    <string name="albums_new">Nowy album</string>
+    <string name="albums_empty">Brak albumów</string>
+    <string name="albums_photo_count">%1$d zdjęć</string>
+    <string name="albums_new_name_label">Nazwa albumu</string>
+    <string name="albums_new_create">Utwórz</string>
+    <string name="album_detail_add_photos">Dodaj zdjęcia</string>
+    <string name="album_detail_empty">Brak zdjęć w tym albumie</string>
+    <string name="album_detail_delete_photo">Usunąć to zdjęcie?</string>
+    <string name="media_title">Media</string>
+    <string name="media_empty">Brak mediów</string>
 
     <!-- Settings -->
     <string name="settings_title">Ustawienia</string>
@@ -123,6 +178,8 @@
     <string name="settings_bottom_nav_order_section">Kolejność ikon dolnego paska</string>
     <string name="settings_bottom_nav_move_up">Przesuń w górę</string>
     <string name="settings_bottom_nav_move_down">Przesuń w dół</string>
+    <string name="settings_moderation_section">Moderacja</string>
+    <string name="settings_following_section">Obserwowane</string>
 
     <!-- Safety -->
     <string name="settings_safety_section">Bezpieczeństwo</string>

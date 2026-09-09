@@ -12,6 +12,11 @@ sealed class NetworkError(message: String, cause: Throwable? = null) : Exception
     class Parse(cause: Throwable) : NetworkError("Failed to parse response: ${cause.message}", cause)
     object NotLoggedIn : NetworkError("Not logged in")
     class InvalidUrl(url: String) : NetworkError("Invalid instance URL: $url")
+
+    /** The server accepted an avatar upload (200) but a before/after byte-compare found no
+     * actual change -- see ProfileRepository.uploadAvatar. Distinct from [Http] since there's
+     * no bad status code to report, just a silent server-side no-op. */
+    object AvatarUploadUnverified : NetworkError("Upload succeeded but the avatar was unchanged server-side")
 }
 
 /**

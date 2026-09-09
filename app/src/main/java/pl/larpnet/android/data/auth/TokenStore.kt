@@ -81,6 +81,25 @@ class TokenStore(context: Context) {
         get() = prefs.getString(KEY_RECENT_TAGS, null)
         set(value) = prefs.edit().putString(KEY_RECENT_TAGS, value).apply()
 
+    /** Comma-separated status ids locally hidden from timelines/threads by this device (not a
+     * server-side action) -- see [pl.larpnet.android.ui.moderation.LocalPostFilterStore]. */
+    var hiddenPostIds: String?
+        get() = prefs.getString(KEY_HIDDEN_POST_IDS, null)
+        set(value) = prefs.edit().putString(KEY_HIDDEN_POST_IDS, value).apply()
+
+    /** Comma-separated status ids locally blocked from timelines/threads by this device (distinct
+     * from blocking the *account*, which is server-side -- see [FriendicaApi.block]) -- see
+     * [pl.larpnet.android.ui.moderation.LocalPostFilterStore]. */
+    var blockedPostIds: String?
+        get() = prefs.getString(KEY_BLOCKED_POST_IDS, null)
+        set(value) = prefs.edit().putString(KEY_BLOCKED_POST_IDS, value).apply()
+
+    /** JSON array of [pl.larpnet.android.ui.following.FollowedThread] -- entirely client-side,
+     * no server concept of "following a thread" exists. Null until the user follows their first. */
+    var followedThreadsJson: String?
+        get() = prefs.getString(KEY_FOLLOWED_THREADS, null)
+        set(value) = prefs.edit().putString(KEY_FOLLOWED_THREADS, value).apply()
+
     /** Clears the access token (and app registration, since it's keyed to one instance) on logout / forced re-login. */
     fun clear() {
         prefs.edit()
@@ -101,5 +120,8 @@ class TokenStore(context: Context) {
         private const val KEY_DISMISSED_UPDATE_VERSION_CODE = "dismissed_update_version_code"
         private const val KEY_BOTTOM_NAV_ORDER = "bottom_nav_order"
         private const val KEY_RECENT_TAGS = "recent_tags"
+        private const val KEY_HIDDEN_POST_IDS = "hidden_post_ids"
+        private const val KEY_BLOCKED_POST_IDS = "blocked_post_ids"
+        private const val KEY_FOLLOWED_THREADS = "followed_threads"
     }
 }

@@ -2,12 +2,15 @@ package pl.larpnet.android.network
 
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
+import okhttp3.ResponseBody
 import pl.larpnet.android.data.model.Account
 import pl.larpnet.android.data.model.Circle
 import pl.larpnet.android.data.model.Conversation
 import pl.larpnet.android.data.model.DirectMessage
 import pl.larpnet.android.data.model.FcmRegistrationResult
 import pl.larpnet.android.data.model.FollowerListResponse
+import pl.larpnet.android.data.model.FriendicaPhoto
+import pl.larpnet.android.data.model.FriendicaPhotoAlbum
 import pl.larpnet.android.data.model.LegacyStatusRef
 import pl.larpnet.android.data.model.Instance
 import pl.larpnet.android.data.model.MediaAttachment
@@ -28,6 +31,8 @@ import retrofit2.http.POST
 import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
+import retrofit2.http.Streaming
+import retrofit2.http.Url
 
 /**
  * Authenticated Mastodon-compatible endpoints (Bearer token attached by AuthInterceptor).
@@ -86,6 +91,19 @@ interface FriendicaApi {
         @Query("max_id") maxId: String?,
     ): Response<List<Status>>
 
+    /**
+     * Legacy Twitter-compat endpoint, field name `image` -- the Mastodon-compatible
+     * `PATCH api/v1/accounts/update_credentials` above silently swallows avatar-upload failures
+     * server-side (its multipart-over-PATCH parser discards Photo::uploadAvatar's return value
+     * uninspected), while this one throws a real error on failure. Returns a legacy Twitter-shaped
+     * user object, not our [Account] shape -- declared as raw [ResponseBody] (bypasses the JSON
+     * converter entirely) since callers only need success/failure and re-fetch via
+     * [verifyCredentials] afterward, never parse this response.
+     */
+    @Multipart
+    @POST("api/account/update_profile_image")
+    suspend fun updateProfileImage(@Part image: MultipartBody.Part): ResponseBody
+
     @POST("api/v1/accounts/{id}/follow")
     suspend fun follow(@Path("id") id: String): Relationship
 
@@ -94,6 +112,38 @@ interface FriendicaApi {
 
     @GET("api/v1/accounts/relationships")
     suspend fun relationships(@Query("id[]") ids: List<String>): List<Relationship>
+
+    // -- Blocks & Reports ----------------------------------------------------
+
+    @POST("api/v1/accounts/{id}/block")
+    suspend fun block(@Path("id") id: String): Relationship
+
+    @POST("api/v1/accounts/{id}/unblock")
+    suspend fun unblock(@Path("id") id: String): Relationship
+
+    @GET("api/v1/blocks")
+    suspend fun blockedAccounts(@Query("max_id") maxId: String? = null): Response<List<Account>>
+
+    /** [statusIds] empty (or null) means an account-only report, no specific post attached. */
+    @FormUrlEncoded
+    @POST("api/v1/reports")
+    suspend fun report(
+        @Field("account_id") accountId: String,
+        @Field("comment") comment: String?,
+        @Field("category") category: String,
+        @Field("status_ids[]") statusIds: List<String>?,
+    )
+
+    /**
+     * Fetches raw bytes from an arbitrary (already-authenticated-instance-relative or absolute)
+     * URL through the same Bearer-authenticated client every other call here uses -- needed to
+     * byte-compare an avatar before/after upload (see ProfileRepository.uploadAvatar). Distinct
+     * from Coil's image-loading client, which deliberately carries no auth (see AppContainer's
+     * imageOkHttpClient doc comment).
+     */
+    @Streaming
+    @GET
+    suspend fun fetchBytes(@Url url: String): ResponseBody
 
     // -- Timelines ---------------------------------------------------------
 
@@ -250,6 +300,34 @@ interface FriendicaApi {
         @Part file: MultipartBody.Part,
         @Part("description") description: RequestBody? = null,
     ): MediaAttachment
+
+    // -- Photo Albums ----------------------------------------------------------
+    //
+    // Friendica-native endpoints (Module\Api\Friendica\Photo*), not part of the Mastodon-API
+    // surface. Both list calls return a bare JSON array (not enveloped in a wrapper object,
+    // despite what the third-party wiki docs show) -- confirmed against the server's own
+    // addFormattedContent, which only uses a wrapper key to name an XML root element; the JSON
+    // formatter strips it. There is no album-creation endpoint: uploading the first photo with
+    // a new album name implicitly creates it server-side.
+
+    @GET("api/friendica/photoalbums")
+    suspend fun photoAlbums(): List<FriendicaPhotoAlbum>
+
+    @GET("api/friendica/photoalbum")
+    suspend fun photosInAlbum(@Query("album") album: String): List<FriendicaPhoto>
+
+    /** Field name `media`, not base64 -- confirmed against Photo/Create.php, which reads `$_FILES['media']`. */
+    @Multipart
+    @POST("api/friendica/photo/create")
+    suspend fun createPhoto(
+        @Part media: MultipartBody.Part,
+        @Part("album") album: RequestBody,
+        @Part("desc") desc: RequestBody? = null,
+    ): FriendicaPhoto
+
+    @FormUrlEncoded
+    @POST("api/friendica/photo/delete")
+    suspend fun deletePhoto(@Field("photo_id") photoId: String)
 
     // -- Instance ------------------------------------------------------------
 
