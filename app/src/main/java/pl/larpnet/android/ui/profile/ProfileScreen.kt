@@ -169,6 +169,7 @@ fun ProfileScreen(
                         onToggleFavourite = viewModel::toggleFavourite,
                         onToggleReblog = viewModel::toggleReblog,
                         onToggleBookmark = viewModel::toggleBookmark,
+                        onVotePoll = viewModel::votePoll,
                         onDelete = if (state.isOwn) viewModel::deleteStatus else null,
                         moderationActions = if (state.isOwn) null else moderationHost.actionsFor(status),
                         onOpenHashtag = onOpenHashtag,

@@ -107,6 +107,24 @@
     <string name="compose_tags_label">Tagi</string>
     <string name="compose_tags_add_hint">Dodaj własny tag</string>
     <string name="compose_tags_add_cd">Dodaj tag</string>
+    <string name="compose_poll_toggle_cd">Dodaj ankietę</string>
+    <string name="compose_poll_remove_cd">Usuń ankietę</string>
+    <string name="compose_poll_option_hint">Opcja %1$d</string>
+    <string name="compose_poll_add_option">Dodaj opcję</string>
+    <string name="compose_poll_remove_option_cd">Usuń opcję</string>
+    <string name="compose_poll_multiple">Wybór wielokrotny</string>
+    <string name="compose_poll_expiry_label">Czas trwania ankiety</string>
+    <string name="poll_expiry_5m">5 minut</string>
+    <string name="poll_expiry_30m">30 minut</string>
+    <string name="poll_expiry_1h">1 godzina</string>
+    <string name="poll_expiry_6h">6 godzin</string>
+    <string name="poll_expiry_1d">1 dzień</string>
+    <string name="poll_expiry_3d">3 dni</string>
+    <string name="poll_expiry_1w">1 tydzień</string>
+    <string name="poll_expiry_1mo">1 miesiąc</string>
+    <string name="poll_vote">Głosuj</string>
+    <string name="poll_expired">Ankieta zakończona</string>
+    <string name="poll_votes_count">%1$d głosów</string>
     <string name="compose_tags_remove_cd">Usuń tag</string>
 
     <!-- Custom audience picker -->

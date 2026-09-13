@@ -184,6 +184,18 @@ class TimelineViewModel(
         }
     }
 
+    /** Local-only (see [pl.larpnet.android.data.model.Poll]). Waits for the server's tally
+     * rather than optimistically updating, since vote percentages depend on every option's
+     * count, not just the chosen one. */
+    fun votePoll(status: Status, choices: List<Int>) {
+        val pollId = status.poll?.id ?: return
+        viewModelScope.launch {
+            statusRepository.votePoll(pollId, choices).onSuccess { poll ->
+                applyLocalUpdate(status.id) { it.copy(poll = poll) }
+            }
+        }
+    }
+
     /**
      * StatusCard's action buttons operate on `status.reblog ?: status` (the displayed post),
      * so for a boosted item [statusId] is the *reblogged* post's own id, not the top-level list

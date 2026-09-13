@@ -15,6 +15,7 @@ import pl.larpnet.android.data.model.LegacyStatusRef
 import pl.larpnet.android.data.model.Instance
 import pl.larpnet.android.data.model.MediaAttachment
 import pl.larpnet.android.data.model.Notification
+import pl.larpnet.android.data.model.Poll
 import pl.larpnet.android.data.model.Preferences
 import pl.larpnet.android.data.model.PushConfig
 import pl.larpnet.android.data.model.Relationship
@@ -41,9 +42,10 @@ import retrofit2.http.Url
  * response headers from the caller once you unwrap to the bare body type.
  *
  * Endpoint coverage matches static/routes.config.php in friendica-larpnet; routes that map
- * to Module\Api\Mastodon\Unimplemented server-side (streaming, poll voting, filters,
- * featured tags, admin, domain blocks) are intentionally not declared here -- see the plan
- * doc's "v1 exclusions" section.
+ * to Module\Api\Mastodon\Unimplemented server-side (streaming, filters, featured tags, admin,
+ * domain blocks) are intentionally not declared here -- see the plan doc's "v1 exclusions"
+ * section. Poll voting/creation (below) is local-only server-side: it works against this
+ * instance but never federates.
  */
 interface FriendicaApi {
 
@@ -185,6 +187,10 @@ interface FriendicaApi {
         @Field("spoiler_text") spoilerText: String? = null,
         @Field("sensitive") sensitive: Boolean? = null,
         @Field("media_ids[]") mediaIds: List<String>? = null,
+        // Poll and media are mutually exclusive server-side; only ever send one. Local-only, see [Poll].
+        @Field("poll[options][]") pollOptions: List<String>? = null,
+        @Field("poll[multiple]") pollMultiple: Boolean? = null,
+        @Field("poll[expires_in]") pollExpiresIn: Int? = null,
     ): Status
 
     /**
@@ -235,6 +241,15 @@ interface FriendicaApi {
 
     @POST("api/v1/statuses/{id}/unbookmark")
     suspend fun unbookmark(@Path("id") id: String): Status
+
+    // -- Polls (local voting/creation only, not federated) --------------------
+
+    @GET("api/v1/polls/{id}")
+    suspend fun getPoll(@Path("id") id: String): Poll
+
+    @FormUrlEncoded
+    @POST("api/v1/polls/{id}/votes")
+    suspend fun votePoll(@Path("id") id: String, @Field("choices[]") choices: List<Int>): Poll
 
     // -- Notifications -----------------------------------------------------
 

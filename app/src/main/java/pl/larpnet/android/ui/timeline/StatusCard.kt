@@ -64,6 +64,7 @@ import pl.larpnet.android.ui.common.AvatarImage
 import pl.larpnet.android.ui.common.GalleryContext
 import pl.larpnet.android.ui.common.HtmlContent
 import pl.larpnet.android.ui.common.MediaGalleryDialog
+import pl.larpnet.android.ui.common.PollView
 import pl.larpnet.android.ui.common.RelativeTime
 import pl.larpnet.android.ui.common.VisibilityIcon
 import pl.larpnet.android.ui.theme.larpnetCard
@@ -100,6 +101,7 @@ fun StatusCard(
     onToggleFavourite: (Status) -> Unit,
     onToggleReblog: (Status) -> Unit,
     onToggleBookmark: (Status) -> Unit,
+    onVotePoll: (Status, List<Int>) -> Unit = { _, _ -> },
     onDelete: ((Status) -> Unit)? = null,
     moderationActions: StatusModerationActions? = null,
     onOpenHashtag: ((String) -> Unit)? = null,
@@ -278,6 +280,13 @@ fun StatusCard(
                     )
                 }
             }
+        }
+
+        if ((!display.sensitive || contentVisible) && display.poll != null) {
+            PollView(
+                poll = display.poll,
+                onVote = { choices -> onVotePoll(display, choices) },
+            )
         }
 
         if (display.sensitive && contentVisible) {

@@ -107,6 +107,24 @@
     <string name="compose_tags_label">Tags</string>
     <string name="compose_tags_add_hint">Add a custom tag</string>
     <string name="compose_tags_add_cd">Add tag</string>
+    <string name="compose_poll_toggle_cd">Add poll</string>
+    <string name="compose_poll_remove_cd">Remove poll</string>
+    <string name="compose_poll_option_hint">Option %1$d</string>
+    <string name="compose_poll_add_option">Add option</string>
+    <string name="compose_poll_remove_option_cd">Remove option</string>
+    <string name="compose_poll_multiple">Multiple choice</string>
+    <string name="compose_poll_expiry_label">Poll duration</string>
+    <string name="poll_expiry_5m">5 minutes</string>
+    <string name="poll_expiry_30m">30 minutes</string>
+    <string name="poll_expiry_1h">1 hour</string>
+    <string name="poll_expiry_6h">6 hours</string>
+    <string name="poll_expiry_1d">1 day</string>
+    <string name="poll_expiry_3d">3 days</string>
+    <string name="poll_expiry_1w">1 week</string>
+    <string name="poll_expiry_1mo">1 month</string>
+    <string name="poll_vote">Vote</string>
+    <string name="poll_expired">Poll ended</string>
+    <string name="poll_votes_count">%1$d votes</string>
     <string name="compose_tags_remove_cd">Remove tag</string>
 
     <!-- Custom audience picker -->

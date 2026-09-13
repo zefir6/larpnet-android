@@ -1,5 +1,6 @@
 package pl.larpnet.android.data.repository
 
+import pl.larpnet.android.data.model.Poll
 import pl.larpnet.android.data.model.Status
 import pl.larpnet.android.data.model.StatusContext
 import pl.larpnet.android.network.FriendicaApi
@@ -18,6 +19,9 @@ class StatusRepository(private val apiProvider: () -> FriendicaApi) {
         spoilerText: String? = null,
         sensitive: Boolean = false,
         mediaIds: List<String> = emptyList(),
+        pollOptions: List<String> = emptyList(),
+        pollMultiple: Boolean = false,
+        pollExpiresInSeconds: Int? = null,
     ): Result<Status> = safeApiCall {
         apiProvider().postStatus(
             status = text,
@@ -26,7 +30,15 @@ class StatusRepository(private val apiProvider: () -> FriendicaApi) {
             spoilerText = spoilerText?.takeIf { it.isNotBlank() },
             sensitive = sensitive,
             mediaIds = mediaIds.ifEmpty { null },
+            pollOptions = pollOptions.ifEmpty { null },
+            pollMultiple = pollOptions.ifEmpty { null }?.let { pollMultiple },
+            pollExpiresIn = pollOptions.ifEmpty { null }?.let { pollExpiresInSeconds },
         )
+    }
+
+    /** Local-only: never federates to/from the poll's origin server. See [Poll]. */
+    suspend fun votePoll(pollId: String, choices: List<Int>): Result<Poll> = safeApiCall {
+        apiProvider().votePoll(pollId, choices)
     }
 
     /**
