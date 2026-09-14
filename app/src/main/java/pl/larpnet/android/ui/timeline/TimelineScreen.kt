@@ -166,6 +166,7 @@ fun TimelineScreen(
                             onToggleFavourite = viewModel::toggleFavourite,
                             onToggleReblog = viewModel::toggleReblog,
                             onToggleBookmark = viewModel::toggleBookmark,
+                            onVotePoll = viewModel::votePoll,
                             moderationActions = moderationHost.actionsFor(status),
                             onOpenHashtag = onOpenHashtag,
                         )

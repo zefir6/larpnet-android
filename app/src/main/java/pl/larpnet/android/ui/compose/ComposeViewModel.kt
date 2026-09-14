@@ -21,6 +21,18 @@ import pl.larpnet.android.data.repository.StatusRepository
 /** Predefined tags always offered in [TagsSection], ahead of the user's recent tags. */
 val PREDEFINED_TAGS = listOf("larp", "random")
 
+/** Mirrors the server's Model\Post\Question limits (friendica-larpnet). Poll voting/creation is
+ * local-only -- see [pl.larpnet.android.data.model.Poll]. */
+const val MIN_POLL_OPTIONS = 2
+const val MAX_POLL_OPTIONS = 20
+
+/** Seconds-from-now choices offered for poll duration; labels are resolved in ComposeScreen
+ * via [pl.larpnet.android.ui.compose.pollExpiryLabelRes]. */
+val POLL_EXPIRY_CHOICES = listOf(300, 1800, 3600, 21600, 86400, 259200, 604800, 2629746)
+
+/** Default poll duration: 1 day. */
+const val DEFAULT_POLL_EXPIRES_IN_SECONDS = 86400
+
 /** [visibility] is "custom" as a compose-only sentinel (like "direct", see VisibilityIcon.kt)
  * when the user has picked a hand-built audience via [ComposeViewModel.confirmAudience] --
  * the actual selection lives in [customAudienceCircles]/[customAudienceContacts]. */
@@ -45,9 +57,23 @@ data class ComposeUiState(
     val selectedTags: Set<String> = emptySet(),
     val customTags: List<String> = emptyList(),
     val customTagInput: String = "",
+    // Local-only poll creation (see pl.larpnet.android.data.model.Poll) -- mutually exclusive
+    // with media attachments and unavailable for the custom-audience visibility, both mirroring
+    // server-side restrictions (postStatusWithAudience has no poll support).
+    val pollEnabled: Boolean = false,
+    val pollOptions: List<String> = listOf("", ""),
+    val pollMultiple: Boolean = false,
+    val pollExpiresInSeconds: Int = DEFAULT_POLL_EXPIRES_IN_SECONDS,
 ) {
+    private val validPollOptions: List<String>
+        get() = pollOptions.map { it.trim() }.filter { it.isNotBlank() }
+
     val canPublish: Boolean
-        get() = (text.isNotBlank() || mediaAttachments.isNotEmpty()) && !isPosting && !isUploadingMedia
+        get() {
+            if (isPosting || isUploadingMedia) return false
+            if (pollEnabled) return validPollOptions.size >= MIN_POLL_OPTIONS && mediaAttachments.isEmpty()
+            return text.isNotBlank() || mediaAttachments.isNotEmpty()
+        }
 
     /** Predefined + recent tags, deduped and in a stable order, offered as toggle chips. */
     val toggleableTags: List<String>
@@ -194,6 +220,35 @@ class ComposeViewModel(
         uiState = uiState.copy(mediaAttachments = uiState.mediaAttachments.filterNot { it.id == mediaId })
     }
 
+    fun togglePoll() {
+        uiState = uiState.copy(pollEnabled = !uiState.pollEnabled)
+    }
+
+    fun onPollOptionChange(index: Int, value: String) {
+        val updated = uiState.pollOptions.toMutableList()
+        if (index !in updated.indices) return
+        updated[index] = value
+        uiState = uiState.copy(pollOptions = updated)
+    }
+
+    fun addPollOption() {
+        if (uiState.pollOptions.size >= MAX_POLL_OPTIONS) return
+        uiState = uiState.copy(pollOptions = uiState.pollOptions + "")
+    }
+
+    fun removePollOption(index: Int) {
+        if (uiState.pollOptions.size <= MIN_POLL_OPTIONS) return
+        uiState = uiState.copy(pollOptions = uiState.pollOptions.filterIndexed { i, _ -> i != index })
+    }
+
+    fun onPollMultipleChange(value: Boolean) {
+        uiState = uiState.copy(pollMultiple = value)
+    }
+
+    fun onPollExpiresInChange(seconds: Int) {
+        uiState = uiState.copy(pollExpiresInSeconds = seconds)
+    }
+
     fun publish() {
         if (!uiState.canPublish) return
         val tags = uiState.tagsToPublish
@@ -217,6 +272,13 @@ class ComposeViewModel(
                     spoilerText = uiState.spoilerText,
                     sensitive = uiState.sensitive,
                     mediaIds = uiState.mediaAttachments.map { it.id },
+                    pollOptions = if (uiState.pollEnabled) {
+                        uiState.pollOptions.map { it.trim() }.filter { it.isNotBlank() }
+                    } else {
+                        emptyList()
+                    },
+                    pollMultiple = uiState.pollMultiple,
+                    pollExpiresInSeconds = uiState.pollExpiresInSeconds,
                 )
             }
             result.fold(

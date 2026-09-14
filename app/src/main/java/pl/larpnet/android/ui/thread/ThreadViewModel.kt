@@ -177,6 +177,17 @@ class ThreadViewModel(
         }
     }
 
+    /** Local-only (see [pl.larpnet.android.data.model.Poll]). Waits for the server's tally
+     * rather than optimistically updating -- see TimelineViewModel.votePoll's doc comment. */
+    fun votePoll(status: Status, choices: List<Int>) {
+        val pollId = status.poll?.id ?: return
+        viewModelScope.launch {
+            statusRepository.votePoll(pollId, choices).onSuccess { poll ->
+                updateEverywhere(status.id) { it.copy(poll = poll) }
+            }
+        }
+    }
+
     /** See TimelineViewModel.applyLocalUpdate's doc comment: for a boosted status, [id] is the
      * reblogged post's own id, not the top-level item's -- must check both. */
     private fun updateIfMatch(item: Status, id: String, transform: (Status) -> Status): Status = when {

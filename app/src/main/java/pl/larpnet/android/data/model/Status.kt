@@ -23,8 +23,9 @@ data class PollOption(
 )
 
 /**
- * Read-only: poll voting is unimplemented server-side (Module\Api\Mastodon\Unimplemented),
- * so the UI only ever displays this, never submits votes.
+ * Poll voting/creation is local-only server-side: a poll created here (or a vote cast here)
+ * never federates to/from other instances. [voted]/[ownVotes] reflect only this instance's own
+ * vote record for the current user, via [pl.larpnet.android.network.FriendicaApi.votePoll].
  */
 @Serializable
 data class Poll(
@@ -35,6 +36,7 @@ data class Poll(
     @SerialName("votes_count") val votesCount: Long = 0,
     val options: List<PollOption> = emptyList(),
     val voted: Boolean = false,
+    @SerialName("own_votes") val ownVotes: List<Int>? = null,
 )
 
 /**

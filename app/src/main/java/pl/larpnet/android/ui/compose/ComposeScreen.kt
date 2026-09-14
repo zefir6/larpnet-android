@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Poll
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -55,6 +56,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import pl.larpnet.android.R
 import pl.larpnet.android.di.rememberAppContainer
+import pl.larpnet.android.ui.common.pollExpiryLabel
 import pl.larpnet.android.ui.common.visibilityLabel
 import pl.larpnet.android.ui.common.visibilityOptions
 import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
@@ -223,11 +225,39 @@ fun ComposeScreen(
                 if (state.isUploadingMedia) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp).padding(end = 8.dp))
                 }
-                SmallFloatingActionButton(
-                    onClick = { mediaPicker.launch(PickVisualMediaRequest()) },
-                ) {
-                    Icon(Icons.Filled.AddPhotoAlternate, contentDescription = null)
+                // Poll and media are mutually exclusive server-side, and poll creation isn't
+                // supported through the custom-audience (legacy) posting path -- see
+                // ComposeUiState's doc comment.
+                if (!state.pollEnabled && state.visibility != "custom") {
+                    SmallFloatingActionButton(
+                        onClick = { mediaPicker.launch(PickVisualMediaRequest()) },
+                    ) {
+                        Icon(Icons.Filled.AddPhotoAlternate, contentDescription = null)
+                    }
                 }
+                if (state.mediaAttachments.isEmpty() && state.visibility != "custom") {
+                    SmallFloatingActionButton(onClick = viewModel::togglePoll) {
+                        Icon(
+                            Icons.Filled.Poll,
+                            contentDescription = stringResource(
+                                if (state.pollEnabled) R.string.compose_poll_remove_cd else R.string.compose_poll_toggle_cd,
+                            ),
+                        )
+                    }
+                }
+            }
+
+            if (state.pollEnabled) {
+                PollComposeSection(
+                    options = state.pollOptions,
+                    multiple = state.pollMultiple,
+                    expiresInSeconds = state.pollExpiresInSeconds,
+                    onOptionChange = viewModel::onPollOptionChange,
+                    onAddOption = viewModel::addPollOption,
+                    onRemoveOption = viewModel::removePollOption,
+                    onMultipleChange = viewModel::onPollMultipleChange,
+                    onExpiresInChange = viewModel::onPollExpiresInChange,
+                )
             }
 
             if (state.mediaAttachments.isNotEmpty()) {
