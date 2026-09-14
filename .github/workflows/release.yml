@@ -26,6 +26,11 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
+        with:
+          # Google dropped the legacy 'tools' package from its SDK repo on
+          # 2026-09-14, which this action requests by default and no longer
+          # exists -- pin to just what the build actually needs instead.
+          packages: "platform-tools"
 
       - name: Cache Gradle
         uses: actions/cache@v6
@@ -85,6 +90,11 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
+        with:
+          # Google dropped the legacy 'tools' package from its SDK repo on
+          # 2026-09-14, which this action requests by default and no longer
+          # exists -- pin to just what the build actually needs instead.
+          packages: "platform-tools"
 
       - name: Cache Gradle
         uses: actions/cache@v6
