@@ -24,7 +24,7 @@ val PREDEFINED_TAGS = listOf("larp", "random")
 /** Mirrors the server's Model\Post\Question limits (friendica-larpnet). Poll voting/creation is
  * local-only -- see [pl.larpnet.android.data.model.Poll]. */
 const val MIN_POLL_OPTIONS = 2
-const val MAX_POLL_OPTIONS = 4
+const val MAX_POLL_OPTIONS = 20
 
 /** Seconds-from-now choices offered for poll duration; labels are resolved in ComposeScreen
  * via [pl.larpnet.android.ui.compose.pollExpiryLabelRes]. */
