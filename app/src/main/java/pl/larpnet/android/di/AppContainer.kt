@@ -14,6 +14,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import pl.larpnet.android.BuildConfig
 import pl.larpnet.android.data.auth.OAuthFlow
 import pl.larpnet.android.data.auth.TokenStore
+import pl.larpnet.android.data.matrix.MatrixRepository
 import pl.larpnet.android.data.repository.AlbumRepository
 import pl.larpnet.android.data.repository.AuthRepository
 import pl.larpnet.android.data.repository.ConversationRepository
@@ -178,8 +179,9 @@ class AppContainer(context: Context) {
     }
 
     val oAuthFlow = OAuthFlow(tokenStore, ::authApi)
+    val matrixRepository = MatrixRepository(context, tokenStore, ::friendicaApi)
 
-    val authRepository = AuthRepository(tokenStore, oAuthFlow, ::friendicaApi)
+    val authRepository = AuthRepository(tokenStore, oAuthFlow, ::friendicaApi, matrixRepository)
     val timelineRepository = TimelineRepository(::friendicaApi)
     val statusRepository = StatusRepository(::friendicaApi)
     val notificationRepository = NotificationRepository(::friendicaApi)

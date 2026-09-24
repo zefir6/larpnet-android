@@ -152,6 +152,7 @@
 
     <!-- Profile -->
     <string name="profile_edit">Edytuj profil</string>
+    <string name="profile_chat">Czat</string>
     <string name="profile_follow">Obserwuj</string>
     <string name="profile_unfollow">Przestań obserwować</string>
     <string name="profile_follow_requested">Oczekuje na potwierdzenie</string>
@@ -234,6 +235,11 @@
     <string name="messages_new">Nowa wiadomość</string>
     <string name="message_hint">Napisz wiadomość…</string>
     <string name="message_send">Wyślij</string>
+
+    <!-- Chat (native Matrix E2EE chat, separate from Messages above) -->
+    <string name="chat_title">Czat</string>
+    <string name="chat_empty">Brak rozmów</string>
+    <string name="chat_new">Nowy czat</string>
 
     <!-- Errors -->
     <string name="error_network">Błąd sieci. Sprawdź połączenie.</string>

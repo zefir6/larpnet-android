@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import pl.larpnet.android.data.auth.OAuthFlow
 import pl.larpnet.android.data.auth.TokenStore
+import pl.larpnet.android.data.matrix.MatrixRepository
 import pl.larpnet.android.data.model.Account
 import pl.larpnet.android.data.model.AppRegistration
 import pl.larpnet.android.network.FriendicaApi
@@ -17,6 +18,7 @@ class AuthRepository(
     private val tokenStore: TokenStore,
     private val oAuthFlow: OAuthFlow,
     private val apiProvider: () -> FriendicaApi,
+    private val matrixRepository: MatrixRepository,
 ) {
     val isLoggedIn: Boolean get() = tokenStore.isLoggedIn
 
@@ -46,6 +48,11 @@ class AuthRepository(
 
     /** Clears the local token; there's no server-side revoke call here since that requires the
      *  (now possibly-invalid) client secret round trip -- a plain local clear is enough to force
-     *  the next launch back to the login screen. */
-    fun logout() = tokenStore.clear()
+     *  the next launch back to the login screen. Also clears the Matrix chat session (crypto
+     *  store on disk, device id) -- see [MatrixRepository.clearSession]'s doc comment on why
+     *  this must happen on every logout path, not just this one. */
+    fun logout() {
+        tokenStore.clear()
+        matrixRepository.clearSession()
+    }
 }

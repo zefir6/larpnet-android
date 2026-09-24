@@ -13,6 +13,7 @@ import pl.larpnet.android.data.model.FriendicaPhoto
 import pl.larpnet.android.data.model.FriendicaPhotoAlbum
 import pl.larpnet.android.data.model.LegacyStatusRef
 import pl.larpnet.android.data.model.Instance
+import pl.larpnet.android.data.model.MatrixLoginResponse
 import pl.larpnet.android.data.model.MediaAttachment
 import pl.larpnet.android.data.model.Notification
 import pl.larpnet.android.data.model.Poll
@@ -366,4 +367,15 @@ interface FriendicaApi {
         @Field("token") token: String,
         @Field("unregister") unregister: Int? = null,
     ): FcmRegistrationResult
+
+    // -- Matrix chat -----------------------------------------------------------
+
+    /**
+     * `POST larpnet_matrix` -- the `larpnet_matrix` addon's native-app identity endpoint
+     * (`larpnet_matrix_post()`). Any valid app token works, same trust level as reading the
+     * user's own timeline. Returns a short-lived (60s) JWT the caller trades at the returned
+     * homeserver's `/login` for a real Matrix session -- see `MatrixRepository`.
+     */
+    @POST("larpnet_matrix")
+    suspend fun matrixLogin(): MatrixLoginResponse
 }

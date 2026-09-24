@@ -24,6 +24,13 @@ kotlinxDatetime = "0.6.1"
 googleServices = "4.5.0"
 firebaseBom = "34.18.0"
 playAppUpdate = "2.1.0"
+# Matrix protocol + E2EE for native chat -- the same Rust core Element X uses, published
+# straight to Maven Central (no extra repository needed). Exact-version-pinned rather than a
+# range: this bundles prebuilt native .so libraries, not source, so an unreviewed automatic
+# upgrade could silently change the E2EE implementation underneath us. Confirmed current via
+# Element X Android's own gradle/libs.versions.toml as of 2026-09-24 -- re-check there before
+# bumping, same "don't hardcode from memory" caveat the iOS plan doc carries for its SPM pin.
+matrixRustSdk = "26.09.9"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -55,6 +62,7 @@ jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
 play-app-update-ktx = { group = "com.google.android.play", name = "app-update-ktx", version.ref = "playAppUpdate" }
+matrix-rust-sdk = { group = "org.matrix.rustcomponents", name = "sdk-android", version.ref = "matrixRustSdk" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
