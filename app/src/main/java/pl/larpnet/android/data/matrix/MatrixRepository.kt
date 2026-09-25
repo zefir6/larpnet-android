@@ -66,47 +66,26 @@ import pl.larpnet.android.network.FriendicaApi
  * read; [Client] is long-lived and closed only in [clearSession]; [TaskHandle] is cancelled
  * *and* closed together, since `cancel()` alone stops the loop but doesn't free the wrapper.
  *
- * ## KNOWN BLOCKER, confirmed live against test.larpnet.pl on 2026-09-24 (not yet resolved)
+ * ## `rustls-platform-verifier` blocker -- RESOLVED 2026-09-25
  *
- * [ensureClient]'s `ClientBuilder().build()` call throws
- * `"Expect rustls-platform-verifier to be initialized"` on every real device/emulator run --
- * every other piece (login JWT minting, room list, timeline diffs, send) is confirmed working
- * via the iOS/web siblings and this file's own architecture, but this one call never
- * completes, so nothing downstream of it has been live-verified on Android yet.
+ * [ensureClient]'s `ClientBuilder().build()` used to throw
+ * `"Expect rustls-platform-verifier to be initialized"` on every real device/emulator run.
+ * Earlier investigation here suspected a JNA-vs-JNI_OnLoad native-loading gap and concluded it
+ * likely needed real native/NDK work -- that diagnosis was a dead end. The actual root cause,
+ * found by reading `matrix-rust-sdk`'s own source
+ * (`bindings/matrix-sdk-ffi/src/platform/{mod,android_platform}.rs`): the SDK exposes a public
+ * FFI function, `initPlatform(TracingConfiguration, useLightweightTokioRuntime: Boolean)`, that
+ * must be called *once*, before building any `Client`. On Android, it internally finds the
+ * already-running JVM via `JNI_GetCreatedJavaVMs` (a process-wide JNI API -- no `Context` needs
+ * to be passed in, and it doesn't depend on `JNI_OnLoad` firing at all) and calls
+ * `rustls_platform_verifier::android::init_hosted()` to wire up the JNI bridge to
+ * `org.rustls.platformverifier.CertificateVerifier` (vendored in this repo at
+ * `org/rustls/platformverifier/`). This app was simply never calling it -- see
+ * [pl.larpnet.android.App]'s `initMatrixPlatform()`, called once from `Application.onCreate()`.
  *
- * Root cause, as far as diagnosed: `sdk-android`'s default TLS path shells out to the
- * `rustls-platform-verifier` crate's Android backend, which needs a `JavaVM*` captured via a
- * classic JNI `JNI_OnLoad` at some point in the process's life. This SDK's own Kotlin<->Rust
- * calls all go through JNA (`com.sun.jna.Native.load` -- confirmed via the generated bindings
- * importing `com.sun.jna.Library`), which loads the `.so` via `dlopen()` directly and never
- * triggers `JNI_OnLoad`.
- *
- * Things already tried here and ruled out:
- * - Vendoring `org.rustls.platformverifier.CertificateVerifier` (the Kotlin-side JNI target
- *   class rustls-platform-verifier calls into by name) -- necessary, since Element X Android
- *   vendors this exact file for the same reason (see their `libraries/rustls-tls` module,
- *   `docs/_developer_onboarding.md`'s "rustls and platform verifier" section), and it's kept
- *   in this repo too (`org/rustls/platformverifier/`) -- but not sufficient on its own: the
- *   panic persists even with the class present, confirmed live.
- * - `ClientBuilder.addRootCertificates(<system trust store certs>)` as a way to sidestep
- *   `rustls-platform-verifier` entirely -- this changes the failure to a *different* exception
- *   (`ClientBuildException.ServerUnreachable("builder error")`), suggesting at least one
- *   internal HTTP client `ClientBuilder.build()` constructs doesn't pick up the custom root
- *   store and still hits the same underlying gap.
- * - An explicit `System.loadLibrary("matrix_sdk_ffi")` call before touching `ClientBuilder`,
- *   on the theory that *any* loader triggering `JNI_OnLoad` for the already-`dlopen()`'d `.so`
- *   would be enough, regardless of which loader (JNA vs `System.loadLibrary`) actually
- *   requested it first -- no change, panic persists.
- *
- * Element X Android's own `RustMatrixClientFactory.getBaseClientBuilder()` (confirmed via
- * their public source, 2026-09-24) calls plain `ClientBuilder()` with no TLS-related
- * workaround at all, so *something* about their setup avoids this that hasn't been identified
- * yet -- possibly a different SDK build/publishing pipeline for their AAR, a newer/older
- * `sdk-android` release, or an Android version/toolchain difference in how the native library
- * gets loaded. Re-check whether a newer `sdk-android` release fixes this before spending more
- * time on it; if not, this likely needs either an upstream fix (file against
- * matrix-org/matrix-rust-components-kotlin) or a custom native shim exporting a real
- * `JNI_OnLoad` -- real native/NDK work, out of scope for a Kotlin-only pass.
+ * Confirmed live on the Android emulator: `ensureClient()` completes, the room list loads real
+ * rooms from test.larpnet.pl, an existing E2EE message decrypts to plain text (not the
+ * `unableToDecrypt` "🔒" fallback), and sending a fresh message round-trips correctly.
  */
 class MatrixRepository(
     private val context: Context,
