@@ -22,6 +22,7 @@ sealed class ChatThreadTarget {
 }
 
 data class ChatThreadUiState(
+    val roomId: String? = null,
     val roomName: String? = null,
     val messages: List<ChatMessage> = emptyList(),
     val isLoading: Boolean = false,
@@ -68,7 +69,7 @@ class ChatThreadViewModel(
                 }
                 val newHandle = repository.openTimeline(roomId)
                 handle = newHandle
-                uiState = uiState.copy(isLoading = false)
+                uiState = uiState.copy(roomId = roomId, isLoading = false)
                 // Suspends for the lifetime of this screen -- viewModelScope is cancelled in
                 // onCleared(), which is what actually ends this collection.
                 newHandle.messages.collect { snapshot ->

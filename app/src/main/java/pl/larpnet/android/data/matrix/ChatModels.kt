@@ -20,3 +20,18 @@ data class ChatMessage(
     val body: String,
     val timestampMillis: Long,
 )
+
+/** One other member of a room, display-ready -- [MatrixRepository.roomInfo]'s member list. */
+data class ChatRoomMember(
+    val userId: String,
+    val displayName: String,
+)
+
+/** [MatrixRepository.roomInfo]'s output shape -- mirrors the web client's `RoomInfoModal.jsx`
+ * (`others`/`isGroup`/`room.name`). */
+data class ChatRoomInfo(
+    val roomId: String,
+    val rawName: String,
+    val isGroup: Boolean,
+    val members: List<ChatRoomMember>,
+)

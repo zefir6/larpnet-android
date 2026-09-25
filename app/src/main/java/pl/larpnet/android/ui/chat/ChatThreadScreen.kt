@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -46,6 +47,7 @@ import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 fun ChatThreadScreen(
     target: ChatThreadTarget,
     onBack: () -> Unit,
+    onOpenInfo: (String) -> Unit,
 ) {
     val appContainer = rememberAppContainer()
     val viewModelKey = when (target) {
@@ -73,6 +75,13 @@ fun ChatThreadScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                    }
+                },
+                actions = {
+                    state.roomId?.let { roomId ->
+                        IconButton(onClick = { onOpenInfo(roomId) }) {
+                            Icon(Icons.Filled.Info, contentDescription = stringResource(R.string.chat_room_info))
+                        }
                     }
                 },
             )

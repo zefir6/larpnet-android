@@ -3,19 +3,28 @@ package pl.larpnet.android.data.matrix
 import android.content.Context
 import java.io.File
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.coroutines.resume
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.ClientBuilder
 import org.matrix.rustcomponents.sdk.CreateRoomParameters
+import org.matrix.rustcomponents.sdk.EnableRecoveryProgress
+import org.matrix.rustcomponents.sdk.EnableRecoveryProgressListener
 import org.matrix.rustcomponents.sdk.LatestEventValue
 import org.matrix.rustcomponents.sdk.Membership
+import org.matrix.rustcomponents.sdk.MembershipState
 import org.matrix.rustcomponents.sdk.MsgLikeKind
+import org.matrix.rustcomponents.sdk.RecoveryState
+import org.matrix.rustcomponents.sdk.RecoveryStateListener
 import org.matrix.rustcomponents.sdk.Room
+import org.matrix.rustcomponents.sdk.RoomMember
 import org.matrix.rustcomponents.sdk.RoomPreset
 import org.matrix.rustcomponents.sdk.RoomVisibility
 import org.matrix.rustcomponents.sdk.SyncListenerV2
@@ -38,12 +47,17 @@ import pl.larpnet.android.network.FriendicaApi
  *   identical pattern, and against larpnet-iOS's `MatrixClientStore`).
  * - The crypto/session store on disk (`sessionPaths`), keyed by the Matrix user id, DOES
  *   persist across launches -- that's what makes E2EE history survive a relaunch.
- * - No cross-signing / secret-storage bootstrap -- explicit policy carried over from web
- *   (`addon/larpnet_matrix/CLAUDE.md`'s "Why there's no device-verification UI": a single
- *   device sends/receives E2EE fine without it, and an operator-derivable recovery key is a
- *   security regression, not a convenience). `ClientBuilder.autoEnableCrossSigning`/
- *   `autoEnableBackups` are deliberately left at their defaults (off) -- do not turn them on
- *   without re-reading that policy first.
+ * - `ClientBuilder.autoEnableCrossSigning`/`autoEnableBackups` are deliberately left at their
+ *   defaults (off) -- no interactive device-verification (SAS/emoji) UI, same policy as web
+ *   (`addon/larpnet_matrix/CLAUDE.md`'s "Why there's no device-verification UI"). This does NOT
+ *   mean no recovery key at all, though: the actual policy (see that same doc, updated once web
+ *   shipped user-chosen recovery passphrases) is "no *operator-derivable* key" -- a recovery
+ *   key/passphrase the user generates and holds themselves, never sent to or knowable by the
+ *   server, is fine and is what [setUpRecovery]/[restoreRecovery]/[resetRecovery] below
+ *   implement (mirroring web's `client/src/recovery.js`). Confirmed via a live spike against
+ *   test.larpnet.pl (2026-09-25, on iOS -- same underlying Rust crate/FFI shape here) that
+ *   `Encryption.enableRecovery()` does NOT hit the same JWT/UIA wall `bootstrapCrossSigning()`
+ *   does on web -- it's a plain secret-storage/backup operation, not a cross-signing key upload.
  *
  * Unlike the Swift bindings, every FFI-object-backed type here ([Client], [Room],
  * `Timeline`, [TaskHandle], `TimelineItem`) implements `Disposable`/`AutoCloseable` and leaks
@@ -189,6 +203,160 @@ class MatrixRepository(
         )
     }
 
+    /**
+     * Members (join+invite, excluding self) plus the raw room-name state event and whether
+     * this is a group (more than one other member) -- mirrors the web client's
+     * `RoomInfoModal.jsx` (`others`/`isGroup` computed the same way). [ChatRoomInfo.rawName],
+     * not `room.displayName()`, because for a 1:1 DM `displayName()` always prefers the other
+     * person's own name -- same reason `RoomInfoModal.jsx` hides rename there.
+     */
+    suspend fun roomInfo(roomId: String): ChatRoomInfo {
+        val activeClient = ensureClient()
+        val room = activeClient.getRoom(roomId) ?: error("Room not found: $roomId")
+        return try {
+            val selfId = activeClient.userId()
+            val iterator = room.members()
+            val all = mutableListOf<RoomMember>()
+            while (true) {
+                val chunk = iterator.nextChunk(100u)
+                if (chunk.isNullOrEmpty()) break
+                all.addAll(chunk)
+            }
+            val others = all.filter {
+                (it.membership == MembershipState.Join || it.membership == MembershipState.Invite) && it.userId != selfId
+            }
+            val members = others.map { ChatRoomMember(userId = it.userId, displayName = resolvedName(it.userId, it.displayName)) }
+            ChatRoomInfo(roomId = roomId, rawName = room.rawName().orEmpty(), isGroup = members.size != 1, members = members)
+        } finally {
+            room.close()
+        }
+    }
+
+    suspend fun renameRoom(roomId: String, name: String) {
+        val activeClient = ensureClient()
+        val room = activeClient.getRoom(roomId) ?: error("Room not found: $roomId")
+        try {
+            room.setName(name)
+        } finally {
+            room.close()
+        }
+    }
+
+    /** [nickname] is a plain Friendica nickname, same convention as [openOrCreateDirectRoom]. */
+    suspend fun inviteMember(roomId: String, nickname: String) {
+        val activeClient = ensureClient()
+        val room = activeClient.getRoom(roomId) ?: error("Room not found: $roomId")
+        val resolvedServerName = serverName ?: error("Not logged in")
+        try {
+            room.inviteUserById("@${nickname.lowercase()}:$resolvedServerName")
+        } finally {
+            room.close()
+        }
+    }
+
+    suspend fun removeMember(roomId: String, userId: String) {
+        val activeClient = ensureClient()
+        val room = activeClient.getRoom(roomId) ?: error("Room not found: $roomId")
+        try {
+            room.kickUser(userId, null)
+        } finally {
+            room.close()
+        }
+    }
+
+    suspend fun leaveRoom(roomId: String) {
+        val activeClient = ensureClient()
+        val room = activeClient.getRoom(roomId) ?: error("Room not found: $roomId")
+        try {
+            room.leave()
+        } finally {
+            room.close()
+        }
+    }
+
+    /**
+     * Which recovery prompt (if any) `ChatScreen` should show right after login -- mirrors the
+     * web client's `getRecoveryStatus()`/`recoveryPrompt` (`recovery.js`/`App.jsx`).
+     * [RecoveryPromptKind.NEEDS_SETUP] means this account has never set up recovery anywhere;
+     * [RecoveryPromptKind.NEEDS_RESTORE] means recovery exists (set up on another device, or by
+     * this device in a past install) but this device hasn't unlocked it yet. `null` means
+     * either it's already unlocked here, or the state is still `UNKNOWN` (nothing to prompt).
+     */
+    enum class RecoveryPromptKind { NEEDS_SETUP, NEEDS_RESTORE }
+
+    suspend fun recoveryPromptKind(): RecoveryPromptKind? = when (waitForRecoveryState()) {
+        RecoveryState.DISABLED -> RecoveryPromptKind.NEEDS_SETUP
+        RecoveryState.INCOMPLETE -> RecoveryPromptKind.NEEDS_RESTORE
+        RecoveryState.ENABLED, RecoveryState.UNKNOWN -> null
+    }
+
+    /**
+     * Sets up recovery for the first time on this account (`RecoveryState.DISABLED`) -- a
+     * random key if [passphrase] is null, otherwise derived from the phrase. Returns the
+     * encoded recovery key/phrase to show the user once (there's no way to see it again).
+     */
+    suspend fun setUpRecovery(passphrase: String?): String {
+        val activeClient = ensureClient()
+        return activeClient.encryption().enableRecovery(true, passphrase, NoOpRecoveryProgressListener)
+    }
+
+    /**
+     * Unlocks this device's access to existing cross-device history, using either the raw
+     * recovery key or the original passphrase -- `Encryption.recover()` accepts either as the
+     * same string (the underlying Rust crate's own doc comment gives the exact example
+     * `recovery.recover("my recovery key or passphrase")`).
+     */
+    suspend fun restoreRecovery(input: String) {
+        ensureClient().encryption().recover(input)
+    }
+
+    /**
+     * Resets recovery when the user has forgotten their key/phrase -- same scope as web's
+     * `resetRecovery()` (see its doc comment in `client/src/recovery.js`/the addon's
+     * `CLAUDE.md`): this is "let me set a new key", not a guarantee that a device which already
+     * has the old keys locally loses access to old history. `resetRecoveryKey()`/
+     * `recoverAndReset()` exist on this SDK but don't accept a passphrase -- a custom-passphrase
+     * reset goes through disable-then-enable instead, which reaches the same end state (a fresh
+     * secret-storage key/backup version) via the same path [setUpRecovery] already uses.
+     */
+    suspend fun resetRecovery(passphrase: String?): String {
+        val activeClient = ensureClient()
+        val encryption = activeClient.encryption()
+        encryption.disableRecovery()
+        return encryption.enableRecovery(true, passphrase, NoOpRecoveryProgressListener)
+    }
+
+    /**
+     * [Encryption.recoveryState] starts at `UNKNOWN` right after login until the SDK's
+     * background crypto tasks resolve it -- waits for that via [RecoveryStateListener] rather
+     * than polling.
+     */
+    private suspend fun waitForRecoveryState(): RecoveryState {
+        val activeClient = ensureClient()
+        val encryption = activeClient.encryption()
+        return suspendCancellableCoroutine { continuation ->
+            // Registers the listener *before* checking the current value (rather than the
+            // other way around) so a transition happening in between the two can't be missed.
+            val fired = AtomicBoolean(false)
+            var handle: TaskHandle? = null
+            val listener = object : RecoveryStateListener {
+                override fun onUpdate(status: RecoveryState) {
+                    if (status == RecoveryState.UNKNOWN) return
+                    if (fired.compareAndSet(false, true)) {
+                        handle?.cancel()
+                        continuation.resume(status)
+                    }
+                }
+            }
+            handle = encryption.recoveryStateListener(listener)
+            val current = encryption.recoveryState()
+            if (current != RecoveryState.UNKNOWN && fired.compareAndSet(false, true)) {
+                handle.cancel()
+                continuation.resume(current)
+            }
+        }
+    }
+
     suspend fun openTimeline(roomId: String): ChatTimelineHandle {
         val activeClient = ensureClient()
         val room = activeClient.getRoom(roomId) ?: error("Room not found: $roomId")
@@ -264,14 +432,21 @@ class MatrixRepository(
     private suspend fun displayNameFor(room: Room): String {
         val heroes = room.heroes()
         if (heroes.size == 1) {
-            val hero = heroes[0]
-            val localpart = localpartOf(hero.userId)
-            contactsByLocalpart[localpart]?.let { return it }
-            hero.displayName?.takeIf { it.isNotBlank() }?.let { return it }
-            return localpart ?: hero.userId
+            return resolvedName(heroes[0].userId, heroes[0].displayName)
         }
         room.displayName()?.takeIf { it.isNotBlank() }?.let { return it }
         return "Rozmowa"
+    }
+
+    /** Shared by the room-list hero name above and [roomInfo]'s member list: prefer the
+     * Friendica name we already know (covers a member who's never opened chat themselves, so
+     * has no Matrix displayname yet) over the SDK-reported displayname, then fall back to the
+     * bare localpart. */
+    private fun resolvedName(userId: String, fallbackDisplayName: String?): String {
+        val localpart = localpartOf(userId)
+        contactsByLocalpart[localpart]?.let { return it }
+        fallbackDisplayName?.takeIf { it.isNotBlank() }?.let { return it }
+        return localpart ?: userId
     }
 
     private suspend fun previewFor(room: Room): Pair<String?, Long?> = when (val latest = room.latestEvent()) {
@@ -296,4 +471,10 @@ class MatrixRepository(
         if (colon < 0) return null
         return mxid.substring(1, colon).lowercase()
     }
+}
+
+/** [MatrixRepository.setUpRecovery]/[MatrixRepository.resetRecovery] don't need progress
+ * updates -- the caller already shows its own busy state while awaiting the suspend call. */
+private object NoOpRecoveryProgressListener : EnableRecoveryProgressListener {
+    override fun onUpdate(status: EnableRecoveryProgress) {}
 }

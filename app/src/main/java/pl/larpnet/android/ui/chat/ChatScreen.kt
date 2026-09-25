@@ -33,6 +33,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import pl.larpnet.android.R
 import pl.larpnet.android.data.matrix.ChatRoom
+import pl.larpnet.android.data.matrix.MatrixRepository
 import pl.larpnet.android.di.rememberAppContainer
 import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 
@@ -50,6 +51,15 @@ fun ChatScreen(
         },
     )
     val state = viewModel.uiState
+
+    state.recoveryPrompt?.let { kind ->
+        RecoveryKeyDialog(
+            mode = if (kind == MatrixRepository.RecoveryPromptKind.NEEDS_SETUP) RecoveryKeyMode.SETUP else RecoveryKeyMode.RESTORE,
+            repository = appContainer.matrixRepository,
+            onDone = viewModel::dismissRecoveryPrompt,
+            onSkip = if (kind == MatrixRepository.RecoveryPromptKind.NEEDS_RESTORE) viewModel::dismissRecoveryPrompt else null,
+        )
+    }
 
     Scaffold(
         topBar = {

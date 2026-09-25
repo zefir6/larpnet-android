@@ -26,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -36,10 +37,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import kotlinx.coroutines.launch
 import pl.larpnet.android.BuildConfig
 import pl.larpnet.android.R
 import pl.larpnet.android.data.model.Status
 import pl.larpnet.android.di.rememberAppContainer
+import pl.larpnet.android.ui.chat.ChatRoomInfoScreen
 import pl.larpnet.android.ui.chat.ChatScreen
 import pl.larpnet.android.ui.chat.ChatThreadScreen
 import pl.larpnet.android.ui.chat.ChatThreadTarget
@@ -90,6 +93,8 @@ internal object Routes {
     const val CHAT = "chat"
     const val NEW_CHAT = "chat/new"
     const val CHAT_THREAD = "chat/thread?roomId={roomId}&roomName={roomName}&nickname={nickname}"
+    const val CHAT_ROOM_INFO = "chat/thread/{roomId}/info"
+    const val ADD_CHAT_MEMBER = "chat/thread/{roomId}/add_member"
     const val TAG = "tag/{hashtag}"
     const val BLOCKED_ACCOUNTS = "blocked_accounts"
     const val HIDDEN_POSTS = "hidden_posts"
@@ -111,6 +116,8 @@ private fun chatThreadRoomRoute(id: String, name: String) =
     "chat/thread?roomId=${URLEncoder.encode(id, "UTF-8")}&roomName=${URLEncoder.encode(name, "UTF-8")}"
 private fun chatThreadNicknameRoute(nickname: String) =
     "chat/thread?nickname=${URLEncoder.encode(nickname, "UTF-8")}"
+private fun chatRoomInfoRoute(roomId: String) = "chat/thread/${URLEncoder.encode(roomId, "UTF-8")}/info"
+private fun addChatMemberRoute(roomId: String) = "chat/thread/${URLEncoder.encode(roomId, "UTF-8")}/add_member"
 private fun tagRoute(hashtag: String) = "tag/${URLEncoder.encode(hashtag, "UTF-8")}"
 private fun albumDetailRoute(album: String) = "albums/${URLEncoder.encode(album, "UTF-8")}"
 
@@ -492,6 +499,39 @@ fun LarpnetNavGraph(startDestination: String) {
                 ChatThreadScreen(
                     target = target,
                     onBack = { navController.popBackStack() },
+                    onOpenInfo = { roomId -> navController.navigate(chatRoomInfoRoute(roomId)) },
+                )
+            }
+
+            composable(
+                Routes.CHAT_ROOM_INFO,
+                arguments = listOf(navArgument("roomId") { type = NavType.StringType }),
+            ) { entry ->
+                val roomId = entry.arguments?.getString("roomId").orEmpty()
+                ChatRoomInfoScreen(
+                    roomId = roomId,
+                    onBack = { navController.popBackStack() },
+                    onAddMember = { navController.navigate(addChatMemberRoute(roomId)) },
+                    onLeft = { navController.popBackStack(Routes.CHAT, inclusive = false) },
+                )
+            }
+
+            composable(
+                Routes.ADD_CHAT_MEMBER,
+                arguments = listOf(navArgument("roomId") { type = NavType.StringType }),
+            ) { entry ->
+                val roomId = entry.arguments?.getString("roomId").orEmpty()
+                val appContainer = rememberAppContainer()
+                val scope = rememberCoroutineScope()
+                SearchScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenProfile = onOpenProfile,
+                    onSelectAccount = { account ->
+                        scope.launch {
+                            runCatching { appContainer.matrixRepository.inviteMember(roomId, account.username) }
+                            navController.popBackStack()
+                        }
+                    },
                 )
             }
 

@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Report
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.SystemUpdate
@@ -84,6 +85,8 @@ import pl.larpnet.android.data.repository.PushRepository
 import pl.larpnet.android.data.repository.UpdateChecker
 import pl.larpnet.android.di.rememberAppContainer
 import pl.larpnet.android.push.PushControl
+import pl.larpnet.android.ui.chat.RecoveryKeyDialog
+import pl.larpnet.android.ui.chat.RecoveryKeyMode
 import pl.larpnet.android.ui.common.AvatarImage
 import pl.larpnet.android.ui.nav.BottomTab
 import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
@@ -142,6 +145,8 @@ fun SettingsScreen(
     var appLocaleTag by remember { mutableStateOf(context.currentAppLocaleTag()) }
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showServerDialog by remember { mutableStateOf(false) }
+    var showResetRecoveryConfirm by remember { mutableStateOf(false) }
+    var showResetRecoverySheet by remember { mutableStateOf(false) }
     var serverAddress by remember { mutableStateOf(appContainer.tokenStore.instanceBaseUrl ?: BuildConfig.DEFAULT_INSTANCE) }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -189,6 +194,31 @@ fun SettingsScreen(
                 serverAddress = newAddress
                 showServerDialog = false
             },
+        )
+    }
+
+    if (showResetRecoveryConfirm) {
+        AlertDialog(
+            onDismissRequest = { showResetRecoveryConfirm = false },
+            title = { Text(stringResource(R.string.settings_reset_recovery_key)) },
+            text = { Text(stringResource(R.string.settings_reset_recovery_key_confirm)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showResetRecoveryConfirm = false
+                    showResetRecoverySheet = true
+                }) { Text(stringResource(R.string.settings_reset_recovery_key_confirm_action)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetRecoveryConfirm = false }) { Text(stringResource(R.string.dialog_cancel)) }
+            },
+        )
+    }
+
+    if (showResetRecoverySheet) {
+        RecoveryKeyDialog(
+            mode = RecoveryKeyMode.RESET,
+            repository = appContainer.matrixRepository,
+            onDone = { showResetRecoverySheet = false },
         )
     }
 
@@ -355,6 +385,16 @@ fun SettingsScreen(
                     label = serverAddress,
                     hint = stringResource(R.string.settings_server_address_hint),
                     onClick = { showServerDialog = true },
+                )
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                SectionLabel(stringResource(R.string.settings_chat_section))
+                SettingsLinkRow(
+                    icon = Icons.Filled.Lock,
+                    label = stringResource(R.string.settings_reset_recovery_key),
+                    hint = null,
+                    onClick = { showResetRecoveryConfirm = true },
                 )
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))

@@ -13,6 +13,8 @@ data class ChatUiState(
     val rooms: List<ChatRoom> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
+    /** null once resolved (nothing to show) -- see [MatrixRepository.recoveryPromptKind]. */
+    val recoveryPrompt: MatrixRepository.RecoveryPromptKind? = null,
 )
 
 /**
@@ -32,6 +34,18 @@ class ChatViewModel(private val repository: MatrixRepository) : ViewModel() {
     init {
         refresh()
         subscribeToUpdates()
+        checkRecovery()
+    }
+
+    fun dismissRecoveryPrompt() {
+        uiState = uiState.copy(recoveryPrompt = null)
+    }
+
+    private fun checkRecovery() {
+        viewModelScope.launch {
+            val kind = runCatching { repository.recoveryPromptKind() }.getOrNull()
+            uiState = uiState.copy(recoveryPrompt = kind)
+        }
     }
 
     fun refresh() {
