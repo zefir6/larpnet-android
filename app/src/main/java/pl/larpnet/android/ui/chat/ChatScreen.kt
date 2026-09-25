@@ -40,7 +40,7 @@ import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,
     onOpenRoom: (ChatRoom) -> Unit,
     onNewChat: () -> Unit,
 ) {
@@ -67,8 +67,14 @@ fun ChatScreen(
                 colors = larpnetTopAppBarColors(),
                 title = { Text(stringResource(R.string.chat_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                    // Only shown when actually pushed on top of something (e.g. from
+                    // Notifications' toolbar icon) -- null when this is the bottom-tab root,
+                    // same convention every other tab-root screen (Home/Local/...) already
+                    // follows: no back arrow, just the bottom bar for cross-tab navigation.
+                    onBack?.let { back ->
+                        IconButton(onClick = back) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        }
                     }
                 },
             )
