@@ -152,6 +152,7 @@
 
     <!-- Profile -->
     <string name="profile_edit">Edit profile</string>
+    <string name="profile_chat">Chat</string>
     <string name="profile_follow">Follow</string>
     <string name="profile_unfollow">Unfollow</string>
     <string name="profile_follow_requested">Requested</string>
@@ -196,6 +197,10 @@
     <string name="settings_bottom_nav_order_section">Bottom bar icon order</string>
     <string name="settings_bottom_nav_move_up">Move up</string>
     <string name="settings_bottom_nav_move_down">Move down</string>
+    <string name="settings_chat_section">Chat</string>
+    <string name="settings_reset_recovery_key">Reset recovery key</string>
+    <string name="settings_reset_recovery_key_confirm">This removes access to chat history under the old key on new devices. This can\'t be undone.</string>
+    <string name="settings_reset_recovery_key_confirm_action">Reset</string>
     <string name="settings_moderation_section">Moderation</string>
     <string name="settings_following_section">Following</string>
 
@@ -234,6 +239,18 @@
     <string name="messages_new">New message</string>
     <string name="message_hint">Write a message…</string>
     <string name="message_send">Send</string>
+
+    <!-- Chat (native Matrix E2EE chat, separate from Messages above) -->
+    <string name="chat_title">Chat</string>
+    <string name="chat_empty">No conversations yet</string>
+    <string name="chat_new">New chat</string>
+    <string name="chat_room_info">Conversation info</string>
+    <string name="chat_room_name_hint">Conversation name</string>
+    <string name="chat_room_save">Save</string>
+    <string name="chat_room_participants">Participants</string>
+    <string name="chat_room_remove_member">Remove</string>
+    <string name="chat_room_add_member">+ Add person</string>
+    <string name="chat_room_leave">Leave conversation</string>
 
     <!-- Errors -->
     <string name="error_network">Network error. Check your connection.</string>

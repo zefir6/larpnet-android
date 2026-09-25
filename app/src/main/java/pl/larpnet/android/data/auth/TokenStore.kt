@@ -49,6 +49,15 @@ class TokenStore(context: Context) {
         get() = prefs.getString(KEY_ACCESS_TOKEN, null)
         set(value) = prefs.edit().putString(KEY_ACCESS_TOKEN, value).apply()
 
+    /** Stable per-device id for the native Matrix chat session, generated once and reused
+     * across launches -- see [pl.larpnet.android.data.matrix.MatrixRepository]. Reusing it
+     * makes Synapse re-issue a token for the same device rather than registering a new one.
+     * Cleared by [clear]: a different account logging into this device afterward must not
+     * inherit it. */
+    var matrixDeviceId: String?
+        get() = prefs.getString(KEY_MATRIX_DEVICE_ID, null)
+        set(value) = prefs.edit().putString(KEY_MATRIX_DEVICE_ID, value).apply()
+
     val isLoggedIn: Boolean
         get() = !accessToken.isNullOrBlank() && !instanceBaseUrl.isNullOrBlank()
 
@@ -100,7 +109,11 @@ class TokenStore(context: Context) {
         get() = prefs.getString(KEY_FOLLOWED_THREADS, null)
         set(value) = prefs.edit().putString(KEY_FOLLOWED_THREADS, value).apply()
 
-    /** Clears the access token (and app registration, since it's keyed to one instance) on logout / forced re-login. */
+    /** Clears the access token (and app registration, since it's keyed to one instance) on
+     * logout / forced re-login. Does NOT touch the Matrix session (crypto store on disk,
+     * [matrixDeviceId]) -- that's [pl.larpnet.android.data.matrix.MatrixRepository.clearSession]'s
+     * job; every caller of [clear] must also call that, or a second account logging into this
+     * device would silently inherit the first account's local Matrix crypto store. */
     fun clear() {
         prefs.edit()
             .remove(KEY_ACCESS_TOKEN)
@@ -109,12 +122,18 @@ class TokenStore(context: Context) {
             .apply()
     }
 
+    /** Only [pl.larpnet.android.data.matrix.MatrixRepository.clearSession] calls this. */
+    fun clearMatrixDeviceId() {
+        prefs.edit().remove(KEY_MATRIX_DEVICE_ID).apply()
+    }
+
     companion object {
         private const val PREFS_NAME = "larpnet_secure_prefs"
         private const val KEY_INSTANCE_URL = "instance_base_url"
         private const val KEY_CLIENT_ID = "client_id"
         private const val KEY_CLIENT_SECRET = "client_secret"
         private const val KEY_ACCESS_TOKEN = "access_token"
+        private const val KEY_MATRIX_DEVICE_ID = "matrix_device_id"
         private const val KEY_PUSH_ENABLED = "push_enabled"
         private const val KEY_LAST_UPDATE_CHECK_AT = "last_update_check_at"
         private const val KEY_DISMISSED_UPDATE_VERSION_CODE = "dismissed_update_version_code"

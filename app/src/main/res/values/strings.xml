@@ -152,6 +152,7 @@
 
     <!-- Profile -->
     <string name="profile_edit">Edytuj profil</string>
+    <string name="profile_chat">Czat</string>
     <string name="profile_follow">Obserwuj</string>
     <string name="profile_unfollow">Przestań obserwować</string>
     <string name="profile_follow_requested">Oczekuje na potwierdzenie</string>
@@ -196,6 +197,10 @@
     <string name="settings_bottom_nav_order_section">Kolejność ikon dolnego paska</string>
     <string name="settings_bottom_nav_move_up">Przesuń w górę</string>
     <string name="settings_bottom_nav_move_down">Przesuń w dół</string>
+    <string name="settings_chat_section">Czat</string>
+    <string name="settings_reset_recovery_key">Resetuj klucz odzyskiwania</string>
+    <string name="settings_reset_recovery_key_confirm">To usunie dostęp do historii czatu za pomocą starego klucza na nowych urządzeniach. Tej operacji nie można odwrócić.</string>
+    <string name="settings_reset_recovery_key_confirm_action">Resetuj</string>
     <string name="settings_moderation_section">Moderacja</string>
     <string name="settings_following_section">Obserwowane</string>
 
@@ -234,6 +239,18 @@
     <string name="messages_new">Nowa wiadomość</string>
     <string name="message_hint">Napisz wiadomość…</string>
     <string name="message_send">Wyślij</string>
+
+    <!-- Chat (native Matrix E2EE chat, separate from Messages above) -->
+    <string name="chat_title">Czat</string>
+    <string name="chat_empty">Brak rozmów</string>
+    <string name="chat_new">Nowy czat</string>
+    <string name="chat_room_info">Informacje o rozmowie</string>
+    <string name="chat_room_name_hint">Nazwa rozmowy</string>
+    <string name="chat_room_save">Zapisz</string>
+    <string name="chat_room_participants">Uczestnicy</string>
+    <string name="chat_room_remove_member">Usuń</string>
+    <string name="chat_room_add_member">+ Dodaj osobę</string>
+    <string name="chat_room_leave">Opuść rozmowę</string>
 
     <!-- Errors -->
     <string name="error_network">Błąd sieci. Sprawdź połączenie.</string>

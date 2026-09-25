@@ -65,6 +65,7 @@ fun ProfileScreen(
     onOpenHashtag: (String) -> Unit = {},
     onOpenAlbums: () -> Unit = {},
     onOpenMedia: () -> Unit = {},
+    onOpenChat: (String) -> Unit = {},
 ) {
     val appContainer = rememberAppContainer()
     val viewModel: ProfileViewModel = viewModel(
@@ -157,7 +158,12 @@ fun ProfileScreen(
 
             else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(padding)) {
                 item {
-                    ProfileHeader(state = state, avatarVersion = avatarVersion, onToggleFollow = viewModel::toggleFollow)
+                    ProfileHeader(
+                        state = state,
+                        avatarVersion = avatarVersion,
+                        onToggleFollow = viewModel::toggleFollow,
+                        onOpenChat = onOpenChat,
+                    )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
                 items(state.visibleStatuses, key = { it.id }) { status ->
@@ -183,7 +189,12 @@ fun ProfileScreen(
 }
 
 @Composable
-private fun ProfileHeader(state: ProfileUiState, avatarVersion: Long, onToggleFollow: () -> Unit) {
+private fun ProfileHeader(
+    state: ProfileUiState,
+    avatarVersion: Long,
+    onToggleFollow: () -> Unit,
+    onOpenChat: (String) -> Unit,
+) {
     val account = state.account ?: return
     val bioNodes = remember(account.note) { HtmlParser.parse(account.note) }
     // Cache-busts only the logged-in user's own avatar -- see AppContainer.avatarVersion.
@@ -226,11 +237,17 @@ private fun ProfileHeader(state: ProfileUiState, avatarVersion: Long, onToggleFo
                     else -> R.string.profile_follow
                 },
             )
-            Box(modifier = Modifier.padding(top = 12.dp)) {
+            Row(modifier = Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (isFollowing || isRequested) {
                     OutlinedButton(onClick = onToggleFollow) { Text(label) }
                 } else {
                     Button(onClick = onToggleFollow) { Text(label) }
+                }
+                // No follow relationship required -- chat works for any local account,
+                // mirroring the web client's profile "Chat" deep link
+                // (`Profile::getMatrixChatLink()`), which has the same rule.
+                OutlinedButton(onClick = { onOpenChat(account.username) }) {
+                    Text(stringResource(R.string.profile_chat))
                 }
             }
         }

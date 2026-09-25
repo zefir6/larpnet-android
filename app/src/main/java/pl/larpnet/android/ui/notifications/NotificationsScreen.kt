@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ButtonDefaults
@@ -51,6 +52,7 @@ fun NotificationsScreen(
     onOpenProfile: (String) -> Unit,
     onSearch: () -> Unit = {},
     onOpenMessages: () -> Unit = {},
+    onOpenChat: () -> Unit = {},
 ) {
     val appContainer = rememberAppContainer()
     val viewModel: NotificationsViewModel = viewModel(
@@ -76,6 +78,9 @@ fun NotificationsScreen(
                 colors = larpnetTopAppBarColors(),
                 title = { Text(stringResource(R.string.nav_notifications)) },
                 actions = {
+                    IconButton(onClick = onOpenChat) {
+                        Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = stringResource(R.string.chat_title))
+                    }
                     IconButton(onClick = onOpenMessages) {
                         Icon(Icons.Filled.MailOutline, contentDescription = stringResource(R.string.messages_title))
                     }
