@@ -1,6 +1,7 @@
 package pl.larpnet.android.ui.nav
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
@@ -17,13 +18,17 @@ import pl.larpnet.android.data.auth.TokenStore
 enum class BottomTab(val route: String, val icon: ImageVector, val labelRes: Int) {
     HOME(Routes.HOME, Icons.Filled.Home, R.string.nav_home),
     LOCAL(Routes.LOCAL, Icons.Filled.Groups, R.string.nav_local),
+    CHAT(Routes.CHAT, Icons.AutoMirrored.Filled.Chat, R.string.chat_title),
     DIRECTORY(Routes.DIRECTORY, Icons.Filled.PeopleAlt, R.string.nav_directory),
     NOTIFICATIONS(Routes.NOTIFICATIONS, Icons.Filled.Notifications, R.string.nav_notifications),
     SETTINGS(Routes.SETTINGS, Icons.Filled.Settings, R.string.settings_title),
 }
 
-/** LARPnet (the local timeline) is the app's namesake feed, so it leads ahead of the account's own home timeline. */
-val defaultBottomTabOrder = listOf(BottomTab.LOCAL, BottomTab.HOME, BottomTab.DIRECTORY, BottomTab.NOTIFICATIONS, BottomTab.SETTINGS)
+/** LARPnet (the local timeline) is the app's namesake feed, so it leads ahead of the account's own
+ * home timeline. Chat defaults into the bar (not just reachable via Notifications' toolbar icon or
+ * a profile button) per explicit request for a more prominent default entry point. */
+val defaultBottomTabOrder =
+    listOf(BottomTab.LOCAL, BottomTab.HOME, BottomTab.CHAT, BottomTab.DIRECTORY, BottomTab.NOTIFICATIONS, BottomTab.SETTINGS)
 
 /**
  * User-customizable ordering of [BottomTab]s (Settings > bottom bar order), persisted as a

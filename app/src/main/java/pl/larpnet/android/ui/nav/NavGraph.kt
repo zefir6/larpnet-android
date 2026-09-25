@@ -294,7 +294,7 @@ fun LarpnetNavGraph(startDestination: String) {
                     onOpenProfile = onOpenProfile,
                     onSearch = onSearch,
                     onOpenMessages = { navController.navigate(Routes.MESSAGES) },
-                    onOpenChat = { navController.navigate(Routes.CHAT) },
+                    onOpenChat = { navController.navigateToBottomTab(Routes.CHAT) },
                 )
             }
 
@@ -456,8 +456,13 @@ fun LarpnetNavGraph(startDestination: String) {
             }
 
             composable(Routes.CHAT) {
+                // Chat is a bottom-tab root now -- Notifications' toolbar icon switches to it
+                // via navigateToBottomTab() (see its call site above), the same tab-switch
+                // semantics as tapping the tab itself, rather than pushing it as a distinct
+                // screen -- so there's never a "back to Notifications" case to handle here,
+                // same as every other tab root.
                 ChatScreen(
-                    onBack = { navController.popBackStack() },
+                    onBack = null,
                     onOpenRoom = { room -> navController.navigate(chatThreadRoomRoute(room.id, room.name)) },
                     onNewChat = { navController.navigate(Routes.NEW_CHAT) },
                 )
