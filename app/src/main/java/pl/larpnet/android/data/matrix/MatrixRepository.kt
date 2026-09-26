@@ -17,10 +17,19 @@ import org.matrix.rustcomponents.sdk.ClientBuilder
 import org.matrix.rustcomponents.sdk.CreateRoomParameters
 import org.matrix.rustcomponents.sdk.EnableRecoveryProgress
 import org.matrix.rustcomponents.sdk.EnableRecoveryProgressListener
+import org.matrix.rustcomponents.sdk.HttpPusherData
 import org.matrix.rustcomponents.sdk.LatestEventValue
 import org.matrix.rustcomponents.sdk.Membership
 import org.matrix.rustcomponents.sdk.MembershipState
+import org.matrix.rustcomponents.sdk.MessageLikeEventContent
+import org.matrix.rustcomponents.sdk.MessageType
 import org.matrix.rustcomponents.sdk.MsgLikeKind
+import org.matrix.rustcomponents.sdk.NotificationEvent
+import org.matrix.rustcomponents.sdk.NotificationProcessSetup
+import org.matrix.rustcomponents.sdk.NotificationStatus
+import org.matrix.rustcomponents.sdk.PushFormat
+import org.matrix.rustcomponents.sdk.PusherIdentifiers
+import org.matrix.rustcomponents.sdk.PusherKind
 import org.matrix.rustcomponents.sdk.RecoveryState
 import org.matrix.rustcomponents.sdk.RecoveryStateListener
 import org.matrix.rustcomponents.sdk.Room
@@ -31,7 +40,9 @@ import org.matrix.rustcomponents.sdk.SyncListenerV2
 import org.matrix.rustcomponents.sdk.SyncResponseV2
 import org.matrix.rustcomponents.sdk.SyncSettingsV2
 import org.matrix.rustcomponents.sdk.TaskHandle
+import org.matrix.rustcomponents.sdk.TimelineEventContent
 import org.matrix.rustcomponents.sdk.TimelineItemContent
+import pl.larpnet.android.BuildConfig
 import pl.larpnet.android.data.auth.TokenStore
 import pl.larpnet.android.network.FriendicaApi
 
@@ -103,6 +114,12 @@ class MatrixRepository(
     var serverName: String? = null
         private set
 
+    /** This deployment's Matrix push gateway URL (already includes the shared secret as a
+     * query param -- see `larpnet_matrix_push_gateway_url()` server-side), or null if the
+     * server hasn't got push configured yet. Set once per [ensureClient] login, same lifetime
+     * as [serverName]. */
+    private var pushGatewayUrl: String? = null
+
     private val _roomListUpdates = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     /** Fires (with no payload -- just a "something changed, go re-fetch" signal) after every
@@ -119,6 +136,7 @@ class MatrixRepository(
         val resolvedServerName = identity.userId.substringAfter(':', missingDelimiterValue = "")
             .ifEmpty { error("Malformed Matrix identity: ${identity.userId}") }
         serverName = resolvedServerName
+        pushGatewayUrl = identity.pushGatewayUrl
 
         val sessionDir = sessionDirectory(identity.userId)
         val newClient = ClientBuilder()
@@ -350,11 +368,97 @@ class MatrixRepository(
     }
 
     /**
+     * Registers this device's FCM token as a Matrix pusher, so Synapse starts calling
+     * larpnet_matrix's push gateway for new messages in any room this account is in. A no-op
+     * if the server hasn't got the gateway configured yet ([pushGatewayUrl] null) -- same
+     * "safe until configured" convention the gateway itself follows.
+     *
+     * `format = EVENT_ID_ONLY` tells Synapse to never include full event content in the
+     * gateway call, matching the gateway's own guarantee independently -- both sides agree
+     * message content never reaches Apple/Google, not just this one.
+     *
+     * `append = false`: replaces any existing pusher for this (app_id, pushkey) pair rather
+     * than accumulating duplicates across re-logins/token refreshes -- the pushkey (FCM token)
+     * is the actual identity here, not the device id, so there's nothing worth keeping from a
+     * previous registration.
+     */
+    suspend fun registerPusher(pushToken: String) {
+        val activeClient = ensureClient()
+        val gatewayUrl = pushGatewayUrl ?: return
+        activeClient.setPusher(
+            identifiers = PusherIdentifiers(pushkey = pushToken, appId = BuildConfig.APPLICATION_ID),
+            kind = PusherKind.Http(HttpPusherData(url = gatewayUrl, format = PushFormat.EVENT_ID_ONLY, defaultPayload = "{}")),
+            appDisplayName = "Larpnet Android",
+            deviceDisplayName = "Larpnet Android",
+            profileTag = null,
+            lang = "pl",
+            append = false,
+        )
+    }
+
+    /** Called when the user turns off push notifications (Settings) without logging out
+     * entirely -- [clearSession]'s own `logout()` call already removes every pusher for that
+     * device server-side, so this is only needed for the "still logged in, just disabled push"
+     * case. */
+    suspend fun unregisterPusher(pushToken: String) {
+        val activeClient = ensureClient()
+        activeClient.deletePusher(PusherIdentifiers(pushkey = pushToken, appId = BuildConfig.APPLICATION_ID))
+    }
+
+    /**
+     * Decrypts and resolves a single event referenced by a data-only Matrix push (see
+     * `LarpnetFirebaseMessagingService`) into a title/body pair ready to show in a local
+     * notification -- never the push payload itself, which only ever carries `event_id`/
+     * `room_id` (see `larpnet_matrix_push_notify()`'s own doc comment for why). Returns null
+     * for anything not worth surfacing (the room/event no longer exists, was redacted, or the
+     * push arrived for a room this device has since left/filtered).
+     */
+    suspend fun notificationPreview(roomId: String, eventId: String): Pair<String, String>? {
+        val activeClient = ensureClient()
+        val item = activeClient.notificationClient(NotificationProcessSetup.MultipleProcesses).use { notificationClient ->
+            (notificationClient.getNotification(roomId, eventId) as? NotificationStatus.Event)?.item
+        } ?: return null
+
+        // No raw mxid available here to run through resolvedName()'s Friendica-name lookup
+        // the way room-list rows do (NotificationSenderInfo only carries a display name, not
+        // a user id) -- relying instead on larpnet_matrix_sync_profile()'s own server-side
+        // sync (throttled hourly, or via its cron hook for everyone) already having given
+        // this sender a real Matrix displayname by the time push notifications matter.
+        val senderName = item.senderInfo.displayName?.takeIf { it.isNotBlank() } ?: return null
+        val roomName = item.roomInfo.displayName?.takeIf { it.isNotBlank() }
+        val title = if (item.roomInfo.isDm || roomName == null) senderName else "$senderName ($roomName)"
+
+        val body = when (val event = item.event) {
+            is NotificationEvent.Invite -> "Zaproszenie do rozmowy"
+            is NotificationEvent.Timeline -> bodyFor(event.event.content())
+        } ?: return null
+
+        return title to body
+    }
+
+    private fun bodyFor(content: TimelineEventContent): String? {
+        val messageLike = (content as? TimelineEventContent.MessageLike)?.content ?: return null
+        return when (messageLike) {
+            is MessageLikeEventContent.RoomMessage -> when (val messageType = messageLike.messageType) {
+                is MessageType.Text -> messageType.content.body
+                is MessageType.Image -> "📷 Zdjęcie"
+                is MessageType.File -> "📎 Plik"
+                is MessageType.Audio -> "🎤 Nagranie"
+                is MessageType.Video -> "🎬 Wideo"
+                else -> "Nowa wiadomość"
+            }
+            is MessageLikeEventContent.RoomEncrypted -> "🔒"
+            else -> null
+        }
+    }
+
+    /**
      * Called alongside [TokenStore.clear] at logout (see `SettingsScreen`) -- deletes the
      * on-disk crypto store and the persisted device id, so a different account logging into
      * this device next doesn't inherit either. Best-effort server-side `logout()` first (so
-     * the device is also cleanly removed from the account), but the local cleanup below runs
-     * regardless of whether that network call succeeds.
+     * the device is also cleanly removed from the account -- Synapse deletes that device's
+     * pushers as part of this too, so [unregisterPusher] is never needed here), but the local
+     * cleanup below runs regardless of whether that network call succeeds.
      */
     fun clearSession() {
         syncHandle?.cancel()
@@ -362,6 +466,7 @@ class MatrixRepository(
         syncHandle = null
         contactsByLocalpart = emptyMap()
         serverName = null
+        pushGatewayUrl = null
 
         val oldClient = client
         client = null
