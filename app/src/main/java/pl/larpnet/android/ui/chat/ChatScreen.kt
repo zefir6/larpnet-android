@@ -3,6 +3,7 @@ package pl.larpnet.android.ui.chat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -31,10 +32,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import kotlinx.datetime.Instant
 import pl.larpnet.android.R
 import pl.larpnet.android.data.matrix.ChatRoom
 import pl.larpnet.android.data.matrix.MatrixRepository
 import pl.larpnet.android.di.rememberAppContainer
+import pl.larpnet.android.ui.common.InitialsAvatar
+import pl.larpnet.android.ui.common.RelativeTime
 import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -110,20 +114,30 @@ fun ChatScreen(
 
 @Composable
 private fun ChatRoomRow(room: ChatRoom, onClick: () -> Unit) {
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = room.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-        room.preview?.let {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                modifier = Modifier.padding(top = 2.dp),
+        InitialsAvatar(name = room.name)
+        Column(modifier = Modifier.padding(start = 12.dp).weight(1f)) {
+            Text(text = room.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+            room.preview?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+        }
+        room.timestampMillis?.let {
+            RelativeTime(
+                instant = Instant.fromEpochMilliseconds(it),
+                modifier = Modifier.padding(start = 8.dp),
             )
         }
     }
