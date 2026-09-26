@@ -14,7 +14,6 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlin.math.absoluteValue
 
 /**
  * A single-letter circular avatar for a chat room/contact -- used wherever there is no real
@@ -61,5 +60,10 @@ private val avatarPalette = listOf(
     Color(0xFF8A7A3C), // olive
 )
 
+// Int.MIN_VALUE.absoluteValue silently overflows back to Int.MIN_VALUE itself (Kotlin's default
+// non-checked arithmetic, not a crash but still negative) -- for the one-in-2^32 name whose
+// hashCode() lands exactly there, `avatarPalette[negative % size]` would throw
+// ArrayIndexOutOfBoundsException since Kotlin's `%` preserves the dividend's sign. `.mod()`
+// (Euclidean modulo, always non-negative for a positive divisor) has no such edge case.
 private fun avatarColorFor(name: String): Color =
-    avatarPalette[name.hashCode().absoluteValue % avatarPalette.size]
+    avatarPalette[name.hashCode().mod(avatarPalette.size)]
