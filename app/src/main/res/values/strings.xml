@@ -243,6 +243,8 @@
     <!-- Chat (native Matrix E2EE chat, separate from Messages above) -->
     <string name="chat_title">Czat</string>
     <string name="chat_empty">Brak rozmów</string>
+    <string name="chat_thread_empty">Brak wiadomości -- napisz coś</string>
+    <string name="chat_new_messages">%1$d nowych</string>
     <string name="chat_new">Nowy czat</string>
     <string name="chat_room_info">Informacje o rozmowie</string>
     <string name="chat_room_name_hint">Nazwa rozmowy</string>
@@ -251,6 +253,22 @@
     <string name="chat_room_remove_member">Usuń</string>
     <string name="chat_room_add_member">+ Dodaj osobę</string>
     <string name="chat_room_leave">Opuść rozmowę</string>
+
+    <!-- Chat recovery key (E2EE backup) -->
+    <string name="recovery_title_setup">Ustaw klucz odzyskiwania</string>
+    <string name="recovery_title_reset">Resetuj klucz odzyskiwania</string>
+    <string name="recovery_title_restore">Odblokuj historię czatu</string>
+    <string name="recovery_reset_explanation">Stary klucz przestanie działać. Wybierz nowy -- losowy albo własną frazę.</string>
+    <string name="recovery_setup_explanation">Ten klucz pozwala odczytać historię czatu na nowym urządzeniu. Możesz wygenerować losowy klucz albo ustawić własną, łatwą do zapamiętania frazę.</string>
+    <string name="recovery_generate_random">Wygeneruj losowy klucz</string>
+    <string name="recovery_own_phrase_hint">Albo wpisz własną frazę…</string>
+    <string name="recovery_set_phrase">Ustaw frazę</string>
+    <string name="recovery_save_explanation">Zapisz go w bezpiecznym miejscu (np. menedżerze haseł) -- nikt inny, w tym administrator serwera, go nie zna i nie może go odzyskać. Jeśli ustawiłeś/-aś własną frazę, możesz użyć jej zamiast tego klucza na innym urządzeniu.</string>
+    <string name="recovery_key_saved">Zapisałem/-am klucz</string>
+    <string name="recovery_restore_explanation">To nowe urządzenie -- wpisz swój klucz odzyskiwania (albo frazę, jeśli taką ustawiłeś/-aś), aby odczytać wcześniejsze wiadomości. Możesz to zrobić później -- nowe wiadomości będą działać już teraz.</string>
+    <string name="recovery_key_hint">Klucz odzyskiwania lub fraza…</string>
+    <string name="recovery_unlock">Odblokuj</string>
+    <string name="recovery_later">Później</string>
 
     <!-- Errors -->
     <string name="error_network">Błąd sieci. Sprawdź połączenie.</string>

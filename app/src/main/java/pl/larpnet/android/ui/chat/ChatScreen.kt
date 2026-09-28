@@ -1,13 +1,18 @@
 package pl.larpnet.android.ui.chat
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -25,6 +30,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -35,6 +41,8 @@ import pl.larpnet.android.R
 import pl.larpnet.android.data.matrix.ChatRoom
 import pl.larpnet.android.data.matrix.MatrixRepository
 import pl.larpnet.android.di.rememberAppContainer
+import pl.larpnet.android.ui.common.MatrixAvatarImage
+import pl.larpnet.android.ui.theme.LarpnetAccent
 import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -99,7 +107,7 @@ fun ChatScreen(
 
                 else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(state.rooms, key = { it.id }) { room ->
-                        ChatRoomRow(room = room, onClick = { onOpenRoom(room) })
+                        ChatRoomRow(room = room, repository = appContainer.matrixRepository, onClick = { onOpenRoom(room) })
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     }
                 }
@@ -109,21 +117,42 @@ fun ChatScreen(
 }
 
 @Composable
-private fun ChatRoomRow(room: ChatRoom, onClick: () -> Unit) {
-    Column(
+private fun ChatRoomRow(room: ChatRoom, repository: MatrixRepository, onClick: () -> Unit) {
+    val hasUnread = room.unreadCount > 0
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = room.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-        room.preview?.let {
+        MatrixAvatarImage(avatarUrl = room.avatarUrl, name = room.name, repository = repository)
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = it,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                modifier = Modifier.padding(top = 2.dp),
+                text = room.name,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (hasUnread) FontWeight.SemiBold else FontWeight.Medium,
+            )
+            room.preview?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+        }
+        if (hasUnread) {
+            Text(
+                text = if (room.unreadCount > 99) "99+" else room.unreadCount.toString(),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White,
+                modifier = Modifier
+                    .background(LarpnetAccent, CircleShape)
+                    .padding(horizontal = 7.dp, vertical = 3.dp),
             )
         }
     }

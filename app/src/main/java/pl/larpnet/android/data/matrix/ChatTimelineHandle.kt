@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.matrix.rustcomponents.sdk.MsgLikeKind
+import org.matrix.rustcomponents.sdk.ProfileDetails
 import org.matrix.rustcomponents.sdk.TaskHandle
 import org.matrix.rustcomponents.sdk.Timeline
 import org.matrix.rustcomponents.sdk.TimelineDiff
@@ -29,7 +30,13 @@ import org.matrix.rustcomponents.sdk.messageEventContentFromMarkdown
  * this repository's caller's thread -- [apply] is `@Synchronized` so a callback landing mid-way
  * through a previous one can't corrupt the snapshot list.
  */
-class ChatTimelineHandle(private val timeline: Timeline) {
+class ChatTimelineHandle(
+    private val timeline: Timeline,
+    /** Friendica-name-first resolution for a sender, same as the room list's `resolvedName` --
+     * injected rather than duplicated so this stays in sync with `MatrixRepository`'s own
+     * `contactsByLocalpart` lookup (see `MatrixRepository.openTimeline`'s call site). */
+    private val resolveDisplayName: (String, String?) -> String,
+) {
     private var listenerHandle: TaskHandle? = null
     private val items = mutableListOf<ChatMessage?>()
 
@@ -92,11 +99,16 @@ class ChatTimelineHandle(private val timeline: Timeline) {
                 is MsgLikeKind.UnableToDecrypt -> "🔒"
                 else -> return null
             }
+            val readyProfile = event.senderProfile as? ProfileDetails.Ready
+            val sdkDisplayName = readyProfile?.displayName?.takeIf { it.isNotBlank() }
             return ChatMessage(
                 id = item.uniqueId().id,
                 isOwn = event.isOwn,
                 body = body,
                 timestampMillis = event.timestamp.toLong(),
+                senderId = if (event.isOwn) null else event.sender,
+                senderDisplayName = if (event.isOwn) null else resolveDisplayName(event.sender, sdkDisplayName),
+                senderAvatarUrl = if (event.isOwn) null else readyProfile?.avatarUrl,
             )
         } finally {
             item.close()
