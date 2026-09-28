@@ -22,6 +22,7 @@ import org.matrix.rustcomponents.sdk.EnableRecoveryProgress
 import org.matrix.rustcomponents.sdk.EnableRecoveryProgressListener
 import org.matrix.rustcomponents.sdk.LatestEventValue
 import org.matrix.rustcomponents.sdk.Membership
+import org.matrix.rustcomponents.sdk.MediaSource
 import org.matrix.rustcomponents.sdk.MembershipState
 import org.matrix.rustcomponents.sdk.MsgLikeKind
 import org.matrix.rustcomponents.sdk.RecoveryState
@@ -159,10 +160,11 @@ class MatrixRepository(
                     val name = displayNameFor(it)
                     val (previewText, timestampMillis) = previewFor(it)
                     val unread = runCatching { it.roomInfo().numUnreadMessages.toInt() }.getOrDefault(0)
+                    val avatarUrl = avatarUrlFor(it)
                     result.add(
                         ChatRoom(
                             id = it.id(), name = name, preview = previewText,
-                            timestampMillis = timestampMillis, unreadCount = unread,
+                            timestampMillis = timestampMillis, unreadCount = unread, avatarUrl = avatarUrl,
                         ),
                     )
                 }
@@ -361,7 +363,12 @@ class MatrixRepository(
         } finally {
             room.close()
         }
-        val handle = ChatTimelineHandle(timeline)
+        // Same Friendica-name-first resolution the room list uses (resolvedName, via
+        // displayNameFor) -- without this, a per-message sender falls back straight to their
+        // bare mxid localpart whenever they haven't set a Matrix displayname yet (the common
+        // case for anyone who's never opened chat themselves), instead of the full name the
+        // room list already knows how to show.
+        val handle = ChatTimelineHandle(timeline, resolveDisplayName = ::resolvedName)
         handle.start()
         return handle
     }
@@ -419,6 +426,23 @@ class MatrixRepository(
         val dir = File(context.filesDir, "matrix_session/$safe")
         dir.mkdirs()
         return dir
+    }
+
+    /** Real room avatar, same hero-fallback shape as [displayNameFor]: for a 1:1 DM, the room
+     * itself rarely has its own avatar set, so fall back to the other person's. */
+    private suspend fun avatarUrlFor(room: Room): String? {
+        room.avatarUrl()?.let { return it }
+        val heroes = room.heroes()
+        return if (heroes.size == 1) heroes[0].avatarUrl else null
+    }
+
+    /** Fetches a real avatar image's bytes for a `mxc://` URL (a sender's or room's) -- callers
+     * decode this into a `Bitmap` and cache it themselves (see `MatrixAvatarImage`); this layer
+     * only knows how to talk to the SDK's media loader, not about Compose/caching. */
+    suspend fun avatarThumbnail(mxcUrl: String, size: Int = 96): ByteArray {
+        val activeClient = ensureClient()
+        val source = MediaSource.fromUrl(mxcUrl)
+        return activeClient.getMediaThumbnail(source, size.toULong(), size.toULong())
     }
 
     /** Room-list display name -- same algorithm as the web client's `roomDisplayName()`: for

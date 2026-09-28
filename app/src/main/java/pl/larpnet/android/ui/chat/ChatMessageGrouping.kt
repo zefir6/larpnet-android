@@ -23,6 +23,7 @@ object ChatMessageGrouping {
         val isOwn: Boolean,
         val senderId: String?,
         val senderDisplayName: String?,
+        val senderAvatarUrl: String?,
         val messages: List<ChatMessage>,
     )
 
@@ -78,7 +79,8 @@ object ChatMessageGrouping {
                 result.add(
                     Cluster(
                         id = message.id, isOwn = message.isOwn, senderId = message.senderId,
-                        senderDisplayName = message.senderDisplayName, messages = listOf(message),
+                        senderDisplayName = message.senderDisplayName, senderAvatarUrl = message.senderAvatarUrl,
+                        messages = listOf(message),
                     ),
                 )
             }

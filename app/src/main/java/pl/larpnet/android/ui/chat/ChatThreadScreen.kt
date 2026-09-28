@@ -54,8 +54,9 @@ import java.util.Locale
 import kotlinx.coroutines.launch
 import pl.larpnet.android.R
 import pl.larpnet.android.data.matrix.ChatMessage
+import pl.larpnet.android.data.matrix.MatrixRepository
 import pl.larpnet.android.di.rememberAppContainer
-import pl.larpnet.android.ui.common.InitialsAvatar
+import pl.larpnet.android.ui.common.MatrixAvatarImage
 import pl.larpnet.android.ui.theme.LarpnetAccent
 import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 
@@ -157,7 +158,7 @@ fun ChatThreadScreen(
                                     DaySeparator(row.dayStartMillis)
                                 }
                                 is ChatRow.ClusterRow -> item(key = "cluster_${row.cluster.id}") {
-                                    ClusterView(row.cluster, isGroup = state.isGroup)
+                                    ClusterView(row.cluster, isGroup = state.isGroup, repository = appContainer.matrixRepository)
                                 }
                             }
                         }
@@ -229,14 +230,17 @@ private fun DaySeparator(dayStartMillis: Long) {
 }
 
 @Composable
-private fun ClusterView(cluster: ChatMessageGrouping.Cluster, isGroup: Boolean) {
+private fun ClusterView(cluster: ChatMessageGrouping.Cluster, isGroup: Boolean, repository: MatrixRepository) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (cluster.isOwn) Arrangement.End else Arrangement.Start,
     ) {
         if (!cluster.isOwn) {
             if (isGroup) {
-                InitialsAvatar(name = cluster.senderDisplayName ?: "?", size = 28.dp)
+                MatrixAvatarImage(
+                    avatarUrl = cluster.senderAvatarUrl, name = cluster.senderDisplayName ?: "?",
+                    repository = repository, size = 28.dp,
+                )
             } else {
                 Spacer(modifier = Modifier.size(28.dp))
             }

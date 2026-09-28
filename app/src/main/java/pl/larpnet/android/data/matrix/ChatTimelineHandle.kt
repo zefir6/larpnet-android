@@ -30,7 +30,13 @@ import org.matrix.rustcomponents.sdk.messageEventContentFromMarkdown
  * this repository's caller's thread -- [apply] is `@Synchronized` so a callback landing mid-way
  * through a previous one can't corrupt the snapshot list.
  */
-class ChatTimelineHandle(private val timeline: Timeline) {
+class ChatTimelineHandle(
+    private val timeline: Timeline,
+    /** Friendica-name-first resolution for a sender, same as the room list's `resolvedName` --
+     * injected rather than duplicated so this stays in sync with `MatrixRepository`'s own
+     * `contactsByLocalpart` lookup (see `MatrixRepository.openTimeline`'s call site). */
+    private val resolveDisplayName: (String, String?) -> String,
+) {
     private var listenerHandle: TaskHandle? = null
     private val items = mutableListOf<ChatMessage?>()
 
@@ -93,28 +99,19 @@ class ChatTimelineHandle(private val timeline: Timeline) {
                 is MsgLikeKind.UnableToDecrypt -> "🔒"
                 else -> return null
             }
-            val senderDisplayName = (event.senderProfile as? ProfileDetails.Ready)
-                ?.displayName?.takeIf { it.isNotBlank() }
+            val readyProfile = event.senderProfile as? ProfileDetails.Ready
+            val sdkDisplayName = readyProfile?.displayName?.takeIf { it.isNotBlank() }
             return ChatMessage(
                 id = item.uniqueId().id,
                 isOwn = event.isOwn,
                 body = body,
                 timestampMillis = event.timestamp.toLong(),
                 senderId = if (event.isOwn) null else event.sender,
-                senderDisplayName = if (event.isOwn) null else (senderDisplayName ?: localpartOf(event.sender) ?: event.sender),
+                senderDisplayName = if (event.isOwn) null else resolveDisplayName(event.sender, sdkDisplayName),
+                senderAvatarUrl = if (event.isOwn) null else readyProfile?.avatarUrl,
             )
         } finally {
             item.close()
         }
-    }
-
-    /** Local copy of `MatrixRepository`'s private helper of the same name -- kept tiny and
-     * duplicated rather than shared, since exposing it more widely isn't worth the coupling for
-     * one three-line mxid parse. */
-    private fun localpartOf(mxid: String): String? {
-        if (!mxid.startsWith("@")) return null
-        val colon = mxid.indexOf(':')
-        if (colon < 0) return null
-        return mxid.substring(1, colon).lowercase()
     }
 }

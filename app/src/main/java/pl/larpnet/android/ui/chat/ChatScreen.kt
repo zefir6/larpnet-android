@@ -5,9 +5,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -39,6 +41,7 @@ import pl.larpnet.android.R
 import pl.larpnet.android.data.matrix.ChatRoom
 import pl.larpnet.android.data.matrix.MatrixRepository
 import pl.larpnet.android.di.rememberAppContainer
+import pl.larpnet.android.ui.common.MatrixAvatarImage
 import pl.larpnet.android.ui.theme.LarpnetAccent
 import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 
@@ -104,7 +107,7 @@ fun ChatScreen(
 
                 else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(state.rooms, key = { it.id }) { room ->
-                        ChatRoomRow(room = room, onClick = { onOpenRoom(room) })
+                        ChatRoomRow(room = room, repository = appContainer.matrixRepository, onClick = { onOpenRoom(room) })
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     }
                 }
@@ -114,7 +117,7 @@ fun ChatScreen(
 }
 
 @Composable
-private fun ChatRoomRow(room: ChatRoom, onClick: () -> Unit) {
+private fun ChatRoomRow(room: ChatRoom, repository: MatrixRepository, onClick: () -> Unit) {
     val hasUnread = room.unreadCount > 0
     Row(
         modifier = Modifier
@@ -123,6 +126,8 @@ private fun ChatRoomRow(room: ChatRoom, onClick: () -> Unit) {
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        MatrixAvatarImage(avatarUrl = room.avatarUrl, name = room.name, repository = repository)
+        Spacer(modifier = Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = room.name,
