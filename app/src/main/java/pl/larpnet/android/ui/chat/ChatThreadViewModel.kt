@@ -25,6 +25,10 @@ data class ChatThreadUiState(
     val roomId: String? = null,
     val roomName: String? = null,
     val messages: List<ChatMessage> = emptyList(),
+    /** Whether this room has more than one other member -- drives whether message clusters
+     * show a sender avatar/name (group chats only; a 1:1's incoming sender is already obvious
+     * from the room itself). */
+    val isGroup: Boolean = false,
     val isLoading: Boolean = false,
     val draft: String = "",
     val isSending: Boolean = false,
@@ -67,9 +71,10 @@ class ChatThreadViewModel(
                         repository.openOrCreateDirectRoom(target.nickname)
                     }
                 }
+                val isGroup = runCatching { repository.roomInfo(roomId).isGroup }.getOrDefault(false)
                 val newHandle = repository.openTimeline(roomId)
                 handle = newHandle
-                uiState = uiState.copy(roomId = roomId, isLoading = false)
+                uiState = uiState.copy(roomId = roomId, isGroup = isGroup, isLoading = false)
                 // Suspends for the lifetime of this screen -- viewModelScope is cancelled in
                 // onCleared(), which is what actually ends this collection.
                 newHandle.messages.collect { snapshot ->

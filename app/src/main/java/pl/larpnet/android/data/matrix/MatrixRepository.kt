@@ -8,8 +8,11 @@ import kotlin.coroutines.resume
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.matrix.rustcomponents.sdk.Client
@@ -109,6 +112,13 @@ class MatrixRepository(
      * sync response lands, so `ChatViewModel` can refresh the room list live. */
     val roomListUpdates: SharedFlow<Unit> = _roomListUpdates.asSharedFlow()
 
+    private val _unreadCount = MutableStateFlow(0)
+
+    /** Sum of [ChatRoom.unreadCount] across every room, updated on every [rooms] call -- drives
+     * the chat entry point's badge total (the Android counterpart has no dedicated bottom tab
+     * for Chat, unlike iOS, so this badges the icon button that opens it instead). */
+    val unreadCount: StateFlow<Int> = _unreadCount.asStateFlow()
+
     /** Logs in if needed (idempotent -- returns the existing client on every call after the
      * first this launch) and makes sure the background sync loop is running. */
     suspend fun ensureClient(): Client {
@@ -148,10 +158,17 @@ class MatrixRepository(
                 if (it.membership() == Membership.JOINED) {
                     val name = displayNameFor(it)
                     val (previewText, timestampMillis) = previewFor(it)
-                    result.add(ChatRoom(id = it.id(), name = name, preview = previewText, timestampMillis = timestampMillis))
+                    val unread = runCatching { it.roomInfo().numUnreadMessages.toInt() }.getOrDefault(0)
+                    result.add(
+                        ChatRoom(
+                            id = it.id(), name = name, preview = previewText,
+                            timestampMillis = timestampMillis, unreadCount = unread,
+                        ),
+                    )
                 }
             }
         }
+        _unreadCount.value = result.sumOf { it.unreadCount }
         return result.sortedByDescending { it.timestampMillis ?: Long.MIN_VALUE }
     }
 
@@ -414,7 +431,7 @@ class MatrixRepository(
             return resolvedName(heroes[0].userId, heroes[0].displayName)
         }
         room.displayName()?.takeIf { it.isNotBlank() }?.let { return it }
-        return "Rozmowa"
+        return "Chat"
     }
 
     /** Shared by the room-list hero name above and [roomInfo]'s member list: prefer the

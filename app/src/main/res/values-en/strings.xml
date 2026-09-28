@@ -243,6 +243,8 @@
     <!-- Chat (native Matrix E2EE chat, separate from Messages above) -->
     <string name="chat_title">Chat</string>
     <string name="chat_empty">No conversations yet</string>
+    <string name="chat_thread_empty">No messages yet -- say hello</string>
+    <string name="chat_new_messages">%1$d new</string>
     <string name="chat_new">New chat</string>
     <string name="chat_room_info">Conversation info</string>
     <string name="chat_room_name_hint">Conversation name</string>
@@ -251,6 +253,22 @@
     <string name="chat_room_remove_member">Remove</string>
     <string name="chat_room_add_member">+ Add person</string>
     <string name="chat_room_leave">Leave conversation</string>
+
+    <!-- Chat recovery key (E2EE backup) -->
+    <string name="recovery_title_setup">Set up recovery key</string>
+    <string name="recovery_title_reset">Reset recovery key</string>
+    <string name="recovery_title_restore">Unlock chat history</string>
+    <string name="recovery_reset_explanation">Your old key will stop working. Choose a new one -- random or your own phrase.</string>
+    <string name="recovery_setup_explanation">This key lets you read chat history on a new device. You can generate a random key or set your own, memorable phrase.</string>
+    <string name="recovery_generate_random">Generate a random key</string>
+    <string name="recovery_own_phrase_hint">Or enter your own phrase…</string>
+    <string name="recovery_set_phrase">Set phrase</string>
+    <string name="recovery_save_explanation">Save it somewhere safe (e.g. a password manager) -- no one else, including the server administrator, knows it or can recover it. If you set your own phrase, you can use that instead of this key on another device.</string>
+    <string name="recovery_key_saved">I\'ve saved the key</string>
+    <string name="recovery_restore_explanation">This is a new device -- enter your recovery key (or phrase, if you set one) to read earlier messages. You can do this later -- new messages will work already.</string>
+    <string name="recovery_key_hint">Recovery key or phrase…</string>
+    <string name="recovery_unlock">Unlock</string>
+    <string name="recovery_later">Later</string>
 
     <!-- Errors -->
     <string name="error_network">Network error. Check your connection.</string>

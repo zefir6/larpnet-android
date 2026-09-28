@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.matrix.rustcomponents.sdk.MsgLikeKind
+import org.matrix.rustcomponents.sdk.ProfileDetails
 import org.matrix.rustcomponents.sdk.TaskHandle
 import org.matrix.rustcomponents.sdk.Timeline
 import org.matrix.rustcomponents.sdk.TimelineDiff
@@ -92,14 +93,28 @@ class ChatTimelineHandle(private val timeline: Timeline) {
                 is MsgLikeKind.UnableToDecrypt -> "🔒"
                 else -> return null
             }
+            val senderDisplayName = (event.senderProfile as? ProfileDetails.Ready)
+                ?.displayName?.takeIf { it.isNotBlank() }
             return ChatMessage(
                 id = item.uniqueId().id,
                 isOwn = event.isOwn,
                 body = body,
                 timestampMillis = event.timestamp.toLong(),
+                senderId = if (event.isOwn) null else event.sender,
+                senderDisplayName = if (event.isOwn) null else (senderDisplayName ?: localpartOf(event.sender) ?: event.sender),
             )
         } finally {
             item.close()
         }
+    }
+
+    /** Local copy of `MatrixRepository`'s private helper of the same name -- kept tiny and
+     * duplicated rather than shared, since exposing it more widely isn't worth the coupling for
+     * one three-line mxid parse. */
+    private fun localpartOf(mxid: String): String? {
+        if (!mxid.startsWith("@")) return null
+        val colon = mxid.indexOf(':')
+        if (colon < 0) return null
+        return mxid.substring(1, colon).lowercase()
     }
 }

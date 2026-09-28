@@ -13,6 +13,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -20,6 +21,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import pl.larpnet.android.R
 import pl.larpnet.android.data.matrix.MatrixRepository
 
 /**
@@ -57,9 +59,9 @@ fun RecoveryKeyDialog(
             Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     text = when (mode) {
-                        RecoveryKeyMode.SETUP -> "Ustaw klucz odzyskiwania"
-                        RecoveryKeyMode.RESET -> "Resetuj klucz odzyskiwania"
-                        RecoveryKeyMode.RESTORE -> "Odblokuj historię czatu"
+                        RecoveryKeyMode.SETUP -> stringResource(R.string.recovery_title_setup)
+                        RecoveryKeyMode.RESET -> stringResource(R.string.recovery_title_reset)
+                        RecoveryKeyMode.RESTORE -> stringResource(R.string.recovery_title_restore)
                     },
                     style = MaterialTheme.typography.titleMedium,
                 )
@@ -77,27 +79,26 @@ fun RecoveryKeyDialog(
 private fun ChooseBody(mode: RecoveryKeyMode, state: RecoveryKeyUiState, viewModel: RecoveryKeyViewModel) {
     Text(
         text = if (mode == RecoveryKeyMode.RESET) {
-            "Stary klucz przestanie działać. Wybierz nowy -- losowy albo własną frazę."
+            stringResource(R.string.recovery_reset_explanation)
         } else {
-            "Ten klucz pozwala odczytać historię czatu na nowym urządzeniu. Możesz wygenerować " +
-                "losowy klucz albo ustawić własną, łatwą do zapamiętania frazę."
+            stringResource(R.string.recovery_setup_explanation)
         },
         style = MaterialTheme.typography.bodySmall,
     )
     TextButton(onClick = viewModel::chooseRandom, enabled = !state.isBusy) {
-        Text("Wygeneruj losowy klucz")
+        Text(stringResource(R.string.recovery_generate_random))
     }
     OutlinedTextField(
         value = state.passphraseInput,
         onValueChange = viewModel::onPassphraseInputChange,
-        placeholder = { Text("Albo wpisz własną frazę…") },
+        placeholder = { Text(stringResource(R.string.recovery_own_phrase_hint)) },
         modifier = Modifier.fillMaxWidth(),
     )
     TextButton(
         onClick = viewModel::choosePassphrase,
         enabled = !state.isBusy && state.passphraseInput.isNotBlank(),
     ) {
-        Text("Ustaw frazę")
+        Text(stringResource(R.string.recovery_set_phrase))
     }
     if (state.isBusy) CircularProgressIndicator()
     state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -106,27 +107,23 @@ private fun ChooseBody(mode: RecoveryKeyMode, state: RecoveryKeyUiState, viewMod
 @Composable
 private fun ShowKeyBody(key: String, onDone: () -> Unit) {
     Text(
-        text = "Zapisz go w bezpiecznym miejscu (np. menedżerze haseł) -- nikt inny, w tym " +
-            "administrator serwera, go nie zna i nie może go odzyskać. Jeśli ustawiłeś/-aś " +
-            "własną frazę, możesz użyć jej zamiast tego klucza na innym urządzeniu.",
+        text = stringResource(R.string.recovery_save_explanation),
         style = MaterialTheme.typography.bodySmall,
     )
     Text(key, fontFamily = FontFamily.Monospace)
-    TextButton(onClick = onDone) { Text("Zapisałem/-am klucz") }
+    TextButton(onClick = onDone) { Text(stringResource(R.string.recovery_key_saved)) }
 }
 
 @Composable
 private fun RestoreBody(state: RecoveryKeyUiState, viewModel: RecoveryKeyViewModel, onSkip: (() -> Unit)?) {
     Text(
-        text = "To nowe urządzenie -- wpisz swój klucz odzyskiwania (albo frazę, jeśli taką " +
-            "ustawiłeś/-aś), aby odczytać wcześniejsze wiadomości. Możesz to zrobić później -- " +
-            "nowe wiadomości będą działać już teraz.",
+        text = stringResource(R.string.recovery_restore_explanation),
         style = MaterialTheme.typography.bodySmall,
     )
     OutlinedTextField(
         value = state.restoreInput,
         onValueChange = viewModel::onRestoreInputChange,
-        placeholder = { Text("Klucz odzyskiwania lub fraza…") },
+        placeholder = { Text(stringResource(R.string.recovery_key_hint)) },
         modifier = Modifier.fillMaxWidth(),
     )
     state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -134,8 +131,8 @@ private fun RestoreBody(state: RecoveryKeyUiState, viewModel: RecoveryKeyViewMod
         CircularProgressIndicator()
     } else {
         TextButton(onClick = viewModel::submitRestore, enabled = state.restoreInput.isNotBlank()) {
-            Text("Odblokuj")
+            Text(stringResource(R.string.recovery_unlock))
         }
-        onSkip?.let { skip -> TextButton(onClick = skip) { Text("Później") } }
+        onSkip?.let { skip -> TextButton(onClick = skip) { Text(stringResource(R.string.recovery_later)) } }
     }
 }
