@@ -316,11 +316,21 @@ class MatrixRepository(
      * `recoverAndReset()` exist on this SDK but don't accept a passphrase -- a custom-passphrase
      * reset goes through disable-then-enable instead, which reaches the same end state (a fresh
      * secret-storage key/backup version) via the same path [setUpRecovery] already uses.
+     *
+     * Only calls `disableRecovery()` when recovery is actually currently `ENABLED` -- confirmed
+     * live (iOS, same SDK) that calling it on an account that never set up recovery/backups
+     * throws `ClientError.Generic(msg: "backups are not enabled", details: "BackupNotEnabled")`
+     * (`Recovery.disable()`'s first step is `backups().disable()`, which requires a backup to
+     * already exist). Settings offers this button unconditionally, so this has to tolerate
+     * "there's nothing to disable yet" and just enable fresh recovery in that case --
+     * functionally the same outcome [setUpRecovery] would give.
      */
     suspend fun resetRecovery(passphrase: String?): String {
         val activeClient = ensureClient()
         val encryption = activeClient.encryption()
-        encryption.disableRecovery()
+        if (waitForRecoveryState() == RecoveryState.ENABLED) {
+            encryption.disableRecovery()
+        }
         return encryption.enableRecovery(true, passphrase, NoOpRecoveryProgressListener)
     }
 
