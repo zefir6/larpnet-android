@@ -66,4 +66,24 @@ class ChatViewModel(private val repository: MatrixRepository) : ViewModel() {
             repository.roomListUpdates.collect { refresh() }
         }
     }
+
+    /** "Delete chat" -- Matrix has no server-side delete for a room's history, only leaving it
+     * (per-member, standard Matrix semantics: your own local copy of the timeline stays
+     * readable, but the room disappears from your list and you stop receiving new messages;
+     * rejoining a 1:1 later starts a fresh room via [MatrixRepository.openOrCreateDirectRoom]).
+     * Removes the row optimistically so the swipe action feels immediate rather than waiting on
+     * the leave round-trip; [refresh] (also driven by the live room-list update this triggers)
+     * is the source of truth if it fails. */
+    fun leaveRoom(room: ChatRoom) {
+        uiState = uiState.copy(rooms = uiState.rooms.filterNot { it.id == room.id })
+        viewModelScope.launch {
+            try {
+                repository.leaveRoom(room.id)
+                uiState = uiState.copy(error = null)
+            } catch (e: Exception) {
+                uiState = uiState.copy(error = e.message)
+                refresh()
+            }
+        }
+    }
 }
