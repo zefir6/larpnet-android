@@ -16,6 +16,8 @@
     <string name="nav_directory">Users</string>
     <string name="nav_notifications">Notifications</string>
     <string name="nav_profile">Profile</string>
+    <string name="nav_menu">Menu</string>
+    <string name="nav_more">More</string>
 
     <!-- Search -->
     <string name="search_title">Search</string>
@@ -194,9 +196,15 @@
     <string name="settings_open_web_hint">For fields this app can\'t edit: birthday, address, XMPP/Matrix, homepage, keywords, custom profile fields, and language. Opens the website -- you may need to sign in there separately.</string>
     <string name="settings_advanced_section">Advanced</string>
     <string name="settings_server_address_hint">Takes effect after you log out and log back in.</string>
-    <string name="settings_bottom_nav_order_section">Bottom bar icon order</string>
+    <string name="settings_bottom_nav_order_section">Bottom bar</string>
+    <string name="settings_top_bar_section">Top bar</string>
+    <string name="settings_more_section">More</string>
     <string name="settings_bottom_nav_move_up">Move up</string>
     <string name="settings_bottom_nav_move_down">Move down</string>
+    <string name="settings_nav_move_menu">Change section</string>
+    <string name="settings_nav_move_to_bottom_bar">Move to bottom bar</string>
+    <string name="settings_nav_move_to_top_bar">Move to top bar</string>
+    <string name="settings_nav_move_to_more">Move to More</string>
     <string name="settings_chat_section">Chat</string>
     <string name="settings_reset_recovery_key">Reset recovery key</string>
     <string name="settings_reset_recovery_key_confirm">This removes access to chat history under the old key on new devices. This can\'t be undone.</string>

@@ -8,12 +8,8 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -33,11 +29,18 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import coil3.compose.AsyncImage
 import pl.larpnet.android.R
 import pl.larpnet.android.di.rememberAppContainer
+import pl.larpnet.android.ui.nav.AppDestination
+import pl.larpnet.android.ui.nav.NotificationsBellAction
+import pl.larpnet.android.ui.nav.TopBarMenuButton
 import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MediaGridScreen(onBack: () -> Unit) {
+fun MediaGridScreen(
+    topBar: List<AppDestination> = emptyList(),
+    onOpenTopBarDestination: (AppDestination) -> Unit = {},
+    onOpenNotifications: () -> Unit = {},
+) {
     val appContainer = rememberAppContainer()
     val viewModel: MediaGridViewModel = viewModel(
         factory = viewModelFactory { initializer { MediaGridViewModel(appContainer.profileRepository, appContainer.timelineRepository) } },
@@ -59,9 +62,8 @@ fun MediaGridScreen(onBack: () -> Unit) {
             TopAppBar(
                 colors = larpnetTopAppBarColors(),
                 title = { Text(stringResource(R.string.media_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) }
-                },
+                navigationIcon = { TopBarMenuButton(topBar, onOpenTopBarDestination) },
+                actions = { NotificationsBellAction(onOpenNotifications) },
             )
         },
     ) { padding ->

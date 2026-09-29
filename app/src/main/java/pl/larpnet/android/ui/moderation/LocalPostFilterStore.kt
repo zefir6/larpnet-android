@@ -9,7 +9,7 @@ import pl.larpnet.android.data.auth.TokenStore
  * A client-side-only list of status ids excluded from timelines/threads on this device -- no
  * server-side concept, distinct from blocking an *account* (see FriendicaApi.block). Two
  * instances are wired in AppContainer, one per [TokenStore.hiddenPostIds]/[TokenStore.blockedPostIds],
- * mirroring [pl.larpnet.android.ui.nav.BottomNavOrderStore]'s StateFlow-over-TokenStore pattern.
+ * mirroring [pl.larpnet.android.ui.nav.NavigationLayoutStore]'s StateFlow-over-TokenStore pattern.
  */
 class LocalPostFilterStore(
     private val tokenStore: TokenStore,

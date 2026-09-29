@@ -42,6 +42,9 @@ import pl.larpnet.android.data.model.Status
 import pl.larpnet.android.di.rememberAppContainer
 import pl.larpnet.android.ui.moderation.PostModerationDialogs
 import pl.larpnet.android.ui.moderation.rememberPostModerationHost
+import pl.larpnet.android.ui.nav.AppDestination
+import pl.larpnet.android.ui.nav.NotificationsBellAction
+import pl.larpnet.android.ui.nav.TopBarMenuButton
 import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,6 +56,11 @@ fun TimelineScreen(
     onReply: (Status) -> Unit,
     onSearch: () -> Unit = {},
     onOpenHashtag: (String) -> Unit = {},
+    // Only set for the two tab-root timelines (Home, Local) -- the hashtag timeline is a pushed
+    // detail screen and gets neither the top-bar menu nor the notifications shortcut.
+    topBar: List<AppDestination> = emptyList(),
+    onOpenTopBarDestination: (AppDestination) -> Unit = {},
+    onOpenNotifications: (() -> Unit)? = null,
 ) {
     val appContainer = rememberAppContainer()
     val viewModel: TimelineViewModel = viewModel(
@@ -107,10 +115,12 @@ fun TimelineScreen(
             TopAppBar(
                 colors = larpnetTopAppBarColors(),
                 title = { Text(timelineTitle(kind)) },
+                navigationIcon = { TopBarMenuButton(topBar, onOpenTopBarDestination) },
                 actions = {
                     IconButton(onClick = onSearch) {
                         Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.search_title))
                     }
+                    onOpenNotifications?.let { NotificationsBellAction(it) }
                 },
             )
         },

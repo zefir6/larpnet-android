@@ -47,6 +47,8 @@ import pl.larpnet.android.data.model.Notification
 import pl.larpnet.android.di.rememberAppContainer
 import pl.larpnet.android.ui.common.AvatarImage
 import pl.larpnet.android.ui.common.RelativeTime
+import pl.larpnet.android.ui.nav.AppDestination
+import pl.larpnet.android.ui.nav.TopBarMenuButton
 import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,6 +59,8 @@ fun NotificationsScreen(
     onSearch: () -> Unit = {},
     onOpenMessages: () -> Unit = {},
     onOpenChat: () -> Unit = {},
+    topBar: List<AppDestination> = emptyList(),
+    onOpenTopBarDestination: (AppDestination) -> Unit = {},
 ) {
     val appContainer = rememberAppContainer()
     val viewModel: NotificationsViewModel = viewModel(
@@ -82,6 +86,7 @@ fun NotificationsScreen(
             TopAppBar(
                 colors = larpnetTopAppBarColors(),
                 title = { Text(stringResource(R.string.nav_notifications)) },
+                navigationIcon = { TopBarMenuButton(topBar, onOpenTopBarDestination) },
                 actions = {
                     IconButton(onClick = onOpenChat) {
                         BadgedBox(badge = {

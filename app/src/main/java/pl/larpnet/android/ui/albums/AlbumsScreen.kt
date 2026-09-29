@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.PhotoLibrary
@@ -41,11 +40,19 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import pl.larpnet.android.R
 import pl.larpnet.android.data.model.FriendicaPhotoAlbum
 import pl.larpnet.android.di.rememberAppContainer
+import pl.larpnet.android.ui.nav.AppDestination
+import pl.larpnet.android.ui.nav.NotificationsBellAction
+import pl.larpnet.android.ui.nav.TopBarMenuButton
 import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AlbumsScreen(onBack: () -> Unit, onOpenAlbum: (String) -> Unit) {
+fun AlbumsScreen(
+    onOpenAlbum: (String) -> Unit,
+    topBar: List<AppDestination> = emptyList(),
+    onOpenTopBarDestination: (AppDestination) -> Unit = {},
+    onOpenNotifications: () -> Unit = {},
+) {
     val appContainer = rememberAppContainer()
     val viewModel: AlbumsViewModel = viewModel(
         factory = viewModelFactory { initializer { AlbumsViewModel(appContainer.albumRepository) } },
@@ -69,13 +76,12 @@ fun AlbumsScreen(onBack: () -> Unit, onOpenAlbum: (String) -> Unit) {
             TopAppBar(
                 colors = larpnetTopAppBarColors(),
                 title = { Text(stringResource(R.string.albums_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) }
-                },
+                navigationIcon = { TopBarMenuButton(topBar, onOpenTopBarDestination) },
                 actions = {
                     IconButton(onClick = { showCreateDialog = true }) {
                         Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.albums_new))
                     }
+                    NotificationsBellAction(onOpenNotifications)
                 },
             )
         },

@@ -8,7 +8,7 @@ import pl.larpnet.android.data.auth.TokenStore
 /**
  * Last-3 hashtags the user has published with, most-recent-first, offered as quick toggles
  * alongside the predefined tags in [TagsSection]. Persisted as a comma-separated list in
- * [TokenStore.recentTags], mirroring [pl.larpnet.android.ui.nav.BottomNavOrderStore]'s pattern.
+ * [TokenStore.recentTags], mirroring [pl.larpnet.android.ui.nav.NavigationLayoutStore]'s pattern.
  */
 class RecentTagsStore(private val tokenStore: TokenStore) {
     private val _recentTags = MutableStateFlow(readPersisted())

@@ -17,6 +17,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,12 +39,15 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Report
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -88,7 +92,10 @@ import pl.larpnet.android.push.PushControl
 import pl.larpnet.android.ui.chat.RecoveryKeyDialog
 import pl.larpnet.android.ui.chat.RecoveryKeyMode
 import pl.larpnet.android.ui.common.AvatarImage
-import pl.larpnet.android.ui.nav.BottomTab
+import pl.larpnet.android.ui.nav.AppDestination
+import pl.larpnet.android.ui.nav.NavigationLayoutStore
+import pl.larpnet.android.ui.nav.NotificationsBellAction
+import pl.larpnet.android.ui.nav.TopBarMenuButton
 import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 
 /**
@@ -124,6 +131,9 @@ fun SettingsScreen(
     onOpenHiddenPosts: () -> Unit = {},
     onOpenBlockedPosts: () -> Unit = {},
     onOpenFollowedThreads: () -> Unit = {},
+    topBar: List<AppDestination> = emptyList(),
+    onOpenTopBarDestination: (AppDestination) -> Unit = {},
+    onOpenNotifications: () -> Unit = {},
 ) {
     val appContainer = rememberAppContainer()
     val viewModel: SettingsViewModel = viewModel(
@@ -259,8 +269,11 @@ fun SettingsScreen(
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
                         }
+                    } else {
+                        TopBarMenuButton(topBar, onOpenTopBarDestination)
                     }
                 },
+                actions = { NotificationsBellAction(onOpenNotifications) },
             )
         },
     ) { padding ->
@@ -319,23 +332,77 @@ fun SettingsScreen(
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
+                val bottomBarOrder by appContainer.navigationLayoutStore.bottomBar.collectAsState()
+                val topBarOrder by appContainer.navigationLayoutStore.topBar.collectAsState()
+                val moreOrder by appContainer.navigationLayoutStore.more.collectAsState()
+
                 SectionLabel(stringResource(R.string.settings_bottom_nav_order_section))
-                val bottomTabOrder by appContainer.bottomNavOrderStore.order.collectAsState()
-                bottomTabOrder.forEachIndexed { index, tab ->
-                    BottomNavOrderRow(
-                        tab = tab,
+                bottomBarOrder.forEachIndexed { index, destination ->
+                    NavZoneRow(
+                        destination = destination,
+                        zone = NavigationLayoutStore.Zone.BOTTOM_BAR,
+                        bottomBarCount = bottomBarOrder.size,
                         canMoveUp = index > 0,
-                        canMoveDown = index < bottomTabOrder.lastIndex,
+                        canMoveDown = index < bottomBarOrder.lastIndex,
                         onMoveUp = {
-                            appContainer.bottomNavOrderStore.setOrder(
-                                bottomTabOrder.toMutableList().apply { add(index - 1, removeAt(index)) },
+                            appContainer.navigationLayoutStore.setBottomBar(
+                                bottomBarOrder.toMutableList().apply { add(index - 1, removeAt(index)) },
                             )
                         },
                         onMoveDown = {
-                            appContainer.bottomNavOrderStore.setOrder(
-                                bottomTabOrder.toMutableList().apply { add(index + 1, removeAt(index)) },
+                            appContainer.navigationLayoutStore.setBottomBar(
+                                bottomBarOrder.toMutableList().apply { add(index + 1, removeAt(index)) },
                             )
                         },
+                        onMoveToZone = { zone -> appContainer.navigationLayoutStore.move(destination, zone) },
+                    )
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                SectionLabel(stringResource(R.string.settings_top_bar_section))
+                topBarOrder.forEachIndexed { index, destination ->
+                    NavZoneRow(
+                        destination = destination,
+                        zone = NavigationLayoutStore.Zone.TOP_BAR,
+                        bottomBarCount = bottomBarOrder.size,
+                        canMoveUp = index > 0,
+                        canMoveDown = index < topBarOrder.lastIndex,
+                        onMoveUp = {
+                            appContainer.navigationLayoutStore.setTopBar(
+                                topBarOrder.toMutableList().apply { add(index - 1, removeAt(index)) },
+                            )
+                        },
+                        onMoveDown = {
+                            appContainer.navigationLayoutStore.setTopBar(
+                                topBarOrder.toMutableList().apply { add(index + 1, removeAt(index)) },
+                            )
+                        },
+                        onMoveToZone = { zone -> appContainer.navigationLayoutStore.move(destination, zone) },
+                    )
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                SectionLabel(stringResource(R.string.settings_more_section))
+                moreOrder.forEachIndexed { index, destination ->
+                    NavZoneRow(
+                        destination = destination,
+                        zone = NavigationLayoutStore.Zone.MORE,
+                        bottomBarCount = bottomBarOrder.size,
+                        canMoveUp = index > 0,
+                        canMoveDown = index < moreOrder.lastIndex,
+                        onMoveUp = {
+                            appContainer.navigationLayoutStore.setMore(
+                                moreOrder.toMutableList().apply { add(index - 1, removeAt(index)) },
+                            )
+                        },
+                        onMoveDown = {
+                            appContainer.navigationLayoutStore.setMore(
+                                moreOrder.toMutableList().apply { add(index + 1, removeAt(index)) },
+                            )
+                        },
+                        onMoveToZone = { zone -> appContainer.navigationLayoutStore.move(destination, zone) },
                     )
                 }
 
@@ -617,29 +684,76 @@ private fun SettingsSwitchRow(label: String, checked: Boolean, onCheckedChange: 
 }
 
 
+/**
+ * One reorderable row in one of the three nav zone lists -- up/down arrows reorder within the
+ * zone, and the overflow menu offers moving to whichever of the *other two* zones is currently a
+ * valid target (mirrors iOS's per-row swipe actions, adapted to Android's list-row conventions).
+ * "Move to bottom bar" is hidden once it's at [NavigationLayoutStore.MAXIMUM_BOTTOM_BAR_COUNT],
+ * and the whole overflow menu is hidden for a bottom-bar row once the bar is down to
+ * [NavigationLayoutStore.MINIMUM_BOTTOM_BAR_COUNT] -- both mirror [NavigationLayoutStore.move]'s
+ * own no-ops.
+ */
 @Composable
-private fun BottomNavOrderRow(
-    tab: BottomTab,
+private fun NavZoneRow(
+    destination: AppDestination,
+    zone: NavigationLayoutStore.Zone,
+    bottomBarCount: Int,
     canMoveUp: Boolean,
     canMoveDown: Boolean,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
+    onMoveToZone: (NavigationLayoutStore.Zone) -> Unit,
 ) {
+    val atBottomBarFloor = zone == NavigationLayoutStore.Zone.BOTTOM_BAR &&
+        bottomBarCount <= NavigationLayoutStore.MINIMUM_BOTTOM_BAR_COUNT
+    val validTargets = if (atBottomBarFloor) {
+        emptyList()
+    } else {
+        NavigationLayoutStore.Zone.entries.filter { target ->
+            target != zone && (target != NavigationLayoutStore.Zone.BOTTOM_BAR || bottomBarCount < NavigationLayoutStore.MAXIMUM_BOTTOM_BAR_COUNT)
+        }
+    }
+    var menuExpanded by remember { mutableStateOf(false) }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(tab.icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(stringResource(tab.labelRes), modifier = Modifier.padding(start = 16.dp).weight(1f))
+        Icon(destination.icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(destination.labelRes), modifier = Modifier.padding(start = 16.dp).weight(1f))
         IconButton(onClick = onMoveUp, enabled = canMoveUp) {
             Icon(Icons.Filled.ArrowUpward, contentDescription = stringResource(R.string.settings_bottom_nav_move_up))
         }
         IconButton(onClick = onMoveDown, enabled = canMoveDown) {
             Icon(Icons.Filled.ArrowDownward, contentDescription = stringResource(R.string.settings_bottom_nav_move_down))
         }
+        if (validTargets.isNotEmpty()) {
+            Box {
+                IconButton(onClick = { menuExpanded = true }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.settings_nav_move_menu))
+                }
+                DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                    validTargets.forEach { target ->
+                        DropdownMenuItem(
+                            text = { Text(stringResource(zoneMoveLabel(target))) },
+                            onClick = {
+                                menuExpanded = false
+                                onMoveToZone(target)
+                            },
+                        )
+                    }
+                }
+            }
+        }
     }
+}
+
+private fun zoneMoveLabel(zone: NavigationLayoutStore.Zone): Int = when (zone) {
+    NavigationLayoutStore.Zone.BOTTOM_BAR -> R.string.settings_nav_move_to_bottom_bar
+    NavigationLayoutStore.Zone.TOP_BAR -> R.string.settings_nav_move_to_top_bar
+    NavigationLayoutStore.Zone.MORE -> R.string.settings_nav_move_to_more
 }
 
 @Composable
