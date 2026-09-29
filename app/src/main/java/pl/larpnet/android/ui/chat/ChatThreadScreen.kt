@@ -71,6 +71,7 @@ fun ChatThreadScreen(
     val viewModelKey = when (target) {
         is ChatThreadTarget.Room -> "chat_thread_room_${target.id}"
         is ChatThreadTarget.Nickname -> "chat_thread_nickname_${target.nickname}"
+        is ChatThreadTarget.MatrixId -> "chat_thread_matrixid_${target.matrixId}"
     }
     val viewModel: ChatThreadViewModel = viewModel(
         key = viewModelKey,

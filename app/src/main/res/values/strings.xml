@@ -20,6 +20,9 @@
     <!-- Search -->
     <string name="search_title">Szukaj</string>
     <string name="search_hint">Szukaj osób (nazwa lub @użytkownik@serwer)</string>
+    <string name="search_hint_larpnet_users">Szukaj użytkowników Larpnet</string>
+    <string name="search_matrix_address_label">Lub wpisz adres Matrix</string>
+    <string name="search_matrix_address_start">Rozpocznij czat</string>
     <string name="search_empty">Brak wyników</string>
 
     <!-- Directory -->

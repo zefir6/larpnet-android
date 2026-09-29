@@ -183,9 +183,23 @@ class MatrixRepository(
      * describes for the web client.
      */
     suspend fun openOrCreateDirectRoom(nickname: String): String {
-        val activeClient = ensureClient()
         val resolvedServerName = serverName ?: error("Not logged in")
-        val targetMxid = "@${nickname.lowercase()}:$resolvedServerName"
+        return openOrCreateDirectRoomForTarget("@${nickname.lowercase()}:$resolvedServerName")
+    }
+
+    /**
+     * Same as [openOrCreateDirectRoom], but for an already-fully-qualified mxid rather than a
+     * bare local nickname -- the new-chat picker's "enter a Matrix address" fallback, for
+     * someone who already knows the exact address (including on a different, federated
+     * homeserver, which the local-account search could never find in the first place).
+     */
+    suspend fun openOrCreateDirectRoomForMatrixId(matrixId: String): String {
+        require(matrixId.startsWith("@") && matrixId.contains(":")) { "Malformed Matrix address: $matrixId" }
+        return openOrCreateDirectRoomForTarget(matrixId)
+    }
+
+    private suspend fun openOrCreateDirectRoomForTarget(targetMxid: String): String {
+        val activeClient = ensureClient()
 
         activeClient.getDmRoom(targetMxid)?.use { return it.id() }
 

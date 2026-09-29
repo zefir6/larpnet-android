@@ -12,13 +12,17 @@ import pl.larpnet.android.data.matrix.MatrixRepository
 
 /**
  * Either an already-known room (opened from the room list, which already has its display
- * name) or a bare Friendica nickname (opened from a profile's "Chat" button or the new-chat
- * picker) -- [ChatThreadViewModel]'s init resolves the latter to a room id itself via
- * [MatrixRepository.openOrCreateDirectRoom], creating the room on first contact.
+ * name), a bare Friendica nickname (opened from a profile's "Chat" button or the new-chat
+ * picker), or an already-fully-qualified Matrix address typed directly (the new-chat picker's
+ * "enter a Matrix address" fallback -- works for a federated address on a different homeserver
+ * too, which the local-account search could never find) -- [ChatThreadViewModel]'s init resolves
+ * either of the latter two to a room id itself via [MatrixRepository.openOrCreateDirectRoom],
+ * creating the room on first contact.
  */
 sealed class ChatThreadTarget {
     data class Room(val id: String, val name: String) : ChatThreadTarget()
     data class Nickname(val nickname: String) : ChatThreadTarget()
+    data class MatrixId(val matrixId: String) : ChatThreadTarget()
 }
 
 data class ChatThreadUiState(
@@ -69,6 +73,10 @@ class ChatThreadViewModel(
                     is ChatThreadTarget.Nickname -> {
                         uiState = uiState.copy(roomName = target.nickname)
                         repository.openOrCreateDirectRoom(target.nickname)
+                    }
+                    is ChatThreadTarget.MatrixId -> {
+                        uiState = uiState.copy(roomName = target.matrixId)
+                        repository.openOrCreateDirectRoomForMatrixId(target.matrixId)
                     }
                 }
                 val isGroup = runCatching { repository.roomInfo(roomId).isGroup }.getOrDefault(false)

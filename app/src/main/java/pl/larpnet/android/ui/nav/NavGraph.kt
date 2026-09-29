@@ -92,7 +92,7 @@ internal object Routes {
     // folding into MESSAGES.
     const val CHAT = "chat"
     const val NEW_CHAT = "chat/new"
-    const val CHAT_THREAD = "chat/thread?roomId={roomId}&roomName={roomName}&nickname={nickname}"
+    const val CHAT_THREAD = "chat/thread?roomId={roomId}&roomName={roomName}&nickname={nickname}&matrixId={matrixId}"
     const val CHAT_ROOM_INFO = "chat/thread/{roomId}/info"
     const val ADD_CHAT_MEMBER = "chat/thread/{roomId}/add_member"
     const val TAG = "tag/{hashtag}"
@@ -116,6 +116,8 @@ private fun chatThreadRoomRoute(id: String, name: String) =
     "chat/thread?roomId=${URLEncoder.encode(id, "UTF-8")}&roomName=${URLEncoder.encode(name, "UTF-8")}"
 private fun chatThreadNicknameRoute(nickname: String) =
     "chat/thread?nickname=${URLEncoder.encode(nickname, "UTF-8")}"
+private fun chatThreadMatrixIdRoute(matrixId: String) =
+    "chat/thread?matrixId=${URLEncoder.encode(matrixId, "UTF-8")}"
 private fun chatRoomInfoRoute(roomId: String) = "chat/thread/${URLEncoder.encode(roomId, "UTF-8")}/info"
 private fun addChatMemberRoute(roomId: String) = "chat/thread/${URLEncoder.encode(roomId, "UTF-8")}/add_member"
 private fun tagRoute(hashtag: String) = "tag/${URLEncoder.encode(hashtag, "UTF-8")}"
@@ -470,10 +472,16 @@ fun LarpnetNavGraph(startDestination: String) {
                     onSelectAccount = { account ->
                         // Matrix identities only exist for local users (see
                         // `larpnet_matrix_localpart()`) -- `username`, not `acct`, is the
-                        // Friendica nickname; a remote pick fails visibly via this screen's
-                        // own error state rather than silently, same as any other
-                        // not-actually-chattable target would.
+                        // Friendica nickname. `chatRecipientMode` below already filters results
+                        // to local accounts only, so this is never a not-actually-chattable
+                        // remote pick.
                         navController.navigate(chatThreadNicknameRoute(account.username)) {
+                            popUpTo(Routes.CHAT)
+                        }
+                    },
+                    chatRecipientMode = true,
+                    onEnterMatrixAddress = { address ->
+                        navController.navigate(chatThreadMatrixIdRoute(address)) {
                             popUpTo(Routes.CHAT)
                         }
                     },
@@ -486,15 +494,17 @@ fun LarpnetNavGraph(startDestination: String) {
                     navArgument("roomId") { type = NavType.StringType; nullable = true; defaultValue = null },
                     navArgument("roomName") { type = NavType.StringType; nullable = true; defaultValue = null },
                     navArgument("nickname") { type = NavType.StringType; nullable = true; defaultValue = null },
+                    navArgument("matrixId") { type = NavType.StringType; nullable = true; defaultValue = null },
                 ),
             ) { entry ->
                 val roomId = entry.arguments?.getString("roomId")?.let { URLDecoder.decode(it, "UTF-8") }
                 val roomName = entry.arguments?.getString("roomName")?.let { URLDecoder.decode(it, "UTF-8") }
                 val nickname = entry.arguments?.getString("nickname")?.let { URLDecoder.decode(it, "UTF-8") }
-                val target = if (roomId != null && roomName != null) {
-                    ChatThreadTarget.Room(roomId, roomName)
-                } else {
-                    ChatThreadTarget.Nickname(nickname.orEmpty())
+                val matrixId = entry.arguments?.getString("matrixId")?.let { URLDecoder.decode(it, "UTF-8") }
+                val target = when {
+                    roomId != null && roomName != null -> ChatThreadTarget.Room(roomId, roomName)
+                    matrixId != null -> ChatThreadTarget.MatrixId(matrixId)
+                    else -> ChatThreadTarget.Nickname(nickname.orEmpty())
                 }
                 ChatThreadScreen(
                     target = target,
@@ -532,6 +542,7 @@ fun LarpnetNavGraph(startDestination: String) {
                             navController.popBackStack()
                         }
                     },
+                    chatRecipientMode = true,
                 )
             }
 
