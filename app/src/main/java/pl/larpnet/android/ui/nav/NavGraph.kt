@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -103,9 +104,32 @@ internal object Routes {
     const val ALBUMS = "albums"
     const val ALBUM_DETAIL = "albums/{album}"
     const val MEDIA = "media"
+    const val MORE = "more"
 }
 
-private val bottomNavRoutes = BottomTab.entries.map { it.route }.toSet()
+/** Every route that should keep the persistent bottom bar visible and behave like a top-level
+ * tab -- every [AppDestination] (wherever the user has it assigned: bottom bar, top-bar
+ * dropdown, or More) plus the fixed More tab itself. */
+private val topLevelRoutes = AppDestination.entries.map { it.route }.toSet() + Routes.MORE
+
+/** Tab-style navigation (save/restore state, single top) used for every top-level destination
+ * except [AppDestination.PROFILE] -- see [NavigationLayoutStore]'s doc comment on why Profile is
+ * excluded. */
+private fun NavHostController.navigateToTopLevel(route: String) {
+    navigate(route) {
+        popUpTo(graph.findStartDestination().id) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
+    }
+}
+
+private fun NavHostController.navigateToDestination(destination: AppDestination) {
+    if (destination == AppDestination.PROFILE) {
+        navigate(destination.route) { launchSingleTop = true }
+    } else {
+        navigateToTopLevel(destination.route)
+    }
+}
 
 private fun threadRoute(statusId: String) = "thread/$statusId"
 private fun profileRoute(accountId: String) = "profile/$accountId"
@@ -120,14 +144,6 @@ private fun chatRoomInfoRoute(roomId: String) = "chat/thread/${URLEncoder.encode
 private fun addChatMemberRoute(roomId: String) = "chat/thread/${URLEncoder.encode(roomId, "UTF-8")}/add_member"
 private fun tagRoute(hashtag: String) = "tag/${URLEncoder.encode(hashtag, "UTF-8")}"
 private fun albumDetailRoute(album: String) = "albums/${URLEncoder.encode(album, "UTF-8")}"
-
-private fun NavHostController.navigateToBottomTab(route: String) {
-    navigate(route) {
-        popUpTo(graph.findStartDestination().id) { saveState = true }
-        launchSingleTop = true
-        restoreState = true
-    }
-}
 
 /** [startDestination] is [Routes.LOGIN] or [Routes.HOME] depending on whether MainActivity found a stored token. */
 @Composable
@@ -209,20 +225,32 @@ fun LarpnetNavGraph(startDestination: String) {
     val onSearch: () -> Unit = { navController.navigate(Routes.SEARCH) }
     val onOpenHashtag: (String) -> Unit = { navController.navigate(tagRoute(it)) }
 
-    val bottomTabOrder by appContainer.bottomNavOrderStore.order.collectAsState()
+    val bottomBarOrder by appContainer.navigationLayoutStore.bottomBar.collectAsState()
+    val topBar by appContainer.navigationLayoutStore.topBar.collectAsState()
+    val moreDestinations by appContainer.navigationLayoutStore.more.collectAsState()
+    val onOpenDestination: (AppDestination) -> Unit = { navController.navigateToDestination(it) }
+    val onOpenNotifications: () -> Unit = { navController.navigateToDestination(AppDestination.NOTIFICATIONS) }
 
     Scaffold(
         bottomBar = {
-            if (currentRoute in bottomNavRoutes) {
+            if (currentRoute in topLevelRoutes) {
                 NavigationBar {
-                    bottomTabOrder.forEach { tab ->
+                    bottomBarOrder.forEach { destination ->
                         NavigationBarItem(
-                            selected = currentRoute == tab.route,
-                            onClick = { navController.navigateToBottomTab(tab.route) },
-                            icon = { Icon(tab.icon, contentDescription = null) },
-                            label = { Text(stringResource(tab.labelRes)) },
+                            selected = currentRoute == destination.route,
+                            onClick = { onOpenDestination(destination) },
+                            icon = { Icon(destination.icon, contentDescription = null) },
+                            label = { Text(stringResource(destination.labelRes)) },
                         )
                     }
+                    // Fixed last item, not itself reassignable to another zone -- always the
+                    // catch-all for whatever destinations aren't in the bottom bar or top bar.
+                    NavigationBarItem(
+                        selected = currentRoute == Routes.MORE,
+                        onClick = { navController.navigateToTopLevel(Routes.MORE) },
+                        icon = { Icon(Icons.Filled.MoreHoriz, contentDescription = null) },
+                        label = { Text(stringResource(R.string.nav_more)) },
+                    )
                 }
             }
         },
@@ -269,11 +297,17 @@ fun LarpnetNavGraph(startDestination: String) {
             }
 
             composable(Routes.HOME) {
-                TimelineScreen(TimelineKind.Home, onOpenThread, onOpenProfile, onReply, onSearch, onOpenHashtag)
+                TimelineScreen(
+                    TimelineKind.Home, onOpenThread, onOpenProfile, onReply, onSearch, onOpenHashtag,
+                    topBar = topBar, onOpenTopBarDestination = onOpenDestination, onOpenNotifications = onOpenNotifications,
+                )
             }
 
             composable(Routes.LOCAL) {
-                TimelineScreen(TimelineKind.Local, onOpenThread, onOpenProfile, onReply, onSearch, onOpenHashtag)
+                TimelineScreen(
+                    TimelineKind.Local, onOpenThread, onOpenProfile, onReply, onSearch, onOpenHashtag,
+                    topBar = topBar, onOpenTopBarDestination = onOpenDestination, onOpenNotifications = onOpenNotifications,
+                )
             }
 
             composable(
@@ -285,7 +319,10 @@ fun LarpnetNavGraph(startDestination: String) {
             }
 
             composable(Routes.DIRECTORY) {
-                DirectoryScreen(onOpenProfile = onOpenProfile)
+                DirectoryScreen(
+                    onOpenProfile = onOpenProfile,
+                    topBar = topBar, onOpenTopBarDestination = onOpenDestination, onOpenNotifications = onOpenNotifications,
+                )
             }
 
             composable(Routes.NOTIFICATIONS) {
@@ -294,7 +331,8 @@ fun LarpnetNavGraph(startDestination: String) {
                     onOpenProfile = onOpenProfile,
                     onSearch = onSearch,
                     onOpenMessages = { navController.navigate(Routes.MESSAGES) },
-                    onOpenChat = { navController.navigate(Routes.CHAT) },
+                    onOpenChat = { navController.navigateToDestination(AppDestination.CHAT) },
+                    topBar = topBar, onOpenTopBarDestination = onOpenDestination,
                 )
             }
 
@@ -308,8 +346,8 @@ fun LarpnetNavGraph(startDestination: String) {
                     onEditProfile = { navController.navigate(Routes.EDIT_PROFILE) },
                     onSearch = onSearch,
                     onOpenHashtag = onOpenHashtag,
-                    onOpenAlbums = { navController.navigate(Routes.ALBUMS) },
-                    onOpenMedia = { navController.navigate(Routes.MEDIA) },
+                    onOpenAlbums = { navController.navigateToDestination(AppDestination.ALBUMS) },
+                    onOpenMedia = { navController.navigateToDestination(AppDestination.MEDIA) },
                     onOpenChat = { nickname -> navController.navigate(chatThreadNicknameRoute(nickname)) },
                 )
             }
@@ -374,6 +412,7 @@ fun LarpnetNavGraph(startDestination: String) {
                     onOpenHiddenPosts = { navController.navigate(Routes.HIDDEN_POSTS) },
                     onOpenBlockedPosts = { navController.navigate(Routes.BLOCKED_POSTS) },
                     onOpenFollowedThreads = { navController.navigate(Routes.FOLLOWED_THREADS) },
+                    topBar = topBar, onOpenTopBarDestination = onOpenDestination, onOpenNotifications = onOpenNotifications,
                 )
             }
 
@@ -395,8 +434,8 @@ fun LarpnetNavGraph(startDestination: String) {
 
             composable(Routes.ALBUMS) {
                 AlbumsScreen(
-                    onBack = { navController.popBackStack() },
                     onOpenAlbum = { album -> navController.navigate(albumDetailRoute(album)) },
+                    topBar = topBar, onOpenTopBarDestination = onOpenDestination, onOpenNotifications = onOpenNotifications,
                 )
             }
 
@@ -409,7 +448,9 @@ fun LarpnetNavGraph(startDestination: String) {
             }
 
             composable(Routes.MEDIA) {
-                MediaGridScreen(onBack = { navController.popBackStack() })
+                MediaGridScreen(
+                    topBar = topBar, onOpenTopBarDestination = onOpenDestination, onOpenNotifications = onOpenNotifications,
+                )
             }
 
             composable(Routes.MESSAGES) {
@@ -455,11 +496,20 @@ fun LarpnetNavGraph(startDestination: String) {
                 )
             }
 
+            composable(Routes.MORE) {
+                MoreScreen(
+                    more = moreDestinations,
+                    topBar = topBar,
+                    onSelect = onOpenDestination,
+                    onOpenNotifications = onOpenNotifications,
+                )
+            }
+
             composable(Routes.CHAT) {
                 ChatScreen(
-                    onBack = { navController.popBackStack() },
                     onOpenRoom = { room -> navController.navigate(chatThreadRoomRoute(room.id, room.name)) },
                     onNewChat = { navController.navigate(Routes.NEW_CHAT) },
+                    topBar = topBar, onOpenTopBarDestination = onOpenDestination, onOpenNotifications = onOpenNotifications,
                 )
             }
 

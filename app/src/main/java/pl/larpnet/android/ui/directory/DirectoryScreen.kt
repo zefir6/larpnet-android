@@ -31,11 +31,19 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import pl.larpnet.android.R
 import pl.larpnet.android.di.rememberAppContainer
 import pl.larpnet.android.ui.common.AccountRow
+import pl.larpnet.android.ui.nav.AppDestination
+import pl.larpnet.android.ui.nav.NotificationsBellAction
+import pl.larpnet.android.ui.nav.TopBarMenuButton
 import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DirectoryScreen(onOpenProfile: (String) -> Unit) {
+fun DirectoryScreen(
+    onOpenProfile: (String) -> Unit,
+    topBar: List<AppDestination> = emptyList(),
+    onOpenTopBarDestination: (AppDestination) -> Unit = {},
+    onOpenNotifications: () -> Unit = {},
+) {
     val appContainer = rememberAppContainer()
     val viewModel: DirectoryViewModel = viewModel(
         factory = viewModelFactory {
@@ -55,7 +63,14 @@ fun DirectoryScreen(onOpenProfile: (String) -> Unit) {
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.nav_directory)) }, colors = larpnetTopAppBarColors()) },
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.nav_directory)) },
+                colors = larpnetTopAppBarColors(),
+                navigationIcon = { TopBarMenuButton(topBar, onOpenTopBarDestination) },
+                actions = { NotificationsBellAction(onOpenNotifications) },
+            )
+        },
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = state.isLoading,

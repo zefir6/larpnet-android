@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,6 +40,9 @@ import pl.larpnet.android.R
 import pl.larpnet.android.data.matrix.ChatRoom
 import pl.larpnet.android.data.matrix.MatrixRepository
 import pl.larpnet.android.di.rememberAppContainer
+import pl.larpnet.android.ui.nav.AppDestination
+import pl.larpnet.android.ui.nav.NotificationsBellAction
+import pl.larpnet.android.ui.nav.TopBarMenuButton
 import pl.larpnet.android.ui.common.MatrixAvatarImage
 import pl.larpnet.android.ui.theme.LarpnetAccent
 import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
@@ -48,9 +50,11 @@ import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
-    onBack: () -> Unit,
     onOpenRoom: (ChatRoom) -> Unit,
     onNewChat: () -> Unit,
+    topBar: List<AppDestination> = emptyList(),
+    onOpenTopBarDestination: (AppDestination) -> Unit = {},
+    onOpenNotifications: () -> Unit = {},
 ) {
     val appContainer = rememberAppContainer()
     val viewModel: ChatViewModel = viewModel(
@@ -74,11 +78,8 @@ fun ChatScreen(
             TopAppBar(
                 colors = larpnetTopAppBarColors(),
                 title = { Text(stringResource(R.string.chat_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                    }
-                },
+                navigationIcon = { TopBarMenuButton(topBar, onOpenTopBarDestination) },
+                actions = { NotificationsBellAction(onOpenNotifications) },
             )
         },
         floatingActionButton = {

@@ -77,12 +77,24 @@ class TokenStore(context: Context) {
         get() = prefs.getInt(KEY_DISMISSED_UPDATE_VERSION_CODE, 0)
         set(value) = prefs.edit().putInt(KEY_DISMISSED_UPDATE_VERSION_CODE, value).apply()
 
-    /** Comma-separated [pl.larpnet.android.ui.nav.BottomTab] enum names, user-customizable order of the
-     * bottom navigation bar -- see [pl.larpnet.android.ui.nav.BottomNavOrderStore]. Null until the user
-     * reorders it for the first time. */
-    var bottomNavOrder: String?
-        get() = prefs.getString(KEY_BOTTOM_NAV_ORDER, null)
-        set(value) = prefs.edit().putString(KEY_BOTTOM_NAV_ORDER, value).apply()
+    /** Comma-separated [pl.larpnet.android.ui.nav.AppDestination] enum names in each of the three
+     * zones -- see [pl.larpnet.android.ui.nav.NavigationLayoutStore]. Null until the user
+     * customizes the layout for the first time. `_v2` keys: the previous 2-zone shape (a single
+     * `bottom_nav_order` covering a different, smaller destination set with no Chat/Profile/
+     * Albums/Media and Notifications as a real bar slot) doesn't map cleanly onto 3 zones, so
+     * this deliberately doesn't migrate it -- an existing customization just resets to the new
+     * defaults once, same as a fresh install. */
+    var navBottomBar: String?
+        get() = prefs.getString(KEY_NAV_BOTTOM_BAR, null)
+        set(value) = prefs.edit().putString(KEY_NAV_BOTTOM_BAR, value).apply()
+
+    var navTopBar: String?
+        get() = prefs.getString(KEY_NAV_TOP_BAR, null)
+        set(value) = prefs.edit().putString(KEY_NAV_TOP_BAR, value).apply()
+
+    var navMore: String?
+        get() = prefs.getString(KEY_NAV_MORE, null)
+        set(value) = prefs.edit().putString(KEY_NAV_MORE, value).apply()
 
     /** Comma-separated last-3 hashtags (no leading '#') the user has published with, most-recent-first
      * -- see [pl.larpnet.android.ui.compose.RecentTagsStore]. Null until first use. */
@@ -137,7 +149,9 @@ class TokenStore(context: Context) {
         private const val KEY_PUSH_ENABLED = "push_enabled"
         private const val KEY_LAST_UPDATE_CHECK_AT = "last_update_check_at"
         private const val KEY_DISMISSED_UPDATE_VERSION_CODE = "dismissed_update_version_code"
-        private const val KEY_BOTTOM_NAV_ORDER = "bottom_nav_order"
+        private const val KEY_NAV_BOTTOM_BAR = "nav_bottom_bar_v2"
+        private const val KEY_NAV_TOP_BAR = "nav_top_bar_v2"
+        private const val KEY_NAV_MORE = "nav_more_v2"
         private const val KEY_RECENT_TAGS = "recent_tags"
         private const val KEY_HIDDEN_POST_IDS = "hidden_post_ids"
         private const val KEY_BLOCKED_POST_IDS = "blocked_post_ids"
