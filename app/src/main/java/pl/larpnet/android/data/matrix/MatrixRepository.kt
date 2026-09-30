@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.ClientBuilder
 import org.matrix.rustcomponents.sdk.CreateRoomParameters
@@ -110,6 +112,10 @@ class MatrixRepository(
     private var client: Client? = null
     private var syncHandle: TaskHandle? = null
 
+    /** Guards [ensureClient]'s build-and-login section -- see that function's doc comment for
+     * why this is required, not just a defensive nicety. */
+    private val clientMutex = Mutex()
+
     /** nickname (lowercased) -> Friendica display name, from the same `contacts` list the web
      * client's `resolveDisplayName()` uses -- covers anyone who's never opened chat themselves
      * and so has no Matrix displayname yet. */
@@ -137,10 +143,25 @@ class MatrixRepository(
      * for Chat, unlike iOS, so this badges the icon button that opens it instead). */
     val unreadCount: StateFlow<Int> = _unreadCount.asStateFlow()
 
-    /** Logs in if needed (idempotent -- returns the existing client on every call after the
-     * first this launch) and makes sure the background sync loop is running. */
-    suspend fun ensureClient(): Client {
-        client?.let { return it }
+    /**
+     * Logs in if needed (idempotent -- returns the existing client on every call after the
+     * first this launch) and makes sure the background sync loop is running.
+     *
+     * Guarded by [clientMutex]: [ChatViewModel]'s `init` fires `refresh()` (-> [rooms]) and
+     * `checkRecovery()` (-> [recoveryPromptKind]) as two separate, un-awaited
+     * `viewModelScope.launch { }` coroutines, both of which call this function. Without the
+     * lock, a genuinely first-ever login (client still null in both) let both coroutines race
+     * past the null-check and each call `ClientBuilder().build()` against the *same*
+     * [sessionDirectory] concurrently -- confirmed live: the loser's SQLite migration failed
+     * outright with "Failed to run migrations: table \"kv\" already exists" (the winner had
+     * just created it moments earlier), leaving chat completely unusable on a fresh
+     * account+device. Never surfaced in any earlier testing this session because every prior
+     * check happened to run against an *already*-initialized client from an earlier login in
+     * the same process, where the `client?.let { return it }` fast path always won before the
+     * race window mattered.
+     */
+    suspend fun ensureClient(): Client = clientMutex.withLock {
+        client?.let { return@withLock it }
 
         val identity = apiProvider().matrixLogin()
         contactsByLocalpart = identity.contacts.associate { it.nickname.lowercase() to it.name }
@@ -166,7 +187,7 @@ class MatrixRepository(
 
         client = newClient
         startSyncLoop(newClient)
-        return newClient
+        newClient
     }
 
     suspend fun rooms(): List<ChatRoom> {
