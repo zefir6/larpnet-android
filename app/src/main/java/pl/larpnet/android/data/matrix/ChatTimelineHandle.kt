@@ -51,6 +51,24 @@ class ChatTimelineHandle(
                 }
             },
         )
+        loadInitialHistory()
+    }
+
+    /** [Timeline.addListener] only delivers whatever's already cached locally for this room --
+     * for a conversation with no *recent* activity, that can be nothing at all, even once this
+     * device's decryption keys are in place (confirmed live: a real conversation with history on
+     * other clients showed "No messages yet" here, on an unlock-chat-history-completed device,
+     * until backward pagination was requested). The SDK never backfills this on its own; a
+     * client has to explicitly call [Timeline.paginateBackwards]. Bounded at 3 rounds (~90
+     * events) as a sane first-open depth, stopping early once the server reports the actual
+     * start of the room's timeline -- not gated on checking [items] afterward, since
+     * [TimelineListener.onUpdate] delivers diffs asynchronously (from the SDK's own worker
+     * thread, per this class's own doc comment) and could still be racing this call. */
+    private suspend fun loadInitialHistory() {
+        repeat(3) {
+            val hitStart = runCatching { timeline.paginateBackwards(30u) }.getOrDefault(true)
+            if (hitStart) return
+        }
     }
 
     suspend fun send(text: String) {
