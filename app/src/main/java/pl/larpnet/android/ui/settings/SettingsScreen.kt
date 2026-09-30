@@ -157,6 +157,7 @@ fun SettingsScreen(
     var showServerDialog by remember { mutableStateOf(false) }
     var showResetRecoveryConfirm by remember { mutableStateOf(false) }
     var showResetRecoverySheet by remember { mutableStateOf(false) }
+    var resetRecoveryInstance by remember { mutableStateOf(0) }
     var serverAddress by remember { mutableStateOf(appContainer.tokenStore.instanceBaseUrl ?: BuildConfig.DEFAULT_INSTANCE) }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -215,6 +216,7 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showResetRecoveryConfirm = false
+                    resetRecoveryInstance++
                     showResetRecoverySheet = true
                 }) { Text(stringResource(R.string.settings_reset_recovery_key_confirm_action)) }
             },
@@ -228,6 +230,7 @@ fun SettingsScreen(
         RecoveryKeyDialog(
             mode = RecoveryKeyMode.RESET,
             repository = appContainer.matrixRepository,
+            instanceKey = resetRecoveryInstance,
             onDone = { showResetRecoverySheet = false },
         )
     }
