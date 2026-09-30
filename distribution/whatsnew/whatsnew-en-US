@@ -4,3 +4,4 @@ What's new:
 - Fixed some contacts' display names not showing correctly in chat
 - Navigation reorganized: notifications get their own icon, and you can now customize the bottom bar, top menu, and a new More tab
 - Chat, Profile, Photo albums, and Media are now reachable from the main navigation
+- Push notifications for new chat messages
