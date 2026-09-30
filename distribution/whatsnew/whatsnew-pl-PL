@@ -1,6 +1,7 @@
 Co nowego:
-- Czat grupuje teraz wiadomości i dodaje separatory dni, znaczniki czasu oraz oznaczenia nieprzeczytanych
+- Czat grupuje wiadomości, dodaje separatory dni, znaczniki czasu i oznaczenia nieprzeczytanych
 - Awatary w czacie pokazują prawdziwe zdjęcia profilowe zamiast samych inicjałów
 - Naprawiono wyświetlanie nazw niektórych kontaktów w czacie
-- Nowa organizacja nawigacji: powiadomienia mają własną ikonę, a dolny pasek, górne menu i nową zakładkę Więcej można dowolnie dostosować
-- Czat, Profil, Albumy zdjęć i Media są teraz dostępne bezpośrednio z głównej nawigacji
+- Nowa nawigacja: powiadomienia mają własną ikonę, a dolny pasek, górne menu i zakładkę Więcej można dostosować
+- Czat, Profil, Albumy zdjęć i Media są dostępne bezpośrednio z głównej nawigacji
+- Powiadomienia push o nowych wiadomościach w czacie
