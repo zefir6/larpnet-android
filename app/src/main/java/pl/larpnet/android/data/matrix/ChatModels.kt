@@ -33,6 +33,10 @@ data class ChatMessage(
     val senderDisplayName: String? = null,
     /** `mxc://` sender avatar from the same `senderProfile`, null for [isOwn] messages. */
     val senderAvatarUrl: String? = null,
+    /** True for a message whose content the SDK couldn't decrypt (missing/not-yet-restored
+     * room key). `ChatThreadScreen` renders this as a distinct inline note instead of a normal
+     * bubble; [body] is empty and unused in this case. */
+    val isUndecryptable: Boolean = false,
 )
 
 /** One other member of a room, display-ready -- [MatrixRepository.roomInfo]'s member list. */

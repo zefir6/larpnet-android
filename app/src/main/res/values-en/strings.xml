@@ -252,6 +252,7 @@
     <string name="chat_title">Chat</string>
     <string name="chat_empty">No conversations yet</string>
     <string name="chat_thread_empty">No messages yet -- say hello</string>
+    <string name="chat_message_undecryptable">Message couldn\'t be decrypted</string>
     <string name="chat_new_messages">%1$d new</string>
     <string name="chat_new">New chat</string>
     <string name="chat_room_info">Conversation info</string>
