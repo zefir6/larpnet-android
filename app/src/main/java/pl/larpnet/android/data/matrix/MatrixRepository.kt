@@ -20,6 +20,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -224,6 +225,104 @@ class MatrixRepository(
         }
         _unreadCount.value = result.sumOf { it.unreadCount }
         return result.sortedByDescending { it.timestampMillis ?: Long.MIN_VALUE }
+    }
+
+    /**
+     * Cleans up the leftover duplicate DM rooms from before [openOrCreateDirectRoom] reliably
+     * used `getDmRoom()`/`m.direct` -- same story as the web client's `findOrCreateDirectRoom()`
+     * (see its doc comment in `matrix.js`): a client that fails to find an existing DM creates a
+     * fresh one instead, and that duplicate is a real, separate room on the server, not just a
+     * display glitch. Confirmed live on a real account: the same contact had 4+ separate DM
+     * rooms, and which one a given client happened to open depended on lookup order --
+     * explaining reports like "this conversation is empty" on one client while another shows
+     * real history for what looks like the same person.
+     *
+     * Run once per session, after login. For every 1:1-shaped room (exactly one other member)
+     * grouped by that member: if more than one room has a message, this is ambiguous (possibly
+     * two genuinely separate historical conversations) -- leave them all alone, just repoint
+     * `m.direct` at whichever was most recently active so new chats go to the right place.
+     * Otherwise the one room with a message (or, if none have one, a deterministic pick by room
+     * ID) is canonical: point `m.direct` at it and leave the empty duplicates, since a room with
+     * no messages has nothing to lose by leaving it (the same action [leaveRoom] already
+     * performs on purpose from the room list's own swipe-to-delete).
+     */
+    suspend fun consolidateDuplicateDirectRooms() {
+        val activeClient = runCatching { ensureClient() }.getOrNull() ?: return
+        val selfId = runCatching { activeClient.userId() }.getOrNull() ?: return
+
+        val byTarget = mutableMapOf<String, MutableList<Room>>()
+        for (room in activeClient.rooms()) {
+            if (room.membership() != Membership.JOINED && room.membership() != Membership.INVITED) {
+                room.close()
+                continue
+            }
+            val all = mutableListOf<RoomMember>()
+            val iterator = runCatching { room.members() }.getOrNull()
+            if (iterator != null) {
+                while (true) {
+                    val chunk = iterator.nextChunk(10u)
+                    if (chunk.isNullOrEmpty()) break
+                    all.addAll(chunk)
+                }
+            }
+            val active = all.filter { it.membership == MembershipState.Join || it.membership == MembershipState.Invite }
+            val other = active.singleOrNull { it.userId != selfId }
+            if (active.size != 2 || other == null) {
+                room.close()
+                continue
+            }
+            byTarget.getOrPut(other.userId) { mutableListOf() }.add(room)
+        }
+
+        for ((targetMxid, roomsForTarget) in byTarget) {
+            if (roomsForTarget.size < 2) {
+                roomsForTarget.forEach { it.close() }
+                continue
+            }
+
+            val withTimestamps = roomsForTarget.map { it to previewFor(it) }
+            // Checks for a message-shaped event whether or not it's currently decryptable --
+            // this device may not have unlocked chat history yet (see the "Unlock chat history"
+            // flow), in which case a room with real history still previews as UnableToDecrypt
+            // rather than the real text. Both still count as "has content", to avoid
+            // misclassifying that room as empty and risking leaving it instead of the
+            // actually-empty duplicate.
+            val withMessage = withTimestamps.filter { (_, preview) -> preview.first != null }
+
+            val canonical: Room
+            val duplicatesToLeave: List<Room>
+            when {
+                withMessage.size > 1 -> {
+                    canonical = withMessage.maxBy { (_, preview) -> preview.second ?: Long.MIN_VALUE }.first
+                    duplicatesToLeave = emptyList()
+                }
+                withMessage.size == 1 -> {
+                    canonical = withMessage[0].first
+                    duplicatesToLeave = roomsForTarget.filter { it.id() != canonical.id() }
+                }
+                else -> {
+                    val sorted = roomsForTarget.sortedBy { it.id() }
+                    canonical = sorted[0]
+                    duplicatesToLeave = sorted.drop(1)
+                }
+            }
+
+            setDirectRoomAccountData(activeClient, targetMxid, canonical.id())
+
+            for (dup in duplicatesToLeave) {
+                runCatching { dup.leave() }
+            }
+            roomsForTarget.forEach { it.close() }
+        }
+    }
+
+    private suspend fun setDirectRoomAccountData(client: Client, targetMxid: String, roomId: String) {
+        val raw = runCatching { client.accountData("m.direct") }.getOrNull()
+        val direct = raw?.let { runCatching { Json.decodeFromString<Map<String, List<String>>>(it) }.getOrNull() } ?: emptyMap()
+        if (direct[targetMxid] == listOf(roomId)) return
+        val updated = direct + (targetMxid to listOf(roomId))
+        val encoded = Json.encodeToString(updated)
+        runCatching { client.setAccountData("m.direct", encoded) }
     }
 
     /**

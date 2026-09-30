@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Report
 import androidx.compose.material.icons.filled.Shield
@@ -158,6 +159,8 @@ fun SettingsScreen(
     var showResetRecoveryConfirm by remember { mutableStateOf(false) }
     var showResetRecoverySheet by remember { mutableStateOf(false) }
     var resetRecoveryInstance by remember { mutableStateOf(0) }
+    var showRestoreRecoverySheet by remember { mutableStateOf(false) }
+    var restoreRecoveryInstance by remember { mutableStateOf(0) }
     var serverAddress by remember { mutableStateOf(appContainer.tokenStore.instanceBaseUrl ?: BuildConfig.DEFAULT_INSTANCE) }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -232,6 +235,23 @@ fun SettingsScreen(
             repository = appContainer.matrixRepository,
             instanceKey = resetRecoveryInstance,
             onDone = { showResetRecoverySheet = false },
+        )
+    }
+
+    // The same restore flow is auto-prompted right after login when needed (see
+    // MatrixRepository.recoveryPromptKind(), checked once in ChatViewModel's init), but tapping
+    // "Later" there left no way back in for the rest of that ViewModel's lifetime -- confirmed
+    // live: a device stuck in this state shows every conversation as empty ("No messages yet"),
+    // not just undecryptable placeholders, since the timeline never gets the historical events
+    // without the key. This entry point re-opens the same flow on demand; safe to run even when
+    // already unlocked.
+    if (showRestoreRecoverySheet) {
+        RecoveryKeyDialog(
+            mode = RecoveryKeyMode.RESTORE,
+            repository = appContainer.matrixRepository,
+            instanceKey = restoreRecoveryInstance,
+            onDone = { showRestoreRecoverySheet = false },
+            onSkip = { showRestoreRecoverySheet = false },
         )
     }
 
@@ -460,6 +480,15 @@ fun SettingsScreen(
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                 SectionLabel(stringResource(R.string.settings_chat_section))
+                SettingsLinkRow(
+                    icon = Icons.Filled.LockOpen,
+                    label = stringResource(R.string.recovery_title_restore),
+                    hint = null,
+                    onClick = {
+                        restoreRecoveryInstance++
+                        showRestoreRecoverySheet = true
+                    },
+                )
                 SettingsLinkRow(
                     icon = Icons.Filled.Lock,
                     label = stringResource(R.string.settings_reset_recovery_key),

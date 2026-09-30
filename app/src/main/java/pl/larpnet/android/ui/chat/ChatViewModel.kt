@@ -32,7 +32,14 @@ class ChatViewModel(private val repository: MatrixRepository) : ViewModel() {
     private var subscribedToUpdates = false
 
     init {
-        refresh()
+        uiState = uiState.copy(isLoading = true)
+        viewModelScope.launch {
+            // Runs once per session, before the first room-list load -- see its own doc comment
+            // for why leftover duplicate DM rooms exist at all, and how it picks which one
+            // survives.
+            runCatching { repository.consolidateDuplicateDirectRooms() }
+            refresh()
+        }
         subscribeToUpdates()
         checkRecovery()
     }
