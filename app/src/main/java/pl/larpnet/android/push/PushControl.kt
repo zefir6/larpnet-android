@@ -40,6 +40,7 @@ object PushControl {
     suspend fun onTokenRefreshed(appContainer: AppContainer, token: String) {
         if (!appContainer.tokenStore.isLoggedIn || !appContainer.tokenStore.pushEnabled) return
         appContainer.pushRepository.registerFcmToken(token)
+        registerMatrixPusher(appContainer, token)
     }
 
     private suspend fun registerFcmToken(appContainer: AppContainer) {
@@ -50,13 +51,26 @@ object PushControl {
         FirebaseMessaging.getInstance().isAutoInitEnabled = true
         val token = runCatching { Tasks.await(FirebaseMessaging.getInstance().token) }.getOrNull() ?: return
         appContainer.pushRepository.registerFcmToken(token)
+        registerMatrixPusher(appContainer, token)
     }
 
     private suspend fun unregisterFcmToken(appContainer: AppContainer) {
         val token = runCatching { Tasks.await(FirebaseMessaging.getInstance().token) }.getOrNull()
         if (token != null) {
             appContainer.pushRepository.unregisterFcmToken(token)
+            runCatching { appContainer.matrixRepository.unregisterPusher(token) }
         }
         FirebaseMessaging.getInstance().isAutoInitEnabled = false
+    }
+
+    /**
+     * Same FCM token, two independent registrations: the classic larpnet_fcm one above (for
+     * Friendica notifications) and this one (a Matrix pusher with Synapse, for chat messages).
+     * Best-effort -- a failure here (no network, Matrix chat never used on this account, push
+     * gateway not configured server-side yet) must not break the classic notification path
+     * this is bundled alongside.
+     */
+    private suspend fun registerMatrixPusher(appContainer: AppContainer, token: String) {
+        runCatching { appContainer.matrixRepository.registerPusher(token) }
     }
 }
