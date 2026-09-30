@@ -28,7 +28,9 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import pl.larpnet.android.R
 import pl.larpnet.android.data.matrix.ChatRoomMember
+import pl.larpnet.android.data.matrix.MatrixRepository
 import pl.larpnet.android.di.rememberAppContainer
+import pl.larpnet.android.ui.common.MatrixAvatarImage
 import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -96,7 +98,12 @@ fun ChatRoomInfoScreen(
                 )
             }
             items(state.members, key = { it.userId }) { member ->
-                ChatRoomMemberRow(member = member, enabled = !state.isBusy, onRemove = { viewModel.remove(member.userId) })
+                ChatRoomMemberRow(
+                    member = member,
+                    repository = appContainer.matrixRepository,
+                    enabled = !state.isBusy,
+                    onRemove = { viewModel.remove(member.userId) },
+                )
             }
             item {
                 TextButton(onClick = onAddMember, modifier = Modifier.padding(horizontal = 8.dp)) {
@@ -122,13 +129,16 @@ fun ChatRoomInfoScreen(
 }
 
 @Composable
-private fun ChatRoomMemberRow(member: ChatRoomMember, enabled: Boolean, onRemove: () -> Unit) {
+private fun ChatRoomMemberRow(member: ChatRoomMember, repository: MatrixRepository, enabled: Boolean, onRemove: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(member.displayName, style = MaterialTheme.typography.bodyLarge)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            MatrixAvatarImage(avatarUrl = member.avatarUrl, name = member.displayName, repository = repository, size = 36.dp)
+            Text(member.displayName, style = MaterialTheme.typography.bodyLarge)
+        }
         TextButton(onClick = onRemove, enabled = enabled) {
             Text(stringResource(R.string.chat_room_remove_member), color = MaterialTheme.colorScheme.error)
         }

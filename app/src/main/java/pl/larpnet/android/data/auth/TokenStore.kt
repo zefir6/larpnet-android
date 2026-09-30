@@ -67,6 +67,12 @@ class TokenStore(context: Context) {
         get() = prefs.getBoolean(KEY_PUSH_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_PUSH_ENABLED, value).apply()
 
+    /** User-facing chat list toggle (Settings) -- shows each conversation's last-activity time
+     * next to its row. Defaults on. */
+    var showChatTimestamps: Boolean
+        get() = prefs.getBoolean(KEY_SHOW_CHAT_TIMESTAMPS, true)
+        set(value) = prefs.edit().putBoolean(KEY_SHOW_CHAT_TIMESTAMPS, value).apply()
+
     /** Epoch millis of the last in-app update check (any account) -- see UpdateRepository.checkIfDue. */
     var lastUpdateCheckAt: Long
         get() = prefs.getLong(KEY_LAST_UPDATE_CHECK_AT, 0L)
@@ -147,6 +153,7 @@ class TokenStore(context: Context) {
         private const val KEY_ACCESS_TOKEN = "access_token"
         private const val KEY_MATRIX_DEVICE_ID = "matrix_device_id"
         private const val KEY_PUSH_ENABLED = "push_enabled"
+        private const val KEY_SHOW_CHAT_TIMESTAMPS = "show_chat_timestamps"
         private const val KEY_LAST_UPDATE_CHECK_AT = "last_update_check_at"
         private const val KEY_DISMISSED_UPDATE_VERSION_CODE = "dismissed_update_version_code"
         private const val KEY_NAV_BOTTOM_BAR = "nav_bottom_bar_v2"
