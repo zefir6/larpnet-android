@@ -154,6 +154,7 @@ fun SettingsScreen(
     val context = LocalContext.current
 
     var appLocaleTag by remember { mutableStateOf(context.currentAppLocaleTag()) }
+    var showChatTimestamps by remember { mutableStateOf(appContainer.tokenStore.showChatTimestamps) }
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showServerDialog by remember { mutableStateOf(false) }
     var showResetRecoveryConfirm by remember { mutableStateOf(false) }
@@ -494,6 +495,14 @@ fun SettingsScreen(
                     label = stringResource(R.string.settings_reset_recovery_key),
                     hint = null,
                     onClick = { showResetRecoveryConfirm = true },
+                )
+                SettingsSwitchRow(
+                    label = stringResource(R.string.settings_show_chat_timestamps),
+                    checked = showChatTimestamps,
+                    onCheckedChange = {
+                        showChatTimestamps = it
+                        appContainer.tokenStore.showChatTimestamps = it
+                    },
                 )
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))

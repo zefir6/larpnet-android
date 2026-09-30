@@ -44,8 +44,10 @@ import pl.larpnet.android.ui.nav.AppDestination
 import pl.larpnet.android.ui.nav.NotificationsBellAction
 import pl.larpnet.android.ui.nav.TopBarMenuButton
 import pl.larpnet.android.ui.common.MatrixAvatarImage
+import pl.larpnet.android.ui.common.RelativeTime
 import pl.larpnet.android.ui.theme.LarpnetAccent
 import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
+import kotlinx.datetime.Instant
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -108,7 +110,12 @@ fun ChatScreen(
 
                 else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(state.rooms, key = { it.id }) { room ->
-                        ChatRoomRow(room = room, repository = appContainer.matrixRepository, onClick = { onOpenRoom(room) })
+                        ChatRoomRow(
+                            room = room,
+                            repository = appContainer.matrixRepository,
+                            showTimestamp = appContainer.tokenStore.showChatTimestamps,
+                            onClick = { onOpenRoom(room) },
+                        )
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     }
                 }
@@ -118,7 +125,7 @@ fun ChatScreen(
 }
 
 @Composable
-private fun ChatRoomRow(room: ChatRoom, repository: MatrixRepository, onClick: () -> Unit) {
+private fun ChatRoomRow(room: ChatRoom, repository: MatrixRepository, showTimestamp: Boolean, onClick: () -> Unit) {
     val hasUnread = room.unreadCount > 0
     Row(
         modifier = Modifier
@@ -145,16 +152,25 @@ private fun ChatRoomRow(room: ChatRoom, repository: MatrixRepository, onClick: (
                 )
             }
         }
-        if (hasUnread) {
-            Text(
-                text = if (room.unreadCount > 99) "99+" else room.unreadCount.toString(),
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.White,
-                modifier = Modifier
-                    .background(LarpnetAccent, CircleShape)
-                    .padding(horizontal = 7.dp, vertical = 3.dp),
-            )
+        Column(horizontalAlignment = Alignment.End) {
+            if (showTimestamp && room.timestampMillis != null) {
+                RelativeTime(
+                    instant = Instant.fromEpochMilliseconds(room.timestampMillis),
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
+            if (hasUnread) {
+                Text(
+                    text = if (room.unreadCount > 99) "99+" else room.unreadCount.toString(),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                    modifier = Modifier
+                        .padding(top = 4.dp)
+                        .background(LarpnetAccent, CircleShape)
+                        .padding(horizontal = 7.dp, vertical = 3.dp),
+                )
+            }
         }
     }
 }

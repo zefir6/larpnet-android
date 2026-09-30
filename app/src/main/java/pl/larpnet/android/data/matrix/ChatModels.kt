@@ -43,6 +43,7 @@ data class ChatMessage(
 data class ChatRoomMember(
     val userId: String,
     val displayName: String,
+    val avatarUrl: String?,
 )
 
 /** [MatrixRepository.roomInfo]'s output shape -- mirrors the web client's `RoomInfoModal.jsx`

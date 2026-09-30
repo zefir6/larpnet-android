@@ -374,7 +374,9 @@ class MatrixRepository(
             val others = all.filter {
                 (it.membership == MembershipState.Join || it.membership == MembershipState.Invite) && it.userId != selfId
             }
-            val members = others.map { ChatRoomMember(userId = it.userId, displayName = resolvedName(it.userId, it.displayName)) }
+            val members = others.map {
+                ChatRoomMember(userId = it.userId, displayName = resolvedName(it.userId, it.displayName), avatarUrl = it.avatarUrl)
+            }
             ChatRoomInfo(roomId = roomId, rawName = room.rawName().orEmpty(), isGroup = members.size != 1, members = members)
         } finally {
             room.close()
