@@ -252,6 +252,7 @@
     <string name="chat_title">Czat</string>
     <string name="chat_empty">Brak rozmów</string>
     <string name="chat_thread_empty">Brak wiadomości -- napisz coś</string>
+    <string name="chat_message_undecryptable">Nie można odszyfrować wiadomości</string>
     <string name="chat_new_messages">%1$d nowych</string>
     <string name="chat_new">Nowy czat</string>
     <string name="chat_room_info">Informacje o rozmowie</string>

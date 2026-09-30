@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -268,16 +269,20 @@ private fun ClusterView(cluster: ChatMessageGrouping.Cluster, isGroup: Boolean, 
 @Composable
 private fun ChatMessageBubble(message: ChatMessage, isLastInCluster: Boolean) {
     Column(horizontalAlignment = if (message.isOwn) Alignment.End else Alignment.Start) {
-        Box(
-            modifier = Modifier
-                .widthIn(max = 280.dp)
-                .background(
-                    if (message.isOwn) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                    RoundedCornerShape(16.dp),
-                )
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-        ) {
-            Text(text = message.body, style = MaterialTheme.typography.bodyLarge)
+        if (message.isUndecryptable) {
+            UndecryptableNote()
+        } else {
+            Box(
+                modifier = Modifier
+                    .widthIn(max = 280.dp)
+                    .background(
+                        if (message.isOwn) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                        RoundedCornerShape(16.dp),
+                    )
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            ) {
+                Text(text = message.body, style = MaterialTheme.typography.bodyLarge)
+            }
         }
         if (isLastInCluster) {
             Text(
@@ -289,5 +294,29 @@ private fun ChatMessageBubble(message: ChatMessage, isLastInCluster: Boolean) {
                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
             )
         }
+    }
+}
+
+/**
+ * Deliberately not a colored bubble like a real message -- a plain inline note (small,
+ * secondary-colored, lock icon) reads as "this thread has a gap", not as content from the
+ * sender. Shown per-message rather than hiding it outright: a silently missing message would
+ * look like nothing was ever sent, which is worse than a visible, explained gap.
+ */
+@Composable
+private fun UndecryptableNote() {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp)) {
+        Icon(
+            Icons.Filled.Lock,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(14.dp),
+        )
+        Text(
+            text = stringResource(R.string.chat_message_undecryptable),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 4.dp),
+        )
     }
 }

@@ -94,9 +94,9 @@ class ChatTimelineHandle(
         try {
             val event = item.asEvent() ?: return null
             val msgLike = (event.content as? TimelineItemContent.MsgLike)?.content ?: return null
-            val body = when (val kind = msgLike.kind) {
-                is MsgLikeKind.Message -> kind.content.body
-                is MsgLikeKind.UnableToDecrypt -> "🔒"
+            val (body, isUndecryptable) = when (val kind = msgLike.kind) {
+                is MsgLikeKind.Message -> kind.content.body to false
+                is MsgLikeKind.UnableToDecrypt -> "" to true
                 else -> return null
             }
             val readyProfile = event.senderProfile as? ProfileDetails.Ready
@@ -109,6 +109,7 @@ class ChatTimelineHandle(
                 senderId = if (event.isOwn) null else event.sender,
                 senderDisplayName = if (event.isOwn) null else resolveDisplayName(event.sender, sdkDisplayName),
                 senderAvatarUrl = if (event.isOwn) null else readyProfile?.avatarUrl,
+                isUndecryptable = isUndecryptable,
             )
         } finally {
             item.close()
