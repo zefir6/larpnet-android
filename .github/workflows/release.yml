@@ -152,3 +152,7 @@ jobs:
           # edits.tracks.list directly.
           tracks: internal,larpnet-test
           status: draft
+          # One plain-text file per locale (`whatsnew-<locale>`, e.g. `whatsnew-en-US`), no
+          # per-versionCode subdirectories -- update these two files as part of the same PR that
+          # bumps versionName, so every release carries real notes instead of going out blank.
+          whatsNewDirectory: distribution/whatsnew
