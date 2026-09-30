@@ -17,6 +17,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.ClientBuilder
 import org.matrix.rustcomponents.sdk.CreateRoomParameters
@@ -104,6 +110,8 @@ import pl.larpnet.android.network.FriendicaApi
  * rooms from test.larpnet.pl, an existing E2EE message decrypts to plain text (not the
  * `unableToDecrypt` "🔒" fallback), and sending a fresh message round-trips correctly.
  */
+private const val MAX_SERVER_BACKUP_DELETE_ATTEMPTS = 20
+
 class MatrixRepository(
     private val context: Context,
     private val tokenStore: TokenStore,
@@ -115,6 +123,11 @@ class MatrixRepository(
     /** Guards [ensureClient]'s build-and-login section -- see that function's doc comment for
      * why this is required, not just a defensive nicety. */
     private val clientMutex = Mutex()
+
+    /** Used only by [deleteAllServerSideBackups] -- a handful of plain authenticated REST calls
+     * for a rare, one-shot user action, not worth threading a shared `OkHttpClient` through this
+     * class's constructor for. */
+    private val backupCleanupHttpClient = OkHttpClient()
 
     /** nickname (lowercased) -> Friendica display name, from the same `contacts` list the web
      * client's `resolveDisplayName()` uses -- covers anyone who's never opened chat themselves
@@ -351,16 +364,99 @@ class MatrixRepository(
      * Resets recovery when the user has forgotten their key/phrase -- same scope as web's
      * `resetRecovery()` (see its doc comment in `client/src/recovery.js`/the addon's
      * `CLAUDE.md`): this is "let me set a new key", not a guarantee that a device which already
-     * has the old keys locally loses access to old history. `resetRecoveryKey()`/
-     * `recoverAndReset()` exist on this SDK but don't accept a passphrase -- a custom-passphrase
-     * reset goes through disable-then-enable instead, which reaches the same end state (a fresh
-     * secret-storage key/backup version) via the same path [setUpRecovery] already uses.
+     * has the old keys locally loses access to old history.
+     *
+     * Two distinct problems had to be fixed here, both confirmed by reading the actual Rust
+     * source (`Backups`/`Recovery` in `matrix-sdk`), not guessed:
+     *
+     * 1. **Server-side backup deletion must not trust the local crypto store.**
+     *    `Backups::disable()` only deletes the *one* backup version this device's local crypto
+     *    store currently happens to know about; it never asks the server what actually exists.
+     *    A stale local record (plausible on any account that's been through several earlier
+     *    reset attempts) makes disabling "succeed" while an orphaned version remains on the
+     *    server, and the next `enableRecovery()` correctly refuses to overwrite it
+     *    (`BackupExistsOnServer`). Fixed the same way `matrix-js-sdk` already does it
+     *    (`deleteAllKeyBackupVersions()` in `rust-crypto/backup.js`): ask the *server* directly,
+     *    in a loop -- "what's the current version? delete it. ask again. repeat until there
+     *    isn't one." The Rust SDK's own equivalent (`Backups::disable_and_delete()`) exists but
+     *    was never exposed through this FFI, so [deleteAllServerSideBackups] replicates it with
+     *    plain authenticated HTTP calls using the session's own access token.
+     *
+     * 2. **`enableRecovery()` must be told the old backup is gone, not just have it deleted out
+     *    from under it.** `Enable`'s Rust source only touches the backup at all when the
+     *    *local* `backups().are_enabled()` flag is false -- if a previous session already
+     *    activated a backup, that flag stays true regardless of what [deleteAllServerSideBackups]
+     *    just did to the server, and `enableRecovery()` silently skips recreating a backup
+     *    entirely, rotating only the secret-storage key. Confirmed live: two resets in a row
+     *    each returned a distinct-looking "new" recovery key while zero calls touched
+     *    `room_keys/version` and the account was left with no working backup at all -- worse
+     *    than the original bug, since it also discards whatever backup existed. Fixed by calling
+     *    `disableRecovery()` first purely to flip that local flag to false; its own server-side
+     *    deletion is the same unreliable one-version attempt as above, which is why
+     *    [deleteAllServerSideBackups] still runs unconditionally afterward. `disableRecovery()`
+     *    is expected to throw here (e.g. `BackupNotEnabled` when local state was already stale,
+     *    exactly the account shape problem 1 fixes) -- read from source that the local flag flips
+     *    to `Unknown` before that error ever propagates, so the throw is safe to ignore.
      */
     suspend fun resetRecovery(passphrase: String?): String {
         val activeClient = ensureClient()
-        val encryption = activeClient.encryption()
-        encryption.disableRecovery()
-        return encryption.enableRecovery(true, passphrase, NoOpRecoveryProgressListener)
+        try {
+            activeClient.encryption().disableRecovery()
+        } catch (e: Exception) {
+            // Expected -- see doc comment point 2. The local "backup enabled" flag is already
+            // flipped to false by this point regardless of why this threw.
+        }
+        deleteAllServerSideBackups()
+        return activeClient.encryption().enableRecovery(true, passphrase, NoOpRecoveryProgressListener)
+    }
+
+    @Serializable
+    private data class BackupVersionResponse(val version: String)
+
+    /**
+     * Deletes every key-backup version this account has on the server, asking the server fresh
+     * each time rather than trusting the SDK's local cache -- see [resetRecovery]'s doc comment
+     * for the full "why". Bypasses `Encryption`/`Backups` entirely via plain authenticated
+     * Matrix Client-Server API calls, using the already-logged-in session's own access token
+     * ([Client.session]) against its own homeserver ([Client.homeserver]) -- no new auth, just
+     * the same credentials the SDK is already using internally.
+     *
+     * Capped at [MAX_SERVER_BACKUP_DELETE_ATTEMPTS] rounds as a sanity backstop against a
+     * genuinely pathological server response -- never expected to matter in practice.
+     */
+    private suspend fun deleteAllServerSideBackups() {
+        val activeClient = ensureClient()
+        val accessToken = activeClient.session().accessToken
+        val homeserver = activeClient.homeserver().trimEnd('/')
+        val json = Json { ignoreUnknownKeys = true }
+        val versionUrl = "$homeserver/_matrix/client/v3/room_keys/version"
+
+        fun authedRequest(url: String) = Request.Builder().url(url).header("Authorization", "Bearer $accessToken")
+
+        suspend fun currentVersion(): String? = withContext(Dispatchers.IO) {
+            backupCleanupHttpClient.newCall(authedRequest(versionUrl).build()).execute().use { response ->
+                when {
+                    response.code == 404 -> null
+                    response.isSuccessful -> json.decodeFromString<BackupVersionResponse>(response.body!!.string()).version
+                    else -> null // Unexpected shape -- don't loop on something we can't interpret.
+                }
+            }
+        }
+
+        for (unused in 0 until MAX_SERVER_BACKUP_DELETE_ATTEMPTS) {
+            val version = currentVersion() ?: return
+            val deleteUrl = "$homeserver/_matrix/client/v3/room_keys/version/$version"
+            val deleted = withContext(Dispatchers.IO) {
+                backupCleanupHttpClient.newCall(authedRequest(deleteUrl).delete().build()).execute().use { it.isSuccessful }
+            }
+            if (!deleted) break // A delete that didn't actually succeed isn't safe to loop past silently.
+        }
+
+        // Re-check once more: either we exhausted the attempt cap, or a delete failed above --
+        // confirm the end state before deciding whether this is actually a problem.
+        if (currentVersion() != null) {
+            error("Couldn't clear all server-side key backups before resetting recovery")
+        }
     }
 
     /**

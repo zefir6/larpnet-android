@@ -37,9 +37,10 @@ fun RecoveryKeyDialog(
     repository: MatrixRepository,
     onDone: () -> Unit,
     onSkip: (() -> Unit)? = null,
+    instanceKey: Any = Unit,
 ) {
     val viewModel: RecoveryKeyViewModel = viewModel(
-        key = "recovery_key_$mode",
+        key = "recovery_key_${mode}_$instanceKey",
         factory = viewModelFactory {
             initializer { RecoveryKeyViewModel(mode, repository) }
         },
