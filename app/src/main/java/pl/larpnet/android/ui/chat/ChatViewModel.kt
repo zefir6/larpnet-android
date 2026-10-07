@@ -1,5 +1,6 @@
 package pl.larpnet.android.ui.chat
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -13,7 +14,7 @@ data class ChatUiState(
     val rooms: List<ChatRoom> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
-    /** null once resolved (nothing to show) -- see [MatrixRepository.recoveryPromptKind]. */
+    /** null once resolved (nothing to show) -- see [MatrixRepository.ensureEncryption]. */
     val recoveryPrompt: MatrixRepository.RecoveryPromptKind? = null,
 )
 
@@ -50,7 +51,11 @@ class ChatViewModel(private val repository: MatrixRepository) : ViewModel() {
 
     private fun checkRecovery() {
         viewModelScope.launch {
-            val kind = runCatching { repository.recoveryPromptKind() }.getOrNull()
+            // Standard encryption mode unlocks silently with the server-held passphrase; only
+            // private mode (or a legacy key on a locked device) yields a prompt here.
+            val kind = runCatching { repository.ensureEncryption() }
+                .onFailure { Log.w("ChatViewModel", "ensureEncryption failed", it) }
+                .getOrNull()
             uiState = uiState.copy(recoveryPrompt = kind)
         }
     }

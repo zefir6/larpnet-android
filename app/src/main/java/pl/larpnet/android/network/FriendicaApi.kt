@@ -13,6 +13,7 @@ import pl.larpnet.android.data.model.FriendicaPhoto
 import pl.larpnet.android.data.model.FriendicaPhotoAlbum
 import pl.larpnet.android.data.model.LegacyStatusRef
 import pl.larpnet.android.data.model.Instance
+import pl.larpnet.android.data.model.MatrixEncryptionInfo
 import pl.larpnet.android.data.model.MatrixLoginResponse
 import pl.larpnet.android.data.model.MediaAttachment
 import pl.larpnet.android.data.model.Notification
@@ -378,4 +379,12 @@ interface FriendicaApi {
      */
     @POST("larpnet_matrix")
     suspend fun matrixLogin(): MatrixLoginResponse
+
+    /**
+     * `POST larpnet_matrix/encryption` (`larpnet_matrix_encryption_endpoint()`) -- [action] is
+     * `get`, `confirm`, `set_private` or `prepare_standard`. See [MatrixEncryptionInfo].
+     */
+    @FormUrlEncoded
+    @POST("larpnet_matrix/encryption")
+    suspend fun matrixEncryption(@Field("action") action: String): MatrixEncryptionInfo
 }

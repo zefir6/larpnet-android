@@ -57,6 +57,7 @@ import org.matrix.rustcomponents.sdk.TimelineEventContent
 import org.matrix.rustcomponents.sdk.TimelineItemContent
 import pl.larpnet.android.BuildConfig
 import pl.larpnet.android.data.auth.TokenStore
+import pl.larpnet.android.data.model.MatrixEncryptionInfo
 import pl.larpnet.android.network.FriendicaApi
 
 /**
@@ -144,6 +145,12 @@ class MatrixRepository(
      * as [serverName]. */
     private var pushGatewayUrl: String? = null
 
+    /** Last known chat encryption mode -- from the login response, refreshed by
+     * [fetchEncryptionInfo] and after every mode change. Null = server predates encryption modes
+     * (or the call failed): behave like private mode. */
+    var encryptionInfo: MatrixEncryptionInfo? = null
+        private set
+
     private val _roomListUpdates = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     /** Fires (with no payload -- just a "something changed, go re-fetch" signal) after every
@@ -183,6 +190,7 @@ class MatrixRepository(
             .ifEmpty { error("Malformed Matrix identity: ${identity.userId}") }
         serverName = resolvedServerName
         pushGatewayUrl = identity.pushGatewayUrl
+        encryptionInfo = identity.encryption
 
         val sessionDir = sessionDirectory(identity.userId)
         val newClient = ClientBuilder()
@@ -433,7 +441,95 @@ class MatrixRepository(
      * this device in a past install) but this device hasn't unlocked it yet. `null` means
      * either it's already unlocked here, or the state is still `UNKNOWN` (nothing to prompt).
      */
-    enum class RecoveryPromptKind { NEEDS_SETUP, NEEDS_RESTORE }
+    /** [NEEDS_RESTORE_LEGACY]: standard mode, but the account still has the user's own key from
+     * before encryption modes existed and this device was never unlocked -- see [ensureEncryption]. */
+    enum class RecoveryPromptKind { NEEDS_SETUP, NEEDS_RESTORE, NEEDS_RESTORE_LEGACY }
+
+    /** Thrown by [switchToPrivate]/[switchToStandard] when this device isn't unlocked -- both
+     * rotate secret storage via [resetRecovery], which is only clean from a device that already
+     * holds the cross-signing private keys. */
+    class DeviceLockedException : Exception("Chat history is not unlocked on this device")
+
+    suspend fun fetchEncryptionInfo(): MatrixEncryptionInfo? =
+        runCatching { apiProvider().matrixEncryption("get") }.getOrNull()?.also { encryptionInfo = it }
+
+    /**
+     * Runs once per session after login (replaces the old unconditional [recoveryPromptKind]
+     * prompt). Same decision tree as the web client's `ensureEncryption()`
+     * (friendica-larpnet `addon/larpnet_matrix/client/src/encryption.js`) and larpnet-iOS's
+     * `MatrixClientStore.ensureEncryption()` -- keep the three in step:
+     *
+     * - Private mode / no escrow: returns the old manual prompt kind, unchanged.
+     * - Standard, `pending`: set up (DISABLED) or force-reset (ENABLED -- migrates a legacy
+     *   user-chosen key, re-uploading this device's own keys) with the server passphrase, then
+     *   confirm. INCOMPLETE: try restoring with it (another device may have applied it already);
+     *   otherwise [RecoveryPromptKind.NEEDS_RESTORE_LEGACY] -- never reset from a locked device,
+     *   it would create secret storage without the cross-signing keys, and these JWT-only
+     *   accounts can't re-create cross-signing (no UIA flow).
+     * - Standard, `active`: restore silently if INCOMPLETE -- on failure fall back to the manual
+     *   prompt, **never** reset, so a transient error can't wipe history.
+     */
+    suspend fun ensureEncryption(): RecoveryPromptKind? {
+        ensureClient()
+        val enc = encryptionInfo
+        if (enc == null || !enc.isStandard) {
+            return recoveryPromptKind()
+        }
+        val passphrase = enc.passphrase!!
+        val status = waitForRecoveryState()
+        val api = apiProvider()
+
+        if (enc.state == MatrixEncryptionInfo.STATE_PENDING) {
+            when (status) {
+                RecoveryState.DISABLED -> setUpRecovery(passphrase)
+                RecoveryState.ENABLED -> resetRecovery(passphrase)
+                else -> {
+                    if (runCatching { restoreRecovery(passphrase) }.isFailure) {
+                        return RecoveryPromptKind.NEEDS_RESTORE_LEGACY
+                    }
+                }
+            }
+            encryptionInfo = api.matrixEncryption("confirm")
+            return null
+        }
+
+        return when (status) {
+            RecoveryState.INCOMPLETE ->
+                if (runCatching { restoreRecovery(passphrase) }.isSuccess) null else RecoveryPromptKind.NEEDS_RESTORE
+            RecoveryState.DISABLED -> {
+                // Secret storage vanished server-side; recreate it under the same passphrase.
+                setUpRecovery(passphrase)
+                null
+            }
+            else -> null
+        }
+    }
+
+    /** Standard -> private. Drops the server's copy only AFTER the rotation succeeded (the
+     * other order could leave the account behind a passphrase nobody has). Returns the key to
+     * show the user once. */
+    suspend fun switchToPrivate(passphrase: String?): String {
+        requireUnlocked()
+        val key = resetRecovery(passphrase)
+        encryptionInfo = apiProvider().matrixEncryption("set_private")
+        return key
+    }
+
+    /** Private -> standard, with a brand-new server passphrase. If the reset fails after
+     * `prepare_standard`, the server stays `pending` and the next [ensureEncryption] on any
+     * unlocked device finishes the switch. */
+    suspend fun switchToStandard() {
+        requireUnlocked()
+        val api = apiProvider()
+        val enc = api.matrixEncryption("prepare_standard")
+        resetRecovery(enc.passphrase ?: error("Server returned no passphrase"))
+        encryptionInfo = api.matrixEncryption("confirm")
+    }
+
+    private suspend fun requireUnlocked() {
+        ensureClient()
+        if (waitForRecoveryState() != RecoveryState.ENABLED) throw DeviceLockedException()
+    }
 
     suspend fun recoveryPromptKind(): RecoveryPromptKind? = when (waitForRecoveryState()) {
         RecoveryState.DISABLED -> RecoveryPromptKind.NEEDS_SETUP

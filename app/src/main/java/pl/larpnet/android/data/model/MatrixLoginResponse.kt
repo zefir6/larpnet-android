@@ -24,7 +24,34 @@ data class MatrixLoginResponse(
      * registration entirely. Never a standalone secret: this app must never be handed
      * LARPNET_MATRIX_PUSH_SECRET on its own, only this pre-built URL. */
     @SerialName("push_gateway_url") val pushGatewayUrl: String? = null,
+    /** Chat encryption mode + (in standard mode) the server-held recovery passphrase -- see
+     * [MatrixEncryptionInfo]. Null from servers that predate encryption modes. */
+    val encryption: MatrixEncryptionInfo? = null,
 )
+
+/**
+ * `larpnet_matrix_escrow_get()`'s shape, from `POST larpnet_matrix` and
+ * `POST larpnet_matrix/encryption`. See friendica-larpnet's `addon/larpnet_matrix/CLAUDE.md`
+ * "Encryption modes": in [MODE_STANDARD] the server holds [passphrase] and this app unlocks
+ * chat history with it silently; in [MODE_PRIVATE] (or with a null [passphrase]) the user
+ * holds their own key and the manual prompts apply. [state] is [STATE_PENDING] until some
+ * client confirms it applied [passphrase] to the Matrix account.
+ */
+@Serializable
+data class MatrixEncryptionInfo(
+    val mode: String,
+    val state: String,
+    val passphrase: String? = null,
+) {
+    val isStandard: Boolean get() = mode == MODE_STANDARD && !passphrase.isNullOrEmpty()
+    val isPrivate: Boolean get() = mode == MODE_PRIVATE
+
+    companion object {
+        const val MODE_STANDARD = "standard"
+        const val MODE_PRIVATE = "private"
+        const val STATE_PENDING = "pending"
+    }
+}
 
 @Serializable
 data class MatrixContact(
