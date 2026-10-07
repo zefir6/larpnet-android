@@ -1,5 +1,6 @@
 package pl.larpnet.android.data.matrix
 
+import android.util.Log
 import android.content.Context
 import java.io.File
 import java.util.UUID
@@ -212,8 +213,43 @@ class MatrixRepository(
         newClient
     }
 
+    /** Room ids currently being joined by [acceptLocalInvites] -- [rooms] runs on every sync
+     * update, so the same invite would otherwise be joined concurrently several times. */
+    private val joiningInvites = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    /**
+     * Auto-accepts invites from other users on this homeserver -- the actual reason "messages
+     * never arrive": starting a chat creates an encrypted room and only *invites* the other
+     * person, and no client of ours ever joined an invited room (this one didn't even list
+     * them, see [rooms]). An invited user sees none of a room's timeline, so the recipient's side
+     * stayed empty forever. Invites from other servers are left alone (prod federates;
+     * auto-joining arbitrary remote invites would be a spam vector). `Room.join()` marks the room
+     * as a DM in our own `m.direct` itself when the invite had `is_direct`, so
+     * [openOrCreateDirectRoom] then resolves to the same room. Same policy as the web client's
+     * `autoJoinLocalInvites()` and larpnet-iOS's `MatrixClientStore.acceptLocalInvites()`.
+     */
+    private suspend fun acceptLocalInvites(client: Client) {
+        val ownServer = serverName ?: return
+        for (room in client.rooms()) {
+            room.use {
+                if (it.membership() != Membership.INVITED || !joiningInvites.add(it.id())) return@use
+                try {
+                    val inviter = runCatching { it.inviter() }.getOrNull()?.userId
+                    if (inviter != null && inviter.substringAfter(':') == ownServer) {
+                        it.join()
+                    }
+                } catch (e: Exception) {
+                    Log.w("MatrixRepository", "auto-joining invite ${it.id()} failed", e)
+                } finally {
+                    joiningInvites.remove(it.id())
+                }
+            }
+        }
+    }
+
     suspend fun rooms(): List<ChatRoom> {
         val activeClient = ensureClient()
+        acceptLocalInvites(activeClient)
         val result = mutableListOf<ChatRoom>()
         for (room in activeClient.rooms()) {
             room.use {
