@@ -278,6 +278,20 @@
     <string name="recovery_key_hint">Recovery key or phrase…</string>
     <string name="recovery_unlock">Unlock</string>
     <string name="recovery_later">Later</string>
+    <string name="recovery_restore_legacy_explanation">Larpnet now remembers your chat history key for you, so you won\'t need to enter it again. To carry over your existing history, enter your old recovery key (or phrase) one last time. You can also do this later, or on another device where chat is already unlocked.</string>
+    <string name="encryption_mode_standard">Encryption: standard. Larpnet keeps your chat history key, so history works automatically on every device. Server administrators can technically access it.</string>
+    <string name="encryption_mode_private">Encryption: private. Only you know your chat history key — administrators can\'t access it. You need to enter it on new devices.</string>
+    <string name="encryption_show_phrase">Show recovery phrase</string>
+    <string name="encryption_show_phrase_explanation">Larpnet uses it automatically on all your devices — you never need to type it. It\'s only useful if you want to use another Matrix app (e.g. Element, as a \"Security Phrase\"). Don\'t share it with anyone.</string>
+    <string name="encryption_close">Close</string>
+    <string name="encryption_switch_to_private">Turn on private mode</string>
+    <string name="encryption_switch_to_private_hint">Administrators won\'t be able to access your new messages</string>
+    <string name="encryption_private_explanation">Larpnet will stop keeping your chat history key — administrators won\'t be able to access your new messages. You\'ll need to enter the key or phrase you choose now on every new device, and losing it means losing your history. Choose a random key or your own phrase.</string>
+    <string name="encryption_switch_to_standard">Switch back to standard mode</string>
+    <string name="encryption_standard_confirm">Larpnet will keep your chat history key again, so you won\'t need to enter it on new devices. Server administrators will technically be able to access your messages.</string>
+    <string name="encryption_switch_confirm_action">Yes, switch</string>
+    <string name="encryption_device_locked">Unlock chat history on this device first.</string>
+    <string name="encryption_switch_failed">Couldn\'t change the encryption mode. Please try again.</string>
 
     <!-- Errors -->
     <string name="error_network">Network error. Check your connection.</string>

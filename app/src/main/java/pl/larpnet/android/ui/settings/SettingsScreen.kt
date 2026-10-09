@@ -15,7 +15,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.browser.customtabs.CustomTabsIntent
-import androidx.core.content.ContextCompat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +36,7 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
@@ -62,10 +62,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -74,6 +76,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -84,6 +87,7 @@ import kotlinx.coroutines.launch
 import pl.larpnet.android.BuildConfig
 import pl.larpnet.android.R
 import pl.larpnet.android.data.auth.TokenStore
+import pl.larpnet.android.data.matrix.MatrixRepository
 import pl.larpnet.android.data.repository.AuthRepository
 import pl.larpnet.android.data.repository.ProfileRepository
 import pl.larpnet.android.data.repository.PushRepository
@@ -92,6 +96,7 @@ import pl.larpnet.android.di.rememberAppContainer
 import pl.larpnet.android.push.PushControl
 import pl.larpnet.android.ui.chat.RecoveryKeyDialog
 import pl.larpnet.android.ui.chat.RecoveryKeyMode
+import pl.larpnet.android.ui.chat.RecoveryPhraseDialog
 import pl.larpnet.android.ui.common.AvatarImage
 import pl.larpnet.android.ui.nav.AppDestination
 import pl.larpnet.android.ui.nav.NavigationLayoutStore
@@ -157,11 +162,6 @@ fun SettingsScreen(
     var showChatTimestamps by remember { mutableStateOf(appContainer.tokenStore.showChatTimestamps) }
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showServerDialog by remember { mutableStateOf(false) }
-    var showResetRecoveryConfirm by remember { mutableStateOf(false) }
-    var showResetRecoverySheet by remember { mutableStateOf(false) }
-    var resetRecoveryInstance by remember { mutableStateOf(0) }
-    var showRestoreRecoverySheet by remember { mutableStateOf(false) }
-    var restoreRecoveryInstance by remember { mutableStateOf(0) }
     var serverAddress by remember { mutableStateOf(appContainer.tokenStore.instanceBaseUrl ?: BuildConfig.DEFAULT_INSTANCE) }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -209,50 +209,6 @@ fun SettingsScreen(
                 serverAddress = newAddress
                 showServerDialog = false
             },
-        )
-    }
-
-    if (showResetRecoveryConfirm) {
-        AlertDialog(
-            onDismissRequest = { showResetRecoveryConfirm = false },
-            title = { Text(stringResource(R.string.settings_reset_recovery_key)) },
-            text = { Text(stringResource(R.string.settings_reset_recovery_key_confirm)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    showResetRecoveryConfirm = false
-                    resetRecoveryInstance++
-                    showResetRecoverySheet = true
-                }) { Text(stringResource(R.string.settings_reset_recovery_key_confirm_action)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showResetRecoveryConfirm = false }) { Text(stringResource(R.string.dialog_cancel)) }
-            },
-        )
-    }
-
-    if (showResetRecoverySheet) {
-        RecoveryKeyDialog(
-            mode = RecoveryKeyMode.RESET,
-            repository = appContainer.matrixRepository,
-            instanceKey = resetRecoveryInstance,
-            onDone = { showResetRecoverySheet = false },
-        )
-    }
-
-    // The same restore flow is auto-prompted right after login when needed (see
-    // MatrixRepository.recoveryPromptKind(), checked once in ChatViewModel's init), but tapping
-    // "Later" there left no way back in for the rest of that ViewModel's lifetime -- confirmed
-    // live: a device stuck in this state shows every conversation as empty ("No messages yet"),
-    // not just undecryptable placeholders, since the timeline never gets the historical events
-    // without the key. This entry point re-opens the same flow on demand; safe to run even when
-    // already unlocked.
-    if (showRestoreRecoverySheet) {
-        RecoveryKeyDialog(
-            mode = RecoveryKeyMode.RESTORE,
-            repository = appContainer.matrixRepository,
-            instanceKey = restoreRecoveryInstance,
-            onDone = { showRestoreRecoverySheet = false },
-            onSkip = { showRestoreRecoverySheet = false },
         )
     }
 
@@ -481,21 +437,7 @@ fun SettingsScreen(
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                 SectionLabel(stringResource(R.string.settings_chat_section))
-                SettingsLinkRow(
-                    icon = Icons.Filled.LockOpen,
-                    label = stringResource(R.string.recovery_title_restore),
-                    hint = null,
-                    onClick = {
-                        restoreRecoveryInstance++
-                        showRestoreRecoverySheet = true
-                    },
-                )
-                SettingsLinkRow(
-                    icon = Icons.Filled.Lock,
-                    label = stringResource(R.string.settings_reset_recovery_key),
-                    hint = null,
-                    onClick = { showResetRecoveryConfirm = true },
-                )
+                ChatEncryptionSection(appContainer.matrixRepository)
                 SettingsSwitchRow(
                     label = stringResource(R.string.settings_show_chat_timestamps),
                     checked = showChatTimestamps,
@@ -818,6 +760,156 @@ private fun SettingsLinkRow(
                 Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+    }
+}
+
+/**
+ * Chat encryption rows -- see friendica-larpnet's `addon/larpnet_matrix/CLAUDE.md` "Encryption
+ * modes". Standard mode (server holds the recovery passphrase, history unlocks itself): "show my
+ * phrase" + switch to private. Private mode (or a server without escrow): the old manual
+ * "Unlock chat history"/"Reset recovery key" entry points, plus switch back to standard.
+ *
+ * "Unlock chat history" exists because the restore flow is auto-prompted only once per
+ * [ChatViewModel] (see MatrixRepository.ensureEncryption()), and tapping "Later" there used to
+ * leave no way back in -- confirmed live: a device stuck in that state shows every conversation
+ * as empty, not just undecryptable placeholders. Safe to run even when already unlocked.
+ */
+@Composable
+private fun ChatEncryptionSection(repository: MatrixRepository) {
+    var encryption by remember { mutableStateOf(repository.encryptionInfo) }
+    var dialogInstance by remember { mutableStateOf(0) }
+    var openDialog by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    val lockedMessage = stringResource(R.string.encryption_device_locked)
+    val failedMessage = stringResource(R.string.encryption_switch_failed)
+
+    LaunchedEffect(Unit) {
+        repository.fetchEncryptionInfo()?.let { encryption = it }
+    }
+
+    fun open(name: String) {
+        dialogInstance++
+        error = null
+        openDialog = name
+    }
+
+    fun closeAndRefresh() {
+        openDialog = null
+        encryption = repository.encryptionInfo
+    }
+
+    val enc = encryption
+    if (enc != null && (enc.isStandard || enc.isPrivate)) {
+        Text(
+            text = stringResource(if (enc.isStandard) R.string.encryption_mode_standard else R.string.encryption_mode_private),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+    }
+    if (enc?.isStandard == true) {
+        SettingsLinkRow(
+            icon = Icons.Filled.Key,
+            label = stringResource(R.string.encryption_show_phrase),
+            hint = null,
+            onClick = { open("phrase") },
+        )
+        SettingsLinkRow(
+            icon = Icons.Filled.Lock,
+            label = stringResource(R.string.encryption_switch_to_private),
+            hint = stringResource(R.string.encryption_switch_to_private_hint),
+            onClick = { open("private") },
+        )
+    } else {
+        SettingsLinkRow(
+            icon = Icons.Filled.LockOpen,
+            label = stringResource(R.string.recovery_title_restore),
+            hint = null,
+            onClick = { open("restore") },
+        )
+        if (enc?.isPrivate == true) {
+            SettingsLinkRow(
+                icon = Icons.Filled.Key,
+                label = stringResource(R.string.encryption_switch_to_standard),
+                hint = null,
+                onClick = { open("standard") },
+            )
+        }
+        SettingsLinkRow(
+            icon = Icons.Filled.Lock,
+            label = stringResource(R.string.settings_reset_recovery_key),
+            hint = null,
+            onClick = { open("reset_confirm") },
+        )
+    }
+    error?.let {
+        Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 16.dp))
+    }
+
+    when (openDialog) {
+        "phrase" -> enc?.passphrase?.let { RecoveryPhraseDialog(it, onDismiss = { openDialog = null }) }
+        "private" -> RecoveryKeyDialog(
+            mode = RecoveryKeyMode.PRIVATE,
+            repository = repository,
+            instanceKey = dialogInstance,
+            onDone = ::closeAndRefresh,
+            onSkip = { openDialog = null },
+        )
+        "restore" -> RecoveryKeyDialog(
+            mode = RecoveryKeyMode.RESTORE,
+            repository = repository,
+            instanceKey = dialogInstance,
+            onDone = { openDialog = null },
+            onSkip = { openDialog = null },
+        )
+        "reset" -> RecoveryKeyDialog(
+            mode = RecoveryKeyMode.RESET,
+            repository = repository,
+            instanceKey = dialogInstance,
+            onDone = { openDialog = null },
+        )
+        "reset_confirm" -> AlertDialog(
+            onDismissRequest = { openDialog = null },
+            title = { Text(stringResource(R.string.settings_reset_recovery_key)) },
+            text = { Text(stringResource(R.string.settings_reset_recovery_key_confirm)) },
+            confirmButton = {
+                TextButton(onClick = { open("reset") }) { Text(stringResource(R.string.settings_reset_recovery_key_confirm_action)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { openDialog = null }) { Text(stringResource(R.string.dialog_cancel)) }
+            },
+        )
+        "standard" -> AlertDialog(
+            onDismissRequest = { if (!busy) openDialog = null },
+            title = { Text(stringResource(R.string.encryption_switch_to_standard)) },
+            text = { Text(stringResource(R.string.encryption_standard_confirm)) },
+            confirmButton = {
+                TextButton(
+                    enabled = !busy,
+                    onClick = {
+                        busy = true
+                        scope.launch {
+                            try {
+                                repository.switchToStandard()
+                                closeAndRefresh()
+                            } catch (e: MatrixRepository.DeviceLockedException) {
+                                openDialog = null
+                                error = lockedMessage
+                            } catch (e: Exception) {
+                                openDialog = null
+                                error = failedMessage
+                            }
+                            busy = false
+                        }
+                    },
+                ) { Text(stringResource(R.string.encryption_switch_confirm_action)) }
+            },
+            dismissButton = {
+                TextButton(enabled = !busy, onClick = { openDialog = null }) { Text(stringResource(R.string.dialog_cancel)) }
+            },
+        )
     }
 }
 

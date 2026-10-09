@@ -279,6 +279,20 @@
     <string name="recovery_key_hint">Klucz odzyskiwania lub fraza…</string>
     <string name="recovery_unlock">Odblokuj</string>
     <string name="recovery_later">Później</string>
+    <string name="recovery_restore_legacy_explanation">Larpnet od teraz sam pamięta klucz do historii czatu, więc nie trzeba go będzie więcej wpisywać. Żeby przenieść Twoją dotychczasową historię, wpisz jeszcze tylko raz swój stary klucz odzyskiwania (albo frazę). Możesz to też zrobić później lub na innym urządzeniu, na którym czat jest już odblokowany.</string>
+    <string name="encryption_mode_standard">Szyfrowanie: standardowe. Larpnet pamięta klucz do Twojej historii czatu, więc działa ona automatycznie na każdym urządzeniu. Administratorzy serwera mogą technicznie uzyskać do niej dostęp.</string>
+    <string name="encryption_mode_private">Szyfrowanie: prywatne. Tylko Ty znasz klucz do historii czatu — administratorzy nie mają do niej dostępu. Na nowym urządzeniu trzeba go wpisać.</string>
+    <string name="encryption_show_phrase">Pokaż frazę odzyskiwania</string>
+    <string name="encryption_show_phrase_explanation">Larpnet używa jej automatycznie na wszystkich Twoich urządzeniach — nie musisz jej nigdzie wpisywać. Przyda się tylko, jeśli chcesz używać innej aplikacji Matrix (np. Element, jako „Security Phrase”). Nie udostępniaj jej nikomu.</string>
+    <string name="encryption_close">Zamknij</string>
+    <string name="encryption_switch_to_private">Włącz tryb prywatny</string>
+    <string name="encryption_switch_to_private_hint">Administratorzy nie będą mieli dostępu do Twoich nowych wiadomości</string>
+    <string name="encryption_private_explanation">Larpnet przestanie przechowywać klucz do Twojej historii czatu — administratorzy nie będą mieli dostępu do Twoich nowych wiadomości. Na każdym nowym urządzeniu trzeba będzie wpisać klucz lub frazę, którą teraz wybierzesz, a jej utrata oznacza utratę historii. Wybierz losowy klucz albo własną frazę.</string>
+    <string name="encryption_switch_to_standard">Wróć do trybu standardowego</string>
+    <string name="encryption_standard_confirm">Larpnet znów będzie przechowywał klucz do Twojej historii czatu, więc nie trzeba go będzie wpisywać na nowych urządzeniach. Administratorzy serwera będą mogli technicznie uzyskać dostęp do Twoich wiadomości.</string>
+    <string name="encryption_switch_confirm_action">Tak, zmień</string>
+    <string name="encryption_device_locked">Najpierw odblokuj historię czatu na tym urządzeniu.</string>
+    <string name="encryption_switch_failed">Nie udało się zmienić trybu szyfrowania. Spróbuj ponownie.</string>
 
     <!-- Errors -->
     <string name="error_network">Błąd sieci. Sprawdź połączenie.</string>

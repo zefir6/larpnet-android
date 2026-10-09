@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -29,7 +30,7 @@ import pl.larpnet.android.data.matrix.MatrixRepository
  * `MatrixRepository.recoveryPromptKind()`), reset from `SettingsScreen`. Non-dismissable for
  * [RecoveryKeyMode.SETUP]/[RecoveryKeyMode.RESET] until a key is chosen and confirmed (there's
  * nothing sensible to skip to); [RecoveryKeyMode.RESTORE] allows "Później" since new messages
- * still work without it.
+ * still work without it, and [RecoveryKeyMode.PRIVATE] can be cancelled until a key is chosen.
  */
 @Composable
 fun RecoveryKeyDialog(
@@ -38,15 +39,17 @@ fun RecoveryKeyDialog(
     onDone: () -> Unit,
     onSkip: (() -> Unit)? = null,
     instanceKey: Any = Unit,
+    legacy: Boolean = false,
 ) {
     val viewModel: RecoveryKeyViewModel = viewModel(
-        key = "recovery_key_${mode}_$instanceKey",
+        key = "recovery_key_${mode}_${legacy}_$instanceKey",
         factory = viewModelFactory {
-            initializer { RecoveryKeyViewModel(mode, repository) }
+            initializer { RecoveryKeyViewModel(mode, repository, legacy) }
         },
     )
     val state = viewModel.uiState
-    val dismissable = mode == RecoveryKeyMode.RESTORE && !state.restoreSucceeded
+    val dismissable = (mode == RecoveryKeyMode.RESTORE && !state.restoreSucceeded) ||
+        (mode == RecoveryKeyMode.PRIVATE && state.recoveryKey == null && !state.isBusy)
 
     LaunchedEffect(state.restoreSucceeded) {
         if (state.restoreSucceeded) onDone()
@@ -63,13 +66,14 @@ fun RecoveryKeyDialog(
                         RecoveryKeyMode.SETUP -> stringResource(R.string.recovery_title_setup)
                         RecoveryKeyMode.RESET -> stringResource(R.string.recovery_title_reset)
                         RecoveryKeyMode.RESTORE -> stringResource(R.string.recovery_title_restore)
+                        RecoveryKeyMode.PRIVATE -> stringResource(R.string.encryption_switch_to_private)
                     },
                     style = MaterialTheme.typography.titleMedium,
                 )
                 when {
-                    mode == RecoveryKeyMode.RESTORE -> RestoreBody(state, viewModel, onSkip)
+                    mode == RecoveryKeyMode.RESTORE -> RestoreBody(state, viewModel, onSkip, legacy)
                     state.recoveryKey != null -> ShowKeyBody(state.recoveryKey, onDone)
-                    else -> ChooseBody(mode, state, viewModel)
+                    else -> ChooseBody(mode, state, viewModel, onSkip)
                 }
             }
         }
@@ -77,12 +81,12 @@ fun RecoveryKeyDialog(
 }
 
 @Composable
-private fun ChooseBody(mode: RecoveryKeyMode, state: RecoveryKeyUiState, viewModel: RecoveryKeyViewModel) {
+private fun ChooseBody(mode: RecoveryKeyMode, state: RecoveryKeyUiState, viewModel: RecoveryKeyViewModel, onSkip: (() -> Unit)?) {
     Text(
-        text = if (mode == RecoveryKeyMode.RESET) {
-            stringResource(R.string.recovery_reset_explanation)
-        } else {
-            stringResource(R.string.recovery_setup_explanation)
+        text = when (mode) {
+            RecoveryKeyMode.RESET -> stringResource(R.string.recovery_reset_explanation)
+            RecoveryKeyMode.PRIVATE -> stringResource(R.string.encryption_private_explanation)
+            else -> stringResource(R.string.recovery_setup_explanation)
         },
         style = MaterialTheme.typography.bodySmall,
     )
@@ -103,6 +107,9 @@ private fun ChooseBody(mode: RecoveryKeyMode, state: RecoveryKeyUiState, viewMod
     }
     if (state.isBusy) CircularProgressIndicator()
     state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+    if (mode == RecoveryKeyMode.PRIVATE && !state.isBusy) {
+        onSkip?.let { skip -> TextButton(onClick = skip) { Text(stringResource(R.string.dialog_cancel)) } }
+    }
 }
 
 @Composable
@@ -116,9 +123,9 @@ private fun ShowKeyBody(key: String, onDone: () -> Unit) {
 }
 
 @Composable
-private fun RestoreBody(state: RecoveryKeyUiState, viewModel: RecoveryKeyViewModel, onSkip: (() -> Unit)?) {
+private fun RestoreBody(state: RecoveryKeyUiState, viewModel: RecoveryKeyViewModel, onSkip: (() -> Unit)?, legacy: Boolean) {
     Text(
-        text = stringResource(R.string.recovery_restore_explanation),
+        text = stringResource(if (legacy) R.string.recovery_restore_legacy_explanation else R.string.recovery_restore_explanation),
         style = MaterialTheme.typography.bodySmall,
     )
     OutlinedTextField(
@@ -135,5 +142,21 @@ private fun RestoreBody(state: RecoveryKeyUiState, viewModel: RecoveryKeyViewMod
             Text(stringResource(R.string.recovery_unlock))
         }
         onSkip?.let { skip -> TextButton(onClick = skip) { Text(stringResource(R.string.recovery_later)) } }
+    }
+}
+
+/** Standard mode's "show my recovery phrase" -- the server-held passphrase, for use in another
+ * Matrix client (e.g. Element's "Security Phrase"). */
+@Composable
+fun RecoveryPhraseDialog(phrase: String, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(shape = MaterialTheme.shapes.large) {
+            Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(R.string.encryption_show_phrase), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.encryption_show_phrase_explanation), style = MaterialTheme.typography.bodySmall)
+                SelectionContainer { Text(phrase, fontFamily = FontFamily.Monospace) }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.encryption_close)) }
+            }
+        }
     }
 }

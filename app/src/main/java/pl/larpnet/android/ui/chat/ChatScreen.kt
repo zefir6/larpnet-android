@@ -71,7 +71,8 @@ fun ChatScreen(
             mode = if (kind == MatrixRepository.RecoveryPromptKind.NEEDS_SETUP) RecoveryKeyMode.SETUP else RecoveryKeyMode.RESTORE,
             repository = appContainer.matrixRepository,
             onDone = viewModel::dismissRecoveryPrompt,
-            onSkip = if (kind == MatrixRepository.RecoveryPromptKind.NEEDS_RESTORE) viewModel::dismissRecoveryPrompt else null,
+            onSkip = if (kind != MatrixRepository.RecoveryPromptKind.NEEDS_SETUP) viewModel::dismissRecoveryPrompt else null,
+            legacy = kind == MatrixRepository.RecoveryPromptKind.NEEDS_RESTORE_LEGACY,
         )
     }
 
