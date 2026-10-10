@@ -69,6 +69,13 @@ class TokenStore(context: Context) {
 
     /** User-facing chat list toggle (Settings) -- shows each conversation's last-activity time
      * next to its row. Defaults on. */
+    /** Last one-time local Matrix session reset this install has done -- see
+     * `MatrixRepository.discardLocalSession()`. 0 = never. Survives logout on purpose: a reset
+     * already done never needs repeating for a later account on the same install. */
+    var matrixSessionResetVersion: Int
+        get() = prefs.getInt(KEY_MATRIX_SESSION_RESET_VERSION, 0)
+        set(value) = prefs.edit().putInt(KEY_MATRIX_SESSION_RESET_VERSION, value).apply()
+
     var showChatTimestamps: Boolean
         get() = prefs.getBoolean(KEY_SHOW_CHAT_TIMESTAMPS, true)
         set(value) = prefs.edit().putBoolean(KEY_SHOW_CHAT_TIMESTAMPS, value).apply()
@@ -152,6 +159,7 @@ class TokenStore(context: Context) {
         private const val KEY_CLIENT_SECRET = "client_secret"
         private const val KEY_ACCESS_TOKEN = "access_token"
         private const val KEY_MATRIX_DEVICE_ID = "matrix_device_id"
+        private const val KEY_MATRIX_SESSION_RESET_VERSION = "matrix_session_reset_version"
         private const val KEY_PUSH_ENABLED = "push_enabled"
         private const val KEY_SHOW_CHAT_TIMESTAMPS = "show_chat_timestamps"
         private const val KEY_LAST_UPDATE_CHECK_AT = "last_update_check_at"
