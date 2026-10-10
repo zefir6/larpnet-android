@@ -59,6 +59,7 @@ import org.matrix.rustcomponents.sdk.TimelineItemContent
 import pl.larpnet.android.BuildConfig
 import pl.larpnet.android.data.auth.TokenStore
 import pl.larpnet.android.data.model.MatrixEncryptionInfo
+import pl.larpnet.android.data.model.MatrixLoginResponse
 import pl.larpnet.android.network.FriendicaApi
 
 /**
@@ -114,6 +115,10 @@ import pl.larpnet.android.network.FriendicaApi
  * `unableToDecrypt` "🔒" fallback), and sending a fresh message round-trips correctly.
  */
 private const val MAX_SERVER_BACKUP_DELETE_ATTEMPTS = 20
+
+/** Bump to make every install discard its local Matrix session once more on its next chat
+ * login -- see [MatrixRepository.discardLocalSession]. */
+private const val MATRIX_SESSION_RESET_VERSION = 1
 
 class MatrixRepository(
     private val context: Context,
@@ -193,6 +198,11 @@ class MatrixRepository(
         pushGatewayUrl = identity.pushGatewayUrl
         encryptionInfo = identity.encryption
 
+        if (tokenStore.matrixSessionResetVersion < MATRIX_SESSION_RESET_VERSION) {
+            discardLocalSession(identity)
+            tokenStore.matrixSessionResetVersion = MATRIX_SESSION_RESET_VERSION
+        }
+
         val sessionDir = sessionDirectory(identity.userId)
         val newClient = ClientBuilder()
             .homeserverUrl(identity.homeserver)
@@ -211,6 +221,42 @@ class MatrixRepository(
         client = newClient
         startSyncLoop(newClient)
         newClient
+    }
+
+    /**
+     * One-time local reset, run once per [MATRIX_SESSION_RESET_VERSION] bump on the first chat
+     * login after an app update. Version 1 = the move to standard chat encryption mode
+     * (2026-10): every account's old encryption identity was wiped server-side
+     * (larpnet-config `reset-chat-e2ee.sh`), but this app persists Matrix state locally and
+     * never sees deleted account data -- a phone that used chat before would keep its stale
+     * copy of the old secret storage and show the one-time "enter your old key" prompt.
+     *
+     * Same end state as logout's [clearSession]: the old device is logged out server-side
+     * (one last JWT login to it, then `logout()` -- the only way to delete a device on these
+     * JWT-only accounts, which have no UIA flow for `DELETE /devices`), then the local store
+     * and device id are discarded so [ensureClient] continues as a brand-new device. The 60s
+     * JWT is reusable within its lifetime, so the caller's fresh login right after still works.
+     * Best-effort on the server side: if that logout fails, the local reset still happens.
+     */
+    private suspend fun discardLocalSession(identity: MatrixLoginResponse) {
+        val oldDeviceId = tokenStore.matrixDeviceId
+        if (oldDeviceId != null) {
+            val dir = sessionDirectory(identity.userId)
+            runCatching {
+                val old = ClientBuilder()
+                    .homeserverUrl(identity.homeserver)
+                    .sessionPaths(dir.absolutePath, dir.absolutePath)
+                    .build()
+                try {
+                    old.customLoginWithJwt(identity.token, "larpnet Android", oldDeviceId)
+                    old.logout()
+                } finally {
+                    old.close()
+                }
+            }.onFailure { Log.w("MatrixRepository", "logging out the old chat device failed", it) }
+        }
+        File(context.filesDir, "matrix_session").deleteRecursively()
+        tokenStore.clearMatrixDeviceId()
     }
 
     /** Room ids currently being joined by [acceptLocalInvites] -- [rooms] runs on every sync
