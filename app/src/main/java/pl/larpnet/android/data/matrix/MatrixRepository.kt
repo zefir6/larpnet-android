@@ -134,6 +134,11 @@ private const val MAX_SERVER_BACKUP_DELETE_ATTEMPTS = 20
  * login -- see [MatrixRepository.discardLocalSession]. */
 private const val MATRIX_SESSION_RESET_VERSION = 1
 
+/** Bump to make every install drop its local timeline cache once -- see
+ * [MatrixRepository.discardEventCache]. 1 = caches written before [MatrixRepository.startEventCache]
+ * existed, which can be missing messages (2026-10-13). */
+private const val MATRIX_EVENT_CACHE_RESET_VERSION = 1
+
 /** Account data holding timed-mute expiries, written by the server's `larpnet_matrix_set_mute()`. */
 private const val MUTE_ACCOUNT_DATA = "pl.larpnet.mute_until"
 
@@ -236,12 +241,17 @@ class MatrixRepository(
         }
 
         val sessionDir = sessionDirectory(identity.userId)
+        if (tokenStore.matrixEventCacheResetVersion < MATRIX_EVENT_CACHE_RESET_VERSION) {
+            discardEventCache(sessionDir)
+            tokenStore.matrixEventCacheResetVersion = MATRIX_EVENT_CACHE_RESET_VERSION
+        }
         val newClient = ClientBuilder()
             .homeserverUrl(identity.homeserver)
             .sessionPaths(sessionDir.absolutePath, sessionDir.absolutePath)
             .build()
         newClient.customLoginWithJwt(identity.token, "larpnet Android", deviceId())
         saveSession(newClient)
+        startEventCache(newClient)
 
         // One blocking sync before this call returns -- rooms()/getDmRoom()/getRoom() all
         // read local state that only exists once at least one sync has landed. Confirmed
@@ -250,6 +260,9 @@ class MatrixRepository(
         // without this). The continuous background loop below is what keeps that state live
         // afterward.
         newClient.syncOnceV2(SyncSettingsV2(fullState = true))
+        // Fresh store: there was no room to open a timeline on until now. Nothing was cached
+        // before this either, so nothing is missing -- an empty cache paginates from the end.
+        startEventCache(newClient)
 
         client = newClient
         startSyncLoop(newClient)
@@ -290,6 +303,37 @@ class MatrixRepository(
         }
         File(context.filesDir, "matrix_session").deleteRecursively()
         tokenStore.clearMatrixDeviceId()
+    }
+
+    /**
+     * Makes the SDK's event cache (where every room timeline reads its events from) start
+     * recording synced events. The SDK only does that once some room's timeline has been
+     * built, and the plain v2 sync this app uses never builds one -- so everything synced
+     * before the first chat was opened in a run went unrecorded. A room that already had
+     * cached events then showed those and nothing newer, for good: back-pagination only
+     * fills in *before* the oldest cached event (confirmed on the emulator, 2026-10-13: a
+     * message received while the app was closed never appeared, even after reopening).
+     *
+     * The FFI has no direct call for this, so: build one room's timeline and close it right
+     * away -- the subscription it starts lasts as long as the client. No-op with no rooms yet.
+     */
+    private suspend fun startEventCache(client: Client) {
+        val rooms = client.rooms()
+        try {
+            val room = rooms.firstOrNull() ?: return
+            runCatching { room.timeline().close() }
+                .onFailure { Log.w("MatrixRepository", "starting the event cache failed", it) }
+        } finally {
+            rooms.forEach { it.close() }
+        }
+    }
+
+    /** One-time removal of the event cache database (only the timeline cache -- not the
+     * crypto or state stores), for caches written before [startEventCache] existed. The SDK
+     * recreates it empty and refills it from the server. Must run before the client is built. */
+    private fun discardEventCache(sessionDir: File) {
+        sessionDir.listFiles { f -> f.name.startsWith("matrix-sdk-event-cache.sqlite3") }
+            ?.forEach { it.delete() }
     }
 
     /** Room ids currently being joined by [acceptLocalInvites] -- [rooms] runs on every sync

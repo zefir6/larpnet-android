@@ -84,6 +84,11 @@ class TokenStore(context: Context) {
         get() = prefs.getInt(KEY_MATRIX_SESSION_RESET_VERSION, 0)
         set(value) = prefs.edit().putInt(KEY_MATRIX_SESSION_RESET_VERSION, value).apply()
 
+    /** Last one-time chat timeline cache reset -- see `MatrixRepository.discardEventCache()`. */
+    var matrixEventCacheResetVersion: Int
+        get() = prefs.getInt(KEY_MATRIX_EVENT_CACHE_RESET_VERSION, 0)
+        set(value) = prefs.edit().putInt(KEY_MATRIX_EVENT_CACHE_RESET_VERSION, value).apply()
+
     var showChatTimestamps: Boolean
         get() = prefs.getBoolean(KEY_SHOW_CHAT_TIMESTAMPS, true)
         set(value) = prefs.edit().putBoolean(KEY_SHOW_CHAT_TIMESTAMPS, value).apply()
@@ -169,6 +174,7 @@ class TokenStore(context: Context) {
         private const val KEY_MATRIX_DEVICE_ID = "matrix_device_id"
         private const val KEY_MATRIX_SESSION = "matrix_session"
         private const val KEY_MATRIX_SESSION_RESET_VERSION = "matrix_session_reset_version"
+        private const val KEY_MATRIX_EVENT_CACHE_RESET_VERSION = "matrix_event_cache_reset_version"
         private const val KEY_PUSH_ENABLED = "push_enabled"
         private const val KEY_SHOW_CHAT_TIMESTAMPS = "show_chat_timestamps"
         private const val KEY_LAST_UPDATE_CHECK_AT = "last_update_check_at"
