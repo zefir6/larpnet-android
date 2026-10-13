@@ -11,7 +11,7 @@ data class ChatRoom(
     val name: String,
     val preview: String?,
     val timestampMillis: Long?,
-    /** "Interesting" unread message count from `Room.roomInfo().numUnreadMessages` -- drives
+    /** Unread count, Synapse's own notification count (`RoomInfo.notificationCount`) -- drives
      * the room row's unread styling and the chat entry point's badge. Always 0 for a [muted]
      * room, same as Synapse's own notification count (and so every other client's badge). */
     val unreadCount: Int = 0,
@@ -29,6 +29,9 @@ data class ChatRoom(
 /** One message in a room's timeline -- [ChatTimelineHandle]'s output shape. */
 data class ChatMessage(
     val id: String,
+    /** The Matrix event id, null while a local echo is still sending -- what read receipts
+     * point at (see [ChatTimelineHandle.sendReadReceipt]). */
+    val eventId: String? = null,
     val isOwn: Boolean,
     val body: String,
     val timestampMillis: Long,

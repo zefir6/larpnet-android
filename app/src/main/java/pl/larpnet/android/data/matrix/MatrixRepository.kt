@@ -337,7 +337,7 @@ class MatrixRepository(
                     val name = displayNameFor(it)
                     val (previewText, timestampMillis) = previewFor(it)
                     val muted = it.id() in mutes
-                    val unread = if (muted) 0 else runCatching { it.roomInfo().numUnreadMessages.toInt() }.getOrDefault(0)
+                    val unread = if (muted) 0 else unreadCountOf(it)
                     val avatarUrl = avatarUrlFor(it)
                     result.add(
                         ChatRoom(
@@ -962,17 +962,6 @@ class MatrixRepository(
     }
 
     /**
-     * Read receipt up to the newest event in [roomId] -- called by the thread screen while it is
-     * on screen. Before this, no larpnet client sent receipts, so unread counts (and every
-     * badge) only ever cleared when some other Matrix client marked the room read. Also what
-     * makes Synapse send the "badge-only" push that updates the other devices' badges.
-     */
-    suspend fun markRoomRead(roomId: String) {
-        val activeClient = ensureClient()
-        activeClient.getRoom(roomId)?.use { it.markAsRead(ReceiptType.READ) }
-    }
-
-    /**
      * Every muted room id -> epoch millis its mute ends (null = permanent), read from local
      * account data: the per-room override push rules in `m.push_rules` (what
      * `larpnet_matrix_set_mute()` writes, and what Element/the Rust SDK call Mute -- a rule with
@@ -1076,6 +1065,16 @@ class MatrixRepository(
         scheduleUnreadRecount(client)
     }
 
+    /**
+     * Unread count for one room: Synapse's own notification count from the sync response
+     * (`unread_notifications`), which already respects push rules, so a muted room is 0 here.
+     * Not `numUnreadMessages`: the SDK computes that client-side from its event cache, which
+     * the plain v2 sync used here never fills, so it stayed 0 for every room (confirmed on the
+     * emulator against test.larpnet.pl, 2026-10-13).
+     */
+    private suspend fun unreadCountOf(room: Room): Int =
+        runCatching { room.roomInfo().notificationCount.toInt() }.getOrDefault(0)
+
     /** Recomputes [unreadCount] off the sync callback thread; at most one recount in flight,
      * extra requests while one runs are dropped (the running one reads the latest state). */
     private fun scheduleUnreadRecount(activeClient: Client) {
@@ -1086,9 +1085,7 @@ class MatrixRepository(
                 var count = 0
                 for (room in activeClient.rooms()) {
                     room.use {
-                        if (it.membership() == Membership.JOINED && it.id() !in mutes &&
-                            runCatching { it.roomInfo().numUnreadMessages }.getOrDefault(0uL) > 0uL
-                        ) {
+                        if (it.membership() == Membership.JOINED && it.id() !in mutes && unreadCountOf(it) > 0) {
                             count++
                         }
                     }

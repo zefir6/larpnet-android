@@ -1,5 +1,6 @@
 package pl.larpnet.android.ui.chat
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -108,12 +109,14 @@ class ChatThreadViewModel(
 
     /** Read receipt for the newest message, once per new message while on screen. */
     private fun markReadIfVisible() {
-        val roomId = uiState.roomId ?: return
-        val newest = uiState.messages.lastOrNull()?.id ?: return
-        if (!isVisible || newest == lastReadMessageId) return
+        if (!isVisible || uiState.roomId == null) return
+        val newest = uiState.messages.lastOrNull { it.eventId != null }?.eventId ?: return
+        if (newest == lastReadMessageId) return
         lastReadMessageId = newest
+        val activeHandle = handle ?: return
         viewModelScope.launch {
-            runCatching { repository.markRoomRead(roomId) }
+            runCatching { activeHandle.sendReadReceipt(newest) }
+                .onFailure { Log.w("ChatThreadViewModel", "read receipt failed", it) }
         }
     }
 
