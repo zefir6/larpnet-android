@@ -8,6 +8,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -23,6 +25,14 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.longOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.matrix.rustcomponents.sdk.Client
@@ -50,6 +60,9 @@ import org.matrix.rustcomponents.sdk.Room
 import org.matrix.rustcomponents.sdk.RoomMember
 import org.matrix.rustcomponents.sdk.RoomPreset
 import org.matrix.rustcomponents.sdk.RoomVisibility
+import org.matrix.rustcomponents.sdk.ReceiptType
+import org.matrix.rustcomponents.sdk.Session
+import org.matrix.rustcomponents.sdk.SlidingSyncVersion
 import org.matrix.rustcomponents.sdk.SyncListenerV2
 import org.matrix.rustcomponents.sdk.SyncResponseV2
 import org.matrix.rustcomponents.sdk.SyncSettingsV2
@@ -60,6 +73,7 @@ import pl.larpnet.android.BuildConfig
 import pl.larpnet.android.data.auth.TokenStore
 import pl.larpnet.android.data.model.MatrixEncryptionInfo
 import pl.larpnet.android.data.model.MatrixLoginResponse
+import pl.larpnet.android.data.model.MatrixMuteRequest
 import pl.larpnet.android.network.FriendicaApi
 
 /**
@@ -120,6 +134,19 @@ private const val MAX_SERVER_BACKUP_DELETE_ATTEMPTS = 20
  * login -- see [MatrixRepository.discardLocalSession]. */
 private const val MATRIX_SESSION_RESET_VERSION = 1
 
+/** Account data holding timed-mute expiries, written by the server's `larpnet_matrix_set_mute()`. */
+private const val MUTE_ACCOUNT_DATA = "pl.larpnet.mute_until"
+
+/** What [MatrixRepository.saveSession] persists -- the FFI `Session` itself isn't serializable. */
+@Serializable
+private data class StoredMatrixSession(
+    val accessToken: String,
+    val refreshToken: String? = null,
+    val userId: String,
+    val deviceId: String,
+    val homeserverUrl: String,
+)
+
 class MatrixRepository(
     private val context: Context,
     private val tokenStore: TokenStore,
@@ -165,10 +192,15 @@ class MatrixRepository(
 
     private val _unreadCount = MutableStateFlow(0)
 
-    /** Sum of [ChatRoom.unreadCount] across every room, updated on every [rooms] call -- drives
-     * the chat entry point's badge total (the Android counterpart has no dedicated bottom tab
-     * for Chat, unlike iOS, so this badges the icon button that opens it instead). */
+    /** Number of rooms with unread messages, muted rooms excluded -- the same number Synapse
+     * pushes as the badge (`counts.unread`, see friendica-larpnet's larpnet_matrix CLAUDE.md
+     * "Chat notifications") and the web bubble shows. Recomputed after every sync (see
+     * [startSyncLoop]), so the Chat entry points' badges are live without the chat screen open. */
     val unreadCount: StateFlow<Int> = _unreadCount.asStateFlow()
+
+    /** Background work kicked off from sync callbacks (unread recount). */
+    private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val unreadRecountPending = AtomicBoolean(false)
 
     /**
      * Logs in if needed (idempotent -- returns the existing client on every call after the
@@ -209,6 +241,7 @@ class MatrixRepository(
             .sessionPaths(sessionDir.absolutePath, sessionDir.absolutePath)
             .build()
         newClient.customLoginWithJwt(identity.token, "larpnet Android", deviceId())
+        saveSession(newClient)
 
         // One blocking sync before this call returns -- rooms()/getDmRoom()/getRoom() all
         // read local state that only exists once at least one sync has landed. Confirmed
@@ -296,24 +329,27 @@ class MatrixRepository(
     suspend fun rooms(): List<ChatRoom> {
         val activeClient = ensureClient()
         acceptLocalInvites(activeClient)
+        val mutes = muteStates(activeClient)
         val result = mutableListOf<ChatRoom>()
         for (room in activeClient.rooms()) {
             room.use {
                 if (it.membership() == Membership.JOINED) {
                     val name = displayNameFor(it)
                     val (previewText, timestampMillis) = previewFor(it)
-                    val unread = runCatching { it.roomInfo().numUnreadMessages.toInt() }.getOrDefault(0)
+                    val muted = it.id() in mutes
+                    val unread = if (muted) 0 else runCatching { it.roomInfo().numUnreadMessages.toInt() }.getOrDefault(0)
                     val avatarUrl = avatarUrlFor(it)
                     result.add(
                         ChatRoom(
                             id = it.id(), name = name, preview = previewText,
                             timestampMillis = timestampMillis, unreadCount = unread, avatarUrl = avatarUrl,
+                            muted = muted, mutedUntilMillis = mutes[it.id()],
                         ),
                     )
                 }
             }
         }
-        _unreadCount.value = result.sumOf { it.unreadCount }
+        _unreadCount.value = result.count { it.unreadCount > 0 }
         return result.sortedByDescending { it.timestampMillis ?: Long.MIN_VALUE }
     }
 
@@ -449,6 +485,12 @@ class MatrixRepository(
      * not `room.displayName()`, because for a 1:1 DM `displayName()` always prefers the other
      * person's own name -- same reason `RoomInfoModal.jsx` hides rename there.
      */
+    /** The same name the room list shows for [roomId] (see [displayNameFor]). */
+    suspend fun roomDisplayName(roomId: String): String? {
+        val activeClient = ensureClient()
+        return activeClient.getRoom(roomId)?.use { displayNameFor(it) }
+    }
+
     suspend fun roomInfo(roomId: String): ChatRoomInfo {
         val activeClient = ensureClient()
         val room = activeClient.getRoom(roomId) ?: error("Room not found: $roomId")
@@ -826,15 +868,47 @@ class MatrixRepository(
     }
 
     /**
-     * Decrypts and resolves a single event referenced by a data-only Matrix push (see
-     * `LarpnetFirebaseMessagingService`) into a title/body pair ready to show in a local
-     * notification -- never the push payload itself, which only ever carries `event_id`/
-     * `room_id` (see `larpnet_matrix_push_notify()`'s own doc comment for why). Returns null
-     * for anything not worth surfacing (the room/event no longer exists, was redacted, or the
-     * push arrived for a room this device has since left/filtered).
+     * Decrypts and resolves a single event referenced by a Matrix push (FCM data message, or the
+     * ntfy-delivered web pusher on the GitHub build) into what a local notification shows --
+     * never the push payload itself, which only ever carries `event_id`/`room_id` (see
+     * `larpnet_matrix_push_notify()`'s own doc comment for why). Returns null for anything not
+     * worth surfacing (the room/event no longer exists, was redacted, or the push arrived for a
+     * room this device has since left/filtered). Throws if it couldn't be decrypted at all, so
+     * the caller can still show a generic notification rather than drop the message.
+     *
+     * Fast path for a killed app (the usual case for a push): instead of [ensureClient]'s full
+     * Friendica + Synapse login and blocking full-state sync -- several seconds, easily past
+     * FCM's ~10 s window -- this restores the session saved at the last login
+     * ([saveSession]) into a short-lived client, fetches and decrypts just this one event, and
+     * closes it again. Holds [clientMutex] meanwhile, so the app opening at the same moment
+     * waits instead of building a second client on the same store. Falls back to
+     * [ensureClient] when there's no usable saved session.
      */
-    suspend fun notificationPreview(roomId: String, eventId: String): Pair<String, String>? {
-        val activeClient = ensureClient()
+    suspend fun notificationPreview(roomId: String, eventId: String): ChatNotificationContent? {
+        client?.let { return previewWith(it, roomId, eventId) }
+
+        val fast = clientMutex.withLock {
+            if (client != null) return@withLock null
+            val saved = loadSession() ?: return@withLock null
+            runCatching {
+                val dir = sessionDirectory(saved.userId)
+                ClientBuilder()
+                    .homeserverUrl(saved.homeserverUrl)
+                    .sessionPaths(dir.absolutePath, dir.absolutePath)
+                    .build()
+                    .use { restored ->
+                        restored.restoreSession(saved)
+                        Result.success(previewWith(restored, roomId, eventId))
+                    }
+            }.onFailure { Log.w("MatrixRepository", "notification fast path failed, falling back to full login", it) }
+                .getOrNull()
+        }
+        fast?.let { return it.getOrNull() }
+
+        return previewWith(ensureClient(), roomId, eventId)
+    }
+
+    private suspend fun previewWith(activeClient: Client, roomId: String, eventId: String): ChatNotificationContent? {
         val item = activeClient.notificationClient(NotificationProcessSetup.MultipleProcesses).use { notificationClient ->
             (notificationClient.getNotification(roomId, eventId) as? NotificationStatus.Event)?.item
         } ?: return null
@@ -845,15 +919,102 @@ class MatrixRepository(
         // sync (throttled hourly, or via its cron hook for everyone) already having given
         // this sender a real Matrix displayname by the time push notifications matter.
         val senderName = item.senderInfo.displayName?.takeIf { it.isNotBlank() } ?: return null
-        val roomName = item.roomInfo.displayName?.takeIf { it.isNotBlank() }
-        val title = if (item.roomInfo.isDm || roomName == null) senderName else "$senderName ($roomName)"
+        val roomName = item.roomInfo.displayName?.takeIf { it.isNotBlank() && !item.roomInfo.isDm }
 
         val body = when (val event = item.event) {
             is NotificationEvent.Invite -> "Zaproszenie do rozmowy"
             is NotificationEvent.Timeline -> bodyFor(event.event.content())
         } ?: return null
 
-        return title to body
+        return ChatNotificationContent(roomId = roomId, eventId = eventId, senderName = senderName, roomName = roomName, body = body)
+    }
+
+    /** Persists [activeClient]'s session for [notificationPreview]'s fast path. Best-effort. */
+    private fun saveSession(activeClient: Client) {
+        runCatching {
+            val session = activeClient.session()
+            tokenStore.matrixSessionJson = Json.encodeToString(
+                StoredMatrixSession(
+                    accessToken = session.accessToken,
+                    refreshToken = session.refreshToken,
+                    userId = session.userId,
+                    deviceId = session.deviceId,
+                    homeserverUrl = session.homeserverUrl,
+                ),
+            )
+        }.onFailure { Log.w("MatrixRepository", "saving the Matrix session failed", it) }
+    }
+
+    private fun loadSession(): Session? {
+        val stored = tokenStore.matrixSessionJson
+            ?.let { runCatching { Json.decodeFromString<StoredMatrixSession>(it) }.getOrNull() }
+            ?: return null
+        if (stored.deviceId != tokenStore.matrixDeviceId) return null
+        return Session(
+            accessToken = stored.accessToken,
+            refreshToken = stored.refreshToken,
+            userId = stored.userId,
+            deviceId = stored.deviceId,
+            homeserverUrl = stored.homeserverUrl,
+            oauthData = null,
+            slidingSyncVersion = SlidingSyncVersion.NONE,
+        )
+    }
+
+    /**
+     * Read receipt up to the newest event in [roomId] -- called by the thread screen while it is
+     * on screen. Before this, no larpnet client sent receipts, so unread counts (and every
+     * badge) only ever cleared when some other Matrix client marked the room read. Also what
+     * makes Synapse send the "badge-only" push that updates the other devices' badges.
+     */
+    suspend fun markRoomRead(roomId: String) {
+        val activeClient = ensureClient()
+        activeClient.getRoom(roomId)?.use { it.markAsRead(ReceiptType.READ) }
+    }
+
+    /**
+     * Every muted room id -> epoch millis its mute ends (null = permanent), read from local
+     * account data: the per-room override push rules in `m.push_rules` (what
+     * `larpnet_matrix_set_mute()` writes, and what Element/the Rust SDK call Mute -- a rule with
+     * no `notify` action), and the expiries in `pl.larpnet.mute_until`. Same rule the server's
+     * `larpnet_matrix_list_mutes()` and the web client's `isRoomMuted()` apply.
+     */
+    private suspend fun muteStates(activeClient: Client): Map<String, Long?> {
+        val rules = runCatching { activeClient.accountData("m.push_rules") }.getOrNull()
+            ?.let { runCatching { Json.parseToJsonElement(it).jsonObject }.getOrNull() }
+            ?: return emptyMap()
+        val overrides = (rules["global"] as? JsonObject)?.get("override") as? JsonArray ?: return emptyMap()
+        val expiries = runCatching { activeClient.accountData(MUTE_ACCOUNT_DATA) }.getOrNull()
+            ?.let { runCatching { Json.parseToJsonElement(it).jsonObject["rooms"]?.jsonObject }.getOrNull() }
+
+        val result = mutableMapOf<String, Long?>()
+        for (element in overrides) {
+            val rule = element as? JsonObject ?: continue
+            val id = (rule["rule_id"] as? JsonPrimitive)?.contentOrNull ?: continue
+            if (!id.startsWith("!")) continue
+            if ((rule["enabled"] as? JsonPrimitive)?.booleanOrNull == false) continue
+            val notifies = (rule["actions"] as? JsonArray)?.any { (it as? JsonPrimitive)?.contentOrNull == "notify" } ?: false
+            if (!notifies) {
+                result[id] = (expiries?.get(id) as? JsonPrimitive)?.longOrNull
+            }
+        }
+        return result
+    }
+
+    /** Mutes [roomId] until [untilMillis] (null = until unmuted) via `POST larpnet_matrix/mute`.
+     * The push rule it writes comes back over sync, which refreshes the room list. */
+    suspend fun muteRoom(roomId: String, untilMillis: Long?): Map<String, Long?> =
+        apiProvider().matrixMute(MatrixMuteRequest(MatrixMuteRequest.ACTION_MUTE, roomId, untilMillis)).mutes
+
+    /** Returns the server's updated mute map (same shape as [muteStates]), so a caller can show
+     * the change right away instead of waiting for the push rule to come back over sync. */
+    suspend fun unmuteRoom(roomId: String): Map<String, Long?> =
+        apiProvider().matrixMute(MatrixMuteRequest(MatrixMuteRequest.ACTION_UNMUTE, roomId)).mutes
+
+    /** Muted state of a single room, for the room info screen. */
+    suspend fun muteState(roomId: String): Pair<Boolean, Long?> {
+        val mutes = muteStates(ensureClient())
+        return (roomId in mutes) to mutes[roomId]
     }
 
     private fun bodyFor(content: TimelineEventContent): String? {
@@ -908,9 +1069,37 @@ class MatrixRepository(
             object : SyncListenerV2 {
                 override fun onUpdate(response: SyncResponseV2) {
                     _roomListUpdates.tryEmit(Unit)
+                    scheduleUnreadRecount(client)
                 }
             },
         )
+        scheduleUnreadRecount(client)
+    }
+
+    /** Recomputes [unreadCount] off the sync callback thread; at most one recount in flight,
+     * extra requests while one runs are dropped (the running one reads the latest state). */
+    private fun scheduleUnreadRecount(activeClient: Client) {
+        if (!unreadRecountPending.compareAndSet(false, true)) return
+        backgroundScope.launch {
+            try {
+                val mutes = muteStates(activeClient)
+                var count = 0
+                for (room in activeClient.rooms()) {
+                    room.use {
+                        if (it.membership() == Membership.JOINED && it.id() !in mutes &&
+                            runCatching { it.roomInfo().numUnreadMessages }.getOrDefault(0uL) > 0uL
+                        ) {
+                            count++
+                        }
+                    }
+                }
+                _unreadCount.value = count
+            } catch (e: Exception) {
+                Log.w("MatrixRepository", "unread recount failed", e)
+            } finally {
+                unreadRecountPending.set(false)
+            }
+        }
     }
 
     private fun deviceId(): String {

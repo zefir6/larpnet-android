@@ -58,6 +58,14 @@ class TokenStore(context: Context) {
         get() = prefs.getString(KEY_MATRIX_DEVICE_ID, null)
         set(value) = prefs.edit().putString(KEY_MATRIX_DEVICE_ID, value).apply()
 
+    /** The current native Matrix session (access token etc.) as JSON -- see
+     * `MatrixRepository.notificationPreview`, which restores it to decrypt a chat push without a
+     * fresh login or sync when the app process was killed. Rewritten on every login, cleared with
+     * [matrixDeviceId]. */
+    var matrixSessionJson: String?
+        get() = prefs.getString(KEY_MATRIX_SESSION, null)
+        set(value) = prefs.edit().putString(KEY_MATRIX_SESSION, value).apply()
+
     val isLoggedIn: Boolean
         get() = !accessToken.isNullOrBlank() && !instanceBaseUrl.isNullOrBlank()
 
@@ -149,7 +157,7 @@ class TokenStore(context: Context) {
 
     /** Only [pl.larpnet.android.data.matrix.MatrixRepository.clearSession] calls this. */
     fun clearMatrixDeviceId() {
-        prefs.edit().remove(KEY_MATRIX_DEVICE_ID).apply()
+        prefs.edit().remove(KEY_MATRIX_DEVICE_ID).remove(KEY_MATRIX_SESSION).apply()
     }
 
     companion object {
@@ -159,6 +167,7 @@ class TokenStore(context: Context) {
         private const val KEY_CLIENT_SECRET = "client_secret"
         private const val KEY_ACCESS_TOKEN = "access_token"
         private const val KEY_MATRIX_DEVICE_ID = "matrix_device_id"
+        private const val KEY_MATRIX_SESSION = "matrix_session"
         private const val KEY_MATRIX_SESSION_RESET_VERSION = "matrix_session_reset_version"
         private const val KEY_PUSH_ENABLED = "push_enabled"
         private const val KEY_SHOW_CHAT_TIMESTAMPS = "show_chat_timestamps"

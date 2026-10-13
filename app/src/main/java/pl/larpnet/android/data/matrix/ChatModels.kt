@@ -12,8 +12,14 @@ data class ChatRoom(
     val preview: String?,
     val timestampMillis: Long?,
     /** "Interesting" unread message count from `Room.roomInfo().numUnreadMessages` -- drives
-     * the room row's unread styling and the chat entry point's badge total. */
+     * the room row's unread styling and the chat entry point's badge. Always 0 for a [muted]
+     * room, same as Synapse's own notification count (and so every other client's badge). */
     val unreadCount: Int = 0,
+    /** Muted via the shared per-room mute (`POST larpnet_matrix/mute`, a Matrix push rule) --
+     * see [MatrixRepository.muteStates]. */
+    val muted: Boolean = false,
+    /** Epoch millis a timed mute ends, null when permanent or not muted. */
+    val mutedUntilMillis: Long? = null,
     /** `mxc://` room avatar, from `Room.avatarUrl()` (falling back to the 1:1 hero's own avatar
      * when the room itself has none) -- resolved to a real image via
      * [MatrixRepository.avatarThumbnail], not just an initials placeholder. */
@@ -53,4 +59,15 @@ data class ChatRoomInfo(
     val rawName: String,
     val isGroup: Boolean,
     val members: List<ChatRoomMember>,
+)
+
+/** A decrypted chat push, ready for `PushNotifications.postChatMessage` -- see
+ * [MatrixRepository.notificationPreview]. */
+data class ChatNotificationContent(
+    val roomId: String,
+    val eventId: String,
+    val senderName: String,
+    /** Room name for group rooms, null for a 1:1 DM. */
+    val roomName: String?,
+    val body: String,
 )

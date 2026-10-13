@@ -84,7 +84,15 @@ class NtfyListenerService : Service() {
                     val line = source.readUtf8Line() ?: break
                     if (line.isBlank()) continue
                     val msg = runCatching { json.decodeFromString(NtfyMessage.serializer(), line) }.getOrNull() ?: continue
-                    if (msg.event == "message") {
+                    if (msg.event != "message") continue
+                    val chat = msg.chatTarget
+                    if (chat != null) {
+                        // Decrypt the real preview locally, same as an FCM chat push; the ntfy
+                        // text itself only says "new message".
+                        scope.launch {
+                            ChatPush.show(this@NtfyListenerService, appContainer.matrixRepository, chat.first, chat.second, msg.title)
+                        }
+                    } else {
                         PushNotifications.postMessage(this, msg)
                     }
                 }

@@ -58,3 +58,27 @@ data class MatrixContact(
     val nickname: String,
     val name: String,
 )
+
+/**
+ * Body of `POST larpnet_matrix/mute` (`larpnet_matrix_mute_endpoint()`): [action] is
+ * [ACTION_LIST], [ACTION_MUTE] (with [untilMillis], or none for a permanent mute) or
+ * [ACTION_UNMUTE].
+ */
+@Serializable
+data class MatrixMuteRequest(
+    val action: String,
+    @SerialName("room_id") val roomId: String? = null,
+    @SerialName("until") val untilMillis: Long? = null,
+) {
+    companion object {
+        const val ACTION_LIST = "list"
+        const val ACTION_MUTE = "mute"
+        const val ACTION_UNMUTE = "unmute"
+    }
+}
+
+/** Every muted room id -> epoch millis its mute ends, or null when permanent. */
+@Serializable
+data class MatrixMutesResponse(
+    val mutes: Map<String, Long?> = emptyMap(),
+)

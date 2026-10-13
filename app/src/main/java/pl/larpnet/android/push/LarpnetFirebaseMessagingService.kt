@@ -49,24 +49,13 @@ class LarpnetFirebaseMessagingService : FirebaseMessagingService() {
 
         val roomId = message.data["room_id"]
         val eventId = message.data["event_id"]
-        if (roomId == null || eventId == null) return
+        // Empty event_id = a "badge-only" push (counts changed after a read receipt); the
+        // gateway doesn't forward those to Android any more, but never show one regardless.
+        if (roomId.isNullOrEmpty() || eventId.isNullOrEmpty()) return
 
         val appContainer = (application as App).appContainer
         CoroutineScope(Dispatchers.IO).launch {
-            // Best-effort: a decrypt failure (room left since, event redacted, transient
-            // network error) must silently drop this push, never crash the receiver -- there
-            // is nothing else useful to do with it, and Synapse doesn't expect a response
-            // back through this path anyway (unlike the push gateway's own HTTP response to
-            // Synapse, which is a separate, unrelated request/response pair on the server).
-            val preview = runCatching { appContainer.matrixRepository.notificationPreview(roomId, eventId) }.getOrNull()
-            val (title, body) = preview ?: return@launch
-            PushNotifications.postMessage(
-                context = this@LarpnetFirebaseMessagingService,
-                requestCode = eventId.hashCode(),
-                title = title,
-                body = body,
-                click = null,
-            )
+            ChatPush.show(this@LarpnetFirebaseMessagingService, appContainer.matrixRepository, roomId, eventId)
         }
     }
 }

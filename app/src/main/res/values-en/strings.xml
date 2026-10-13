@@ -206,6 +206,7 @@
     <string name="settings_nav_move_to_top_bar">Move to top bar</string>
     <string name="settings_nav_move_to_more">Move to More</string>
     <string name="settings_chat_section">Chat</string>
+    <string name="settings_show_chat_timestamps">Show times in the chat list</string>
     <string name="settings_reset_recovery_key">Reset recovery key</string>
     <string name="settings_reset_recovery_key_confirm">This removes access to chat history under the old key on new devices. This can\'t be undone.</string>
     <string name="settings_reset_recovery_key_confirm_action">Reset</string>
@@ -262,6 +263,21 @@
     <string name="chat_room_remove_member">Remove</string>
     <string name="chat_room_add_member">+ Add person</string>
     <string name="chat_room_leave">Leave conversation</string>
+    <string name="push_channel_chat">Chat messages</string>
+    <string name="chat_notification_fallback">New message</string>
+    <string name="chat_notifications_section">Notifications</string>
+    <string name="chat_notifications_on">Notifications on</string>
+    <string name="chat_muted">Muted</string>
+    <string name="chat_muted_until">Muted until %1$s</string>
+    <string name="chat_mute">Mute</string>
+    <string name="chat_mute_for">Mute for:</string>
+    <string name="chat_unmute">Unmute</string>
+    <string name="chat_mute_1h">1 hour</string>
+    <string name="chat_mute_8h">8 hours</string>
+    <string name="chat_mute_24h">24 hours</string>
+    <string name="chat_mute_week">1 week</string>
+    <string name="chat_mute_forever">Until I turn it back on</string>
+    <string name="chat_mute_failed">Couldn\'t change notifications</string>
 
     <!-- Chat recovery key (E2EE backup) -->
     <string name="recovery_title_setup">Set up recovery key</string>

@@ -1,5 +1,11 @@
 package pl.larpnet.android.ui.chat
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -86,6 +92,35 @@ fun ChatRoomInfoScreen(
                             enabled = !state.isBusy && state.nameInput.isNotBlank() && state.nameInput != state.rawName,
                         ) {
                             Text(stringResource(R.string.chat_room_save))
+                        }
+                    }
+                }
+            }
+            item {
+                var muteMenuOpen by remember { mutableStateOf(false) }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.chat_notifications_section), style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            text = if (state.muted) muteLabel(state.mutedUntilMillis) else stringResource(R.string.chat_notifications_on),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (state.muted) {
+                        TextButton(onClick = viewModel::unmute, enabled = !state.isBusy) {
+                            Text(stringResource(R.string.chat_unmute))
+                        }
+                    } else {
+                        Box {
+                            TextButton(onClick = { muteMenuOpen = true }, enabled = !state.isBusy) {
+                                Text(stringResource(R.string.chat_mute))
+                            }
+                            MuteDurationMenu(expanded = muteMenuOpen, onDismiss = { muteMenuOpen = false }, onPick = viewModel::mute)
                         }
                     }
                 }

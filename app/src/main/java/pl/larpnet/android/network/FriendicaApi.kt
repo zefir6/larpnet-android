@@ -15,6 +15,8 @@ import pl.larpnet.android.data.model.LegacyStatusRef
 import pl.larpnet.android.data.model.Instance
 import pl.larpnet.android.data.model.MatrixEncryptionInfo
 import pl.larpnet.android.data.model.MatrixLoginResponse
+import pl.larpnet.android.data.model.MatrixMuteRequest
+import pl.larpnet.android.data.model.MatrixMutesResponse
 import pl.larpnet.android.data.model.MediaAttachment
 import pl.larpnet.android.data.model.Notification
 import pl.larpnet.android.data.model.Poll
@@ -24,6 +26,7 @@ import pl.larpnet.android.data.model.Relationship
 import pl.larpnet.android.data.model.Status
 import pl.larpnet.android.data.model.StatusContext
 import retrofit2.Response
+import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.Field
 import retrofit2.http.FormUrlEncoded
@@ -387,4 +390,12 @@ interface FriendicaApi {
     @FormUrlEncoded
     @POST("larpnet_matrix/encryption")
     suspend fun matrixEncryption(@Field("action") action: String): MatrixEncryptionInfo
+
+    /**
+     * `POST larpnet_matrix/mute` (`larpnet_matrix_mute_endpoint()`) -- the shared per-room mute,
+     * the same one the web client uses: a Matrix push rule written server-side, so a timed mute
+     * also ends with no client running. See [MatrixMuteRequest].
+     */
+    @POST("larpnet_matrix/mute")
+    suspend fun matrixMute(@Body body: MatrixMuteRequest): MatrixMutesResponse
 }
