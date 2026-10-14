@@ -207,6 +207,10 @@
     <string name="settings_nav_move_to_more">Move to More</string>
     <string name="settings_chat_section">Chat</string>
     <string name="settings_show_chat_timestamps">Show times in the chat list</string>
+    <string name="settings_chat_name_display">How to show people in chat</string>
+    <string name="settings_chat_name_full">Full name</string>
+    <string name="settings_chat_name_handle">Handle</string>
+    <string name="settings_chat_name_both">Full name (@handle)</string>
     <string name="settings_reset_recovery_key">Reset recovery key</string>
     <string name="settings_reset_recovery_key_confirm">This removes access to chat history under the old key on new devices. This can\'t be undone.</string>
     <string name="settings_reset_recovery_key_confirm_action">Reset</string>

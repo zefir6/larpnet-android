@@ -52,6 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -157,7 +158,19 @@ fun ChatThreadScreen(
         topBar = {
             TopAppBar(
                 colors = larpnetTopAppBarColors(),
-                title = { Text(state.roomName ?: stringResource(R.string.chat_title)) },
+                title = {
+                    val title = state.roomName ?: stringResource(R.string.chat_title)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (state.roomId != null) {
+                            MatrixAvatarImage(
+                                avatarUrl = state.avatarUrl, name = title, repository = appContainer.matrixRepository,
+                                size = 32.dp, userId = state.peerUserId,
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                        }
+                        Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
@@ -277,7 +290,7 @@ private fun ClusterView(cluster: ChatMessageGrouping.Cluster, isGroup: Boolean, 
             if (isGroup) {
                 MatrixAvatarImage(
                     avatarUrl = cluster.senderAvatarUrl, name = cluster.senderDisplayName ?: "?",
-                    repository = repository, size = 28.dp,
+                    repository = repository, size = 28.dp, userId = cluster.senderId,
                 )
             } else {
                 Spacer(modifier = Modifier.size(28.dp))

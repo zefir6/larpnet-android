@@ -210,6 +210,10 @@
     <string name="settings_reset_recovery_key_confirm">To usunie dostęp do historii czatu za pomocą starego klucza na nowych urządzeniach. Tej operacji nie można odwrócić.</string>
     <string name="settings_reset_recovery_key_confirm_action">Resetuj</string>
     <string name="settings_show_chat_timestamps">Pokazuj godziny w liście czatów</string>
+    <string name="settings_chat_name_display">Jak pokazywać osoby w czacie</string>
+    <string name="settings_chat_name_full">Imię i nazwisko</string>
+    <string name="settings_chat_name_handle">Nick</string>
+    <string name="settings_chat_name_both">Imię i nazwisko (@nick)</string>
     <string name="settings_moderation_section">Moderacja</string>
     <string name="settings_following_section">Obserwowane</string>
 

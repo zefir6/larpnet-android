@@ -171,7 +171,10 @@ private fun ChatRoomMemberRow(member: ChatRoomMember, repository: MatrixReposito
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            MatrixAvatarImage(avatarUrl = member.avatarUrl, name = member.displayName, repository = repository, size = 36.dp)
+            MatrixAvatarImage(
+                avatarUrl = member.avatarUrl, name = member.displayName, repository = repository, size = 36.dp,
+                userId = member.userId,
+            )
             Text(member.displayName, style = MaterialTheme.typography.bodyLarge)
         }
         TextButton(onClick = onRemove, enabled = enabled) {

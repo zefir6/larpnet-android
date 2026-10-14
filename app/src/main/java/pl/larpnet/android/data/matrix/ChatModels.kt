@@ -24,6 +24,10 @@ data class ChatRoom(
      * when the room itself has none) -- resolved to a real image via
      * [MatrixRepository.avatarThumbnail], not just an initials placeholder. */
     val avatarUrl: String? = null,
+    /** The other member's mxid for a 1:1 room without its own avatar, null otherwise -- the
+     * Friendica profile photo is looked up from this first (see
+     * [MatrixRepository.friendicaAvatarUrl]). */
+    val peerUserId: String? = null,
 )
 
 /** One message in a room's timeline -- [ChatTimelineHandle]'s output shape. */
@@ -62,6 +66,8 @@ data class ChatRoomInfo(
     val rawName: String,
     val isGroup: Boolean,
     val members: List<ChatRoomMember>,
+    /** The room's own `mxc://` avatar, if one is set (group rooms only, in practice). */
+    val avatarUrl: String? = null,
 )
 
 /** A decrypted chat push, ready for `PushNotifications.postChatMessage` -- see

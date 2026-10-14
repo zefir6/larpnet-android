@@ -161,7 +161,7 @@ private fun ChatRoomRow(
             onPick = onMute,
             onUnmute = if (room.muted) onUnmute else null,
         )
-        MatrixAvatarImage(avatarUrl = room.avatarUrl, name = room.name, repository = repository)
+        MatrixAvatarImage(avatarUrl = room.avatarUrl, name = room.name, repository = repository, userId = room.peerUserId)
         Spacer(modifier = Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(

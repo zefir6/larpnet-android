@@ -30,6 +30,10 @@ data class ChatThreadUiState(
      * show a sender avatar/name (group chats only; a 1:1's incoming sender is already obvious
      * from the room itself). */
     val isGroup: Boolean = false,
+    /** Header avatar: the room's own `mxc://` avatar (groups) or the 1:1 partner's, plus the
+     * partner's mxid for the Friendica-photo lookup (see `MatrixAvatarImage`). */
+    val avatarUrl: String? = null,
+    val peerUserId: String? = null,
     val isLoading: Boolean = false,
     val draft: String = "",
     val isSending: Boolean = false,
@@ -79,10 +83,18 @@ class ChatThreadViewModel(
                     }
                     is ChatThreadTarget.Nickname -> {
                         uiState = uiState.copy(roomName = target.nickname)
-                        repository.openOrCreateDirectRoom(target.nickname)
+                        val roomId = repository.openOrCreateDirectRoom(target.nickname)
+                        // Placeholder only: the nickname is all a profile's "Chat" button knows.
+                        // Swap in the same name the room list shows (full name by default).
+                        runCatching { repository.roomDisplayName(roomId) }.getOrNull()
+                            ?.let { uiState = uiState.copy(roomName = it) }
+                        roomId
                     }
                 }
-                val isGroup = runCatching { repository.roomInfo(roomId).isGroup }.getOrDefault(false)
+                val info = runCatching { repository.roomInfo(roomId) }.getOrNull()
+                val isGroup = info?.isGroup ?: false
+                val peer = info?.members?.singleOrNull()?.takeIf { !isGroup }
+                uiState = uiState.copy(avatarUrl = info?.avatarUrl ?: peer?.avatarUrl, peerUserId = peer?.userId)
                 val newHandle = repository.openTimeline(roomId)
                 handle = newHandle
                 uiState = uiState.copy(roomId = roomId, isGroup = isGroup, isLoading = false)
