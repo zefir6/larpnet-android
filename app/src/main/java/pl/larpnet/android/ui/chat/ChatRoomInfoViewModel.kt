@@ -17,6 +17,9 @@ data class ChatRoomInfoUiState(
     val rawName: String = "",
     val nameInput: String = "",
     val didLeave: Boolean = false,
+    val muted: Boolean = false,
+    /** Epoch millis a timed mute ends; null when permanent or not muted. */
+    val mutedUntilMillis: Long? = null,
     val error: String? = null,
 )
 
@@ -43,7 +46,10 @@ class ChatRoomInfoViewModel(
         viewModelScope.launch {
             try {
                 val info = repository.roomInfo(roomId)
+                val (muted, mutedUntil) = runCatching { repository.muteState(roomId) }.getOrDefault(false to null)
                 uiState = uiState.copy(
+                    muted = muted,
+                    mutedUntilMillis = mutedUntil,
                     isLoading = false,
                     members = info.members,
                     isGroup = info.isGroup,
@@ -82,6 +88,27 @@ class ChatRoomInfoViewModel(
                 repository.removeMember(roomId, userId)
                 uiState = uiState.copy(isBusy = false, error = null)
                 load()
+            } catch (e: Exception) {
+                uiState = uiState.copy(isBusy = false, error = e.message)
+            }
+        }
+    }
+
+    /** Mutes for [durationMillis] from now, or until unmuted when null. */
+    fun mute(durationMillis: Long?) {
+        updateMute { repository.muteRoom(roomId, durationMillis?.let { System.currentTimeMillis() + it }) }
+    }
+
+    fun unmute() {
+        updateMute { repository.unmuteRoom(roomId) }
+    }
+
+    private fun updateMute(call: suspend () -> Map<String, Long?>) {
+        uiState = uiState.copy(isBusy = true)
+        viewModelScope.launch {
+            try {
+                val mutes = call()
+                uiState = uiState.copy(isBusy = false, muted = roomId in mutes, mutedUntilMillis = mutes[roomId], error = null)
             } catch (e: Exception) {
                 uiState = uiState.copy(isBusy = false, error = e.message)
             }

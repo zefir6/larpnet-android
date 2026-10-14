@@ -1,5 +1,6 @@
 package pl.larpnet.android.ui.chat
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -53,6 +54,11 @@ class ChatThreadViewModel(
 
     private var handle: ChatTimelineHandle? = null
 
+    /** Whether the thread screen is resumed (in the foreground) -- read receipts are only sent
+     * then, so a message that arrives while the app is in the background stays unread. */
+    private var isVisible = false
+    private var lastReadMessageId: String? = null
+
     init {
         load()
     }
@@ -64,6 +70,11 @@ class ChatThreadViewModel(
                 val roomId = when (target) {
                     is ChatThreadTarget.Room -> {
                         uiState = uiState.copy(roomName = target.name)
+                        // Opened from a chat notification, which only knows the room id.
+                        if (target.name.isBlank()) {
+                            runCatching { repository.roomDisplayName(target.id) }.getOrNull()
+                                ?.let { uiState = uiState.copy(roomName = it) }
+                        }
                         target.id
                     }
                     is ChatThreadTarget.Nickname -> {
@@ -79,10 +90,33 @@ class ChatThreadViewModel(
                 // onCleared(), which is what actually ends this collection.
                 newHandle.messages.collect { snapshot ->
                     uiState = uiState.copy(messages = snapshot)
+                    markReadIfVisible()
                 }
             } catch (e: Exception) {
                 uiState = uiState.copy(isLoading = false, error = e.message)
             }
+        }
+    }
+
+    /** Called by the screen on resume/pause. */
+    fun onVisibilityChanged(visible: Boolean) {
+        isVisible = visible
+        if (visible) {
+            lastReadMessageId = null
+            markReadIfVisible()
+        }
+    }
+
+    /** Read receipt for the newest message, once per new message while on screen. */
+    private fun markReadIfVisible() {
+        if (!isVisible || uiState.roomId == null) return
+        val newest = uiState.messages.lastOrNull { it.eventId != null }?.eventId ?: return
+        if (newest == lastReadMessageId) return
+        lastReadMessageId = newest
+        val activeHandle = handle ?: return
+        viewModelScope.launch {
+            runCatching { activeHandle.sendReadReceipt(newest) }
+                .onFailure { Log.w("ChatThreadViewModel", "read receipt failed", it) }
         }
     }
 

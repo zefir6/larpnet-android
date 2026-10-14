@@ -6,6 +6,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import org.matrix.rustcomponents.sdk.MsgLikeKind
 import org.matrix.rustcomponents.sdk.ProfileDetails
 import org.matrix.rustcomponents.sdk.TaskHandle
+import org.matrix.rustcomponents.sdk.EventOrTransactionId
+import org.matrix.rustcomponents.sdk.ReceiptType
 import org.matrix.rustcomponents.sdk.Timeline
 import org.matrix.rustcomponents.sdk.TimelineDiff
 import org.matrix.rustcomponents.sdk.TimelineItem
@@ -71,6 +73,16 @@ class ChatTimelineHandle(
         }
     }
 
+    /**
+     * Read receipt for [eventId] (the newest message on screen). An explicit event id rather
+     * than `Timeline.markAsRead`/`Room.markAsRead`: both decide "newest event" from the SDK's
+     * event cache, which the plain v2 sync this app uses never fills, so they silently sent
+     * nothing and the unread count never cleared (confirmed on the emulator, 2026-10-13).
+     */
+    suspend fun sendReadReceipt(eventId: String) {
+        timeline.sendReadReceipt(ReceiptType.READ, eventId)
+    }
+
     suspend fun send(text: String) {
         timeline.send(messageEventContentFromMarkdown(text))
     }
@@ -121,6 +133,7 @@ class ChatTimelineHandle(
             val sdkDisplayName = readyProfile?.displayName?.takeIf { it.isNotBlank() }
             return ChatMessage(
                 id = item.uniqueId().id,
+                eventId = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId,
                 isOwn = event.isOwn,
                 body = body,
                 timestampMillis = event.timestamp.toLong(),

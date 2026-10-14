@@ -263,6 +263,21 @@
     <string name="chat_room_remove_member">Usuń</string>
     <string name="chat_room_add_member">+ Dodaj osobę</string>
     <string name="chat_room_leave">Opuść rozmowę</string>
+    <string name="push_channel_chat">Wiadomości czatu</string>
+    <string name="chat_notification_fallback">Nowa wiadomość</string>
+    <string name="chat_notifications_section">Powiadomienia</string>
+    <string name="chat_notifications_on">Powiadomienia włączone</string>
+    <string name="chat_muted">Wyciszona</string>
+    <string name="chat_muted_until">Wyciszona do %1$s</string>
+    <string name="chat_mute">Wycisz</string>
+    <string name="chat_mute_for">Wycisz na:</string>
+    <string name="chat_unmute">Włącz powiadomienia</string>
+    <string name="chat_mute_1h">1 godz.</string>
+    <string name="chat_mute_8h">8 godz.</string>
+    <string name="chat_mute_24h">24 godz.</string>
+    <string name="chat_mute_week">1 tydzień</string>
+    <string name="chat_mute_forever">Do odwołania</string>
+    <string name="chat_mute_failed">Nie udało się zmienić powiadomień</string>
 
     <!-- Chat recovery key (E2EE backup) -->
     <string name="recovery_title_setup">Ustaw klucz odzyskiwania</string>

@@ -18,6 +18,8 @@ import androidx.core.content.ContextCompat
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -38,6 +40,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import pl.larpnet.android.BuildConfig
 import pl.larpnet.android.R
@@ -145,9 +148,10 @@ private fun addChatMemberRoute(roomId: String) = "chat/thread/${URLEncoder.encod
 private fun tagRoute(hashtag: String) = "tag/${URLEncoder.encode(hashtag, "UTF-8")}"
 private fun albumDetailRoute(album: String) = "albums/${URLEncoder.encode(album, "UTF-8")}"
 
-/** [startDestination] is [Routes.LOGIN] or [Routes.HOME] depending on whether MainActivity found a stored token. */
+/** [startDestination] is [Routes.LOGIN] or [Routes.HOME] depending on whether MainActivity found a
+ * stored token. [pendingChatRoomId] is a room to open from a tapped chat notification. */
 @Composable
-fun LarpnetNavGraph(startDestination: String) {
+fun LarpnetNavGraph(startDestination: String, pendingChatRoomId: MutableStateFlow<String?> = MutableStateFlow(null)) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
@@ -197,6 +201,25 @@ fun LarpnetNavGraph(startDestination: String) {
     // only runs once for this NavGraph instance's lifetime and won't re-fire after that navigate.
     LaunchedEffect(Unit) { startPushIfEnabled() }
 
+    // Start chat in the background as soon as we're logged in -- not only when the Chat screen
+    // first opens -- so the Chat badge (MatrixRepository.unreadCount, recounted on every sync)
+    // is right from launch.
+    LaunchedEffect(Unit) {
+        if (appContainer.tokenStore.isLoggedIn) {
+            runCatching { appContainer.matrixRepository.ensureClient() }
+        }
+    }
+
+    // A tapped chat notification: open that room (its name fills in once the thread loads).
+    val chatRoomToOpen by pendingChatRoomId.collectAsState()
+    LaunchedEffect(chatRoomToOpen) {
+        val roomId = chatRoomToOpen ?: return@LaunchedEffect
+        if (appContainer.tokenStore.isLoggedIn) {
+            navController.navigate(chatThreadRoomRoute(roomId, "")) { launchSingleTop = true }
+        }
+        pendingChatRoomId.value = null
+    }
+
     // Both distribution flavors notice their own updates -- GitHub Releases polling or the Play
     // Core In-App Update API, see di/UpdateCheckerFactory.kt for which. Throttled internally to
     // at most once/24h; the banner below reflects whatever it finds, and Settings' manual
@@ -225,6 +248,7 @@ fun LarpnetNavGraph(startDestination: String) {
     val onSearch: () -> Unit = { navController.navigate(Routes.SEARCH) }
     val onOpenHashtag: (String) -> Unit = { navController.navigate(tagRoute(it)) }
 
+    val chatUnreadCount by appContainer.matrixRepository.unreadCount.collectAsState()
     val bottomBarOrder by appContainer.navigationLayoutStore.bottomBar.collectAsState()
     val topBar by appContainer.navigationLayoutStore.topBar.collectAsState()
     val moreDestinations by appContainer.navigationLayoutStore.more.collectAsState()
@@ -239,7 +263,16 @@ fun LarpnetNavGraph(startDestination: String) {
                         NavigationBarItem(
                             selected = currentRoute == destination.route,
                             onClick = { onOpenDestination(destination) },
-                            icon = { Icon(destination.icon, contentDescription = null) },
+                            icon = {
+                                // Chat shows how many conversations have unread messages.
+                                if (destination == AppDestination.CHAT && chatUnreadCount > 0) {
+                                    BadgedBox(badge = { Badge { Text(if (chatUnreadCount > 99) "99+" else chatUnreadCount.toString()) } }) {
+                                        Icon(destination.icon, contentDescription = null)
+                                    }
+                                } else {
+                                    Icon(destination.icon, contentDescription = null)
+                                }
+                            },
                             label = { Text(stringResource(destination.labelRes)) },
                         )
                     }

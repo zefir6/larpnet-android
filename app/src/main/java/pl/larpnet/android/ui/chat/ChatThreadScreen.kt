@@ -35,6 +35,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import pl.larpnet.android.push.PushNotifications
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.Lifecycle
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -83,6 +89,37 @@ fun ChatThreadScreen(
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val groups = remember(state.messages) { ChatMessageGrouping.build(state.messages) }
+
+    // While this room is on screen: no push notification for it (PushNotifications drops one
+    // for visibleChatRoomId), any already showing is cleared, and read receipts go out.
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val visibleRoomId = state.roomId
+    DisposableEffect(lifecycleOwner, visibleRoomId) {
+        fun setVisible(visible: Boolean) {
+            viewModel.onVisibilityChanged(visible)
+            if (visibleRoomId == null) return
+            if (visible) {
+                PushNotifications.visibleChatRoomId = visibleRoomId
+                PushNotifications.cancelChat(context, visibleRoomId)
+            } else if (PushNotifications.visibleChatRoomId == visibleRoomId) {
+                PushNotifications.visibleChatRoomId = null
+            }
+        }
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> setVisible(true)
+                Lifecycle.Event.ON_PAUSE -> setVisible(false)
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) setVisible(true)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            setVisible(false)
+        }
+    }
 
     // Flattened row list backing the LazyColumn -- lets us scroll-to-end by a plain last-index
     // rather than hand-tracking per-section/per-cluster indices.

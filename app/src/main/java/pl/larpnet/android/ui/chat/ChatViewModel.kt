@@ -71,6 +71,32 @@ class ChatViewModel(private val repository: MatrixRepository) : ViewModel() {
         }
     }
 
+    /** Mutes [roomId] for [durationMillis] (null = until unmuted) from the row's long-press
+     * menu. The server's answer is applied to the row at once; sync confirms it shortly after. */
+    fun mute(roomId: String, durationMillis: Long?) {
+        updateMute { repository.muteRoom(roomId, durationMillis?.let { System.currentTimeMillis() + it }) }
+    }
+
+    fun unmute(roomId: String) {
+        updateMute { repository.unmuteRoom(roomId) }
+    }
+
+    private fun updateMute(call: suspend () -> Map<String, Long?>) {
+        viewModelScope.launch {
+            try {
+                val mutes = call()
+                uiState = uiState.copy(
+                    rooms = uiState.rooms.map {
+                        val muted = it.id in mutes
+                        it.copy(muted = muted, mutedUntilMillis = mutes[it.id], unreadCount = if (muted) 0 else it.unreadCount)
+                    },
+                )
+            } catch (e: Exception) {
+                uiState = uiState.copy(error = e.message)
+            }
+        }
+    }
+
     private fun subscribeToUpdates() {
         if (subscribedToUpdates) return
         subscribedToUpdates = true
