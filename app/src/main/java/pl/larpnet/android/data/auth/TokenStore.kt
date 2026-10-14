@@ -93,6 +93,12 @@ class TokenStore(context: Context) {
         get() = prefs.getBoolean(KEY_SHOW_CHAT_TIMESTAMPS, true)
         set(value) = prefs.edit().putBoolean(KEY_SHOW_CHAT_TIMESTAMPS, value).apply()
 
+    /** How chat shows people: full name (default), handle (nickname), or both -- see
+     * [ChatNameDisplay] and `MatrixRepository.resolvedName`. */
+    var chatNameDisplay: ChatNameDisplay
+        get() = ChatNameDisplay.fromKey(prefs.getString(KEY_CHAT_NAME_DISPLAY, null))
+        set(value) = prefs.edit().putString(KEY_CHAT_NAME_DISPLAY, value.key).apply()
+
     /** Epoch millis of the last in-app update check (any account) -- see UpdateRepository.checkIfDue. */
     var lastUpdateCheckAt: Long
         get() = prefs.getLong(KEY_LAST_UPDATE_CHECK_AT, 0L)
@@ -177,6 +183,7 @@ class TokenStore(context: Context) {
         private const val KEY_MATRIX_EVENT_CACHE_RESET_VERSION = "matrix_event_cache_reset_version"
         private const val KEY_PUSH_ENABLED = "push_enabled"
         private const val KEY_SHOW_CHAT_TIMESTAMPS = "show_chat_timestamps"
+        private const val KEY_CHAT_NAME_DISPLAY = "chat_name_display"
         private const val KEY_LAST_UPDATE_CHECK_AT = "last_update_check_at"
         private const val KEY_DISMISSED_UPDATE_VERSION_CODE = "dismissed_update_version_code"
         private const val KEY_NAV_BOTTOM_BAR = "nav_bottom_bar_v2"
@@ -186,5 +193,17 @@ class TokenStore(context: Context) {
         private const val KEY_HIDDEN_POST_IDS = "hidden_post_ids"
         private const val KEY_BLOCKED_POST_IDS = "blocked_post_ids"
         private const val KEY_FOLLOWED_THREADS = "followed_threads"
+    }
+}
+
+/** Chat name style setting -- [key] is the stored value, same strings as larpnet-iOS's
+ * `chat_name_display` UserDefaults key. */
+enum class ChatNameDisplay(val key: String) {
+    FULL("full"),
+    HANDLE("handle"),
+    BOTH("both");
+
+    companion object {
+        fun fromKey(key: String?): ChatNameDisplay = entries.firstOrNull { it.key == key } ?: FULL
     }
 }

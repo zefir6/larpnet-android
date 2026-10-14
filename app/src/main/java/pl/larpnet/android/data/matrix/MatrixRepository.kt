@@ -2,6 +2,7 @@ package pl.larpnet.android.data.matrix
 
 import android.util.Log
 import android.content.Context
+import android.net.Uri
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
@@ -70,7 +71,9 @@ import org.matrix.rustcomponents.sdk.TaskHandle
 import org.matrix.rustcomponents.sdk.TimelineEventContent
 import org.matrix.rustcomponents.sdk.TimelineItemContent
 import pl.larpnet.android.BuildConfig
+import pl.larpnet.android.data.auth.ChatNameDisplay
 import pl.larpnet.android.data.auth.TokenStore
+import pl.larpnet.android.network.InstanceUrl
 import pl.larpnet.android.data.model.MatrixEncryptionInfo
 import pl.larpnet.android.data.model.MatrixLoginResponse
 import pl.larpnet.android.data.model.MatrixMuteRequest
@@ -383,10 +386,12 @@ class MatrixRepository(
                     val muted = it.id() in mutes
                     val unread = if (muted) 0 else unreadCountOf(it)
                     val avatarUrl = avatarUrlFor(it)
+                    val peerUserId = if (it.avatarUrl() == null) peerUserIdFor(it) else null
                     result.add(
                         ChatRoom(
                             id = it.id(), name = name, preview = previewText,
                             timestampMillis = timestampMillis, unreadCount = unread, avatarUrl = avatarUrl,
+                            peerUserId = peerUserId,
                             muted = muted, mutedUntilMillis = mutes[it.id()],
                         ),
                     )
@@ -553,7 +558,10 @@ class MatrixRepository(
             val members = others.map {
                 ChatRoomMember(userId = it.userId, displayName = resolvedName(it.userId, it.displayName), avatarUrl = it.avatarUrl)
             }
-            ChatRoomInfo(roomId = roomId, rawName = room.rawName().orEmpty(), isGroup = members.size != 1, members = members)
+            ChatRoomInfo(
+                roomId = roomId, rawName = room.rawName().orEmpty(), isGroup = members.size != 1, members = members,
+                avatarUrl = room.avatarUrl(),
+            )
         } finally {
             room.close()
         }
@@ -1159,12 +1167,29 @@ class MatrixRepository(
         return dir
     }
 
-    /** Real room avatar, same hero-fallback shape as [displayNameFor]: for a 1:1 DM, the room
-     * itself rarely has its own avatar set, so fall back to the other person's. */
+    /** Everyone in [room] but us (joined or invited, bots excluded). Not `room.heroes()`: under
+     * the plain v2 sync this app uses, Synapse sends no room-summary heroes, so `heroes()` was
+     * always empty (confirmed on the emulator, 2026-10-14) -- every 1:1 row fell through to the
+     * SDK's computed name (the partner's bare localpart, e.g. "borsuk") with initials only.
+     * Locally-known members first; the network `/members` fetch only for a room whose member
+     * list was never loaded (the SDK caches it afterwards). */
+    private suspend fun otherMemberIds(room: Room): List<String> {
+        val own = room.ownUserId()
+        val local = runCatching { room.activeHumanMemberIdsNoSync() }.getOrDefault(emptyList()).filter { it != own }
+        if (local.isNotEmpty()) return local
+        return runCatching { room.activeHumanMemberIds() }.getOrDefault(emptyList()).filter { it != own }
+    }
+
+    /** The other member of a 1:1 room, null for groups -- used for the Friendica-photo avatar on
+     * room-list rows (see [friendicaAvatarUrl]). */
+    private suspend fun peerUserIdFor(room: Room): String? = otherMemberIds(room).singleOrNull()
+
+    /** Real room avatar: for a 1:1 DM the room itself rarely has its own avatar set, so fall
+     * back to the other person's. */
     private suspend fun avatarUrlFor(room: Room): String? {
         room.avatarUrl()?.let { return it }
-        val heroes = room.heroes()
-        return if (heroes.size == 1) heroes[0].avatarUrl else null
+        val peer = peerUserIdFor(room) ?: return null
+        return runCatching { room.memberAvatarUrl(peer) }.getOrNull()
     }
 
     /** Fetches a real avatar image's bytes for a `mxc://` URL (a sender's or room's) -- callers
@@ -1177,13 +1202,22 @@ class MatrixRepository(
     }
 
     /** Room-list display name -- same algorithm as the web client's `roomDisplayName()`: for
-     * a 1:1 DM, prefer the Friendica name we already know (covers a partner who's never
-     * opened chat themselves, so has no Matrix displayname yet) over the SDK's own hero-based
-     * summary; fall back to the SDK's computed name (handles group rooms) otherwise. */
+     * a 1:1 DM, the partner's name via [resolvedName] (Friendica name first, so it also covers
+     * someone who's never opened chat themselves); for a group, its own name if it has one,
+     * else its members' resolved names -- not the SDK's computed name, which is built from the
+     * (here always empty, see [otherMemberIds]) heroes and so ends up as bare localparts. */
     private suspend fun displayNameFor(room: Room): String {
-        val heroes = room.heroes()
-        if (heroes.size == 1) {
-            return resolvedName(heroes[0].userId, heroes[0].displayName)
+        val others = otherMemberIds(room)
+        if (others.size == 1) {
+            val peer = others[0]
+            return resolvedName(peer, runCatching { room.memberDisplayName(peer) }.getOrNull())
+        }
+        room.rawName()?.takeIf { it.isNotBlank() }?.let { return it }
+        if (others.isNotEmpty()) {
+            // "Both" would read as a wall of "(@...)" in a joined list -- full names only there.
+            val mode = tokenStore.chatNameDisplay.let { if (it == ChatNameDisplay.BOTH) ChatNameDisplay.FULL else it }
+            val names = others.take(3).map { resolvedName(it, runCatching { room.memberDisplayName(it) }.getOrNull(), mode) }
+            return if (others.size > 3) names.joinToString(", ") + " +${others.size - 3}" else names.joinToString(", ")
         }
         room.displayName()?.takeIf { it.isNotBlank() }?.let { return it }
         return "Chat"
@@ -1193,11 +1227,42 @@ class MatrixRepository(
      * Friendica name we already know (covers a member who's never opened chat themselves, so
      * has no Matrix displayname yet) over the SDK-reported displayname, then fall back to the
      * bare localpart. */
-    private fun resolvedName(userId: String, fallbackDisplayName: String?): String {
+    private fun resolvedName(
+        userId: String,
+        fallbackDisplayName: String?,
+        mode: ChatNameDisplay = tokenStore.chatNameDisplay,
+    ): String {
         val localpart = localpartOf(userId)
-        contactsByLocalpart[localpart]?.let { return it }
-        fallbackDisplayName?.takeIf { it.isNotBlank() }?.let { return it }
-        return localpart ?: userId
+        val fullName = contactsByLocalpart[localpart]
+            ?: fallbackDisplayName?.takeIf { it.isNotBlank() }
+            ?: return localpart ?: userId
+        if (localpart == null) return fullName
+        return when (mode) {
+            ChatNameDisplay.FULL -> fullName
+            ChatNameDisplay.HANDLE -> localpart
+            ChatNameDisplay.BOTH -> if (fullName.equals(localpart, ignoreCase = true)) fullName else "$fullName (@$localpart)"
+        }
+    }
+
+    /** Settings' chat name style -- also nudges the room list to re-resolve its names now,
+     * rather than only on the next sync. */
+    fun setChatNameDisplay(mode: ChatNameDisplay) {
+        tokenStore.chatNameDisplay = mode
+        _roomListUpdates.tryEmit(Unit)
+    }
+
+    /** The Friendica profile photo (80px `/photo/avatar/<nickname>.jpg`) for a user on this
+     * homeserver, null for anyone else. Every local Matrix account is a Friendica account whose
+     * localpart is the lowercased nickname (`larpnet_matrix_localpart()` server-side), and that
+     * photo URL is public -- unlike the SDK's sender/hero profiles, which under plain v2 sync's
+     * lazy-loaded members are usually not loaded yet, so a Matrix `avatar_url` alone mostly
+     * left chat showing initials only. Same source the web client's `avatarUrlForUserId()` uses. */
+    fun friendicaAvatarUrl(userId: String?): String? {
+        if (userId == null) return null
+        val localpart = localpartOf(userId) ?: return null
+        if (userId.substringAfter(':') != serverName) return null
+        val base = tokenStore.instanceBaseUrl?.let(InstanceUrl::normalize) ?: return null
+        return "${base}photo/avatar/${Uri.encode(localpart)}.jpg"
     }
 
     private suspend fun previewFor(room: Room): Pair<String?, Long?> = when (val latest = room.latestEvent()) {

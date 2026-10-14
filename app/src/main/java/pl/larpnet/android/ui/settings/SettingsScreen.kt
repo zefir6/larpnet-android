@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Report
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.SystemUpdate
@@ -86,6 +87,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.launch
 import pl.larpnet.android.BuildConfig
 import pl.larpnet.android.R
+import pl.larpnet.android.data.auth.ChatNameDisplay
 import pl.larpnet.android.data.auth.TokenStore
 import pl.larpnet.android.data.matrix.MatrixRepository
 import pl.larpnet.android.data.repository.AuthRepository
@@ -160,6 +162,8 @@ fun SettingsScreen(
 
     var appLocaleTag by remember { mutableStateOf(context.currentAppLocaleTag()) }
     var showChatTimestamps by remember { mutableStateOf(appContainer.tokenStore.showChatTimestamps) }
+    var chatNameDisplay by remember { mutableStateOf(appContainer.tokenStore.chatNameDisplay) }
+    var showChatNameDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showServerDialog by remember { mutableStateOf(false) }
     var serverAddress by remember { mutableStateOf(appContainer.tokenStore.instanceBaseUrl ?: BuildConfig.DEFAULT_INSTANCE) }
@@ -208,6 +212,18 @@ fun SettingsScreen(
                 appContainer.tokenStore.instanceBaseUrl = newAddress
                 serverAddress = newAddress
                 showServerDialog = false
+            },
+        )
+    }
+
+    if (showChatNameDialog) {
+        ChatNameDisplayDialog(
+            current = chatNameDisplay,
+            onDismiss = { showChatNameDialog = false },
+            onSelect = {
+                chatNameDisplay = it
+                appContainer.matrixRepository.setChatNameDisplay(it)
+                showChatNameDialog = false
             },
         )
     }
@@ -446,6 +462,12 @@ fun SettingsScreen(
                         appContainer.tokenStore.showChatTimestamps = it
                     },
                 )
+                SettingsLinkRow(
+                    icon = Icons.Filled.Person,
+                    label = stringResource(chatNameDisplayLabel(chatNameDisplay)),
+                    hint = stringResource(R.string.settings_chat_name_display),
+                    onClick = { showChatNameDialog = true },
+                )
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -572,6 +594,39 @@ private fun appLanguageLabel(tag: String): String = when (tag) {
 }
 
 private val appLanguageOptions = listOf("" to null, "pl" to "Polski", "en" to "English")
+
+private fun chatNameDisplayLabel(mode: ChatNameDisplay): Int = when (mode) {
+    ChatNameDisplay.FULL -> R.string.settings_chat_name_full
+    ChatNameDisplay.HANDLE -> R.string.settings_chat_name_handle
+    ChatNameDisplay.BOTH -> R.string.settings_chat_name_both
+}
+
+@Composable
+private fun ChatNameDisplayDialog(current: ChatNameDisplay, onDismiss: () -> Unit, onSelect: (ChatNameDisplay) -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_chat_name_display)) },
+        text = {
+            Column(Modifier.selectableGroup()) {
+                ChatNameDisplay.entries.forEach { mode ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .selectable(selected = mode == current, onClick = { onSelect(mode) }, role = Role.RadioButton)
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = mode == current, onClick = null)
+                        Text(stringResource(chatNameDisplayLabel(mode)), modifier = Modifier.padding(start = 12.dp))
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+        },
+    )
+}
 
 @Composable
 private fun AppLanguageDialog(current: String, onDismiss: () -> Unit, onSelect: (String) -> Unit) {
