@@ -19,6 +19,14 @@ object ChatPush {
     private const val DECRYPT_TIMEOUT_MS = 7000L
 
     suspend fun show(context: Context, repository: MatrixRepository, roomId: String, eventId: String, fallbackTitle: String? = null) {
+        // A chat push's one-shot notificationPreview() decrypt below never touches the
+        // continuous sync loop the open/resumed chat screen actually depends on -- fire a fresh
+        // sync request now, while FCM's delivery has briefly lifted Doze's network restrictions,
+        // so a stalled loop gets a real chance to catch up instead of silently staying stale.
+        // Unconditional (even if this room is the visible one, see the early return right
+        // below): the open thread's own Timeline listener is fed by that same loop.
+        repository.triggerCatchUpSync()
+
         if (roomId == PushNotifications.visibleChatRoomId) return
 
         val result = withTimeoutOrNull(DECRYPT_TIMEOUT_MS) {

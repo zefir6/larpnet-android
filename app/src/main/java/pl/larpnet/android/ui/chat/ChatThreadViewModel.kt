@@ -116,6 +116,13 @@ class ChatThreadViewModel(
         if (visible) {
             lastReadMessageId = null
             markReadIfVisible()
+            // The sync loop can sit stalled after a backgrounded spell (Doze); resuming this
+            // screen is exactly the moment a reply might be missing, so kick a fresh request
+            // rather than trusting whatever cadence the existing loop resumes at on its own.
+            // Fire-and-forget: the already-rendered cached state stays on screen either way,
+            // this just makes a real update arrive sooner once it lands via the Timeline
+            // listener this screen is already subscribed to.
+            repository.triggerCatchUpSync()
         }
     }
 
