@@ -23,6 +23,7 @@
     <string name="search_title">Szukaj</string>
     <string name="search_hint">Szukaj osób (nazwa lub @użytkownik@serwer)</string>
     <string name="search_empty">Brak wyników</string>
+    <string name="search_suggested">Proponowane</string>
 
     <!-- Directory -->
     <string name="directory_empty">Brak użytkowników</string>

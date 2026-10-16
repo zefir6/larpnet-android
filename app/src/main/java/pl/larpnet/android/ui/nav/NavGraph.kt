@@ -550,6 +550,7 @@ fun LarpnetNavGraph(startDestination: String, pendingChatRoomId: MutableStateFlo
                 SearchScreen(
                     onBack = { navController.popBackStack() },
                     onOpenProfile = onOpenProfile,
+                    suggestFrequentContacts = true,
                     onSelectAccount = { account ->
                         // Matrix identities only exist for local users (see
                         // `larpnet_matrix_localpart()`) -- `username`, not `acct`, is the

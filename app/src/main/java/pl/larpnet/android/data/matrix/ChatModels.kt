@@ -28,6 +28,11 @@ data class ChatRoom(
      * Friendica profile photo is looked up from this first (see
      * [MatrixRepository.friendicaAvatarUrl]). */
     val peerUserId: String? = null,
+    /** The other member's mxid for ANY 1:1 room, regardless of avatar state -- unlike
+     * [peerUserId] (which is deliberately null whenever the room already has its own avatar, to
+     * keep that field's avatar-source-priority meaning), this is for ranking/identifying DM
+     * partners (see [MatrixRepository.suggestedDmNicknames]), not avatar lookup. */
+    val dmPeerUserId: String? = null,
 )
 
 /** One message in a room's timeline -- [ChatTimelineHandle]'s output shape. */

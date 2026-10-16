@@ -386,12 +386,13 @@ class MatrixRepository(
                     val muted = it.id() in mutes
                     val unread = if (muted) 0 else unreadCountOf(it)
                     val avatarUrl = avatarUrlFor(it)
-                    val peerUserId = if (it.avatarUrl() == null) peerUserIdFor(it) else null
+                    val dmPeerUserId = peerUserIdFor(it)
+                    val peerUserId = if (it.avatarUrl() == null) dmPeerUserId else null
                     result.add(
                         ChatRoom(
                             id = it.id(), name = name, preview = previewText,
                             timestampMillis = timestampMillis, unreadCount = unread, avatarUrl = avatarUrl,
-                            peerUserId = peerUserId,
+                            peerUserId = peerUserId, dmPeerUserId = dmPeerUserId,
                             muted = muted, mutedUntilMillis = mutes[it.id()],
                         ),
                     )
@@ -400,6 +401,23 @@ class MatrixRepository(
         }
         _unreadCount.value = result.count { it.unreadCount > 0 }
         return result.sortedByDescending { it.timestampMillis ?: Long.MIN_VALUE }
+    }
+
+    /**
+     * Up to [limit] Friendica nicknames (localparts) of the most recently active 1:1 DM
+     * partners, most-recent first -- the "most interacted with" proxy the new-chat picker
+     * suggests before any search text is typed. True message-frequency per contact isn't
+     * tracked anywhere in this SDK binding (only last-activity timestamp is available per room,
+     * via [rooms], which this reuses); recency is the pragmatic signal actually available.
+     */
+    suspend fun suggestedDmNicknames(limit: Int): List<String> {
+        val seen = LinkedHashSet<String>()
+        for (room in rooms()) {
+            if (seen.size >= limit) break
+            val nickname = room.dmPeerUserId?.let { localpartOf(it) } ?: continue
+            seen.add(nickname)
+        }
+        return seen.toList()
     }
 
     /**

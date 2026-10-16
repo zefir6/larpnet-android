@@ -23,6 +23,7 @@
     <string name="search_title">Search</string>
     <string name="search_hint">Search for people (name or @user@server)</string>
     <string name="search_empty">No results</string>
+    <string name="search_suggested">Suggested</string>
 
     <!-- Directory -->
     <string name="directory_empty">No users</string>
