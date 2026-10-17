@@ -1118,6 +1118,21 @@ class MatrixRepository(
     }
 
     /**
+     * Fires a brand-new sync request right away instead of waiting on whatever cadence
+     * [syncHandle]'s existing long-poll happens to resume at. Doze/background network
+     * restrictions can leave that in-flight request stalled for a long time after the process
+     * is backgrounded; a chat push's FCM delivery briefly lifts those restrictions
+     * (`LarpnetFirebaseMessagingService`'s own doc comment), and resuming a thread screen is
+     * another moment worth a fresh attempt. [startSyncLoop] already cancels the stale handle
+     * before creating a new one, so calling this repeatedly is safe. No-op before the first
+     * login ([client] still null) -- [ensureClient]'s own blocking `syncOnceV2` already covers
+     * that case.
+     */
+    fun triggerCatchUpSync() {
+        client?.let { startSyncLoop(it) }
+    }
+
+    /**
      * Unread count for one room: Synapse's own notification count from the sync response
      * (`unread_notifications`), which already respects push rules, so a muted room is 0 here.
      * Not `numUnreadMessages`: the SDK computes that client-side from its event cache, which
