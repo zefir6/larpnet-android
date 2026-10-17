@@ -81,6 +81,34 @@ class ChatViewModel(private val repository: MatrixRepository) : ViewModel() {
         updateMute { repository.unmuteRoom(roomId) }
     }
 
+    /**
+     * "Mark as read" from the row's long-press menu, without opening the thread -- sends the
+     * same explicit-event-id read receipt [ChatThreadViewModel.markReadIfVisible] does (not
+     * `Timeline.markAsRead`/`Room.markAsRead`, which silently no-op on this app's plain-v2-sync
+     * setup, see [ChatTimelineHandle.sendReadReceipt]'s doc comment), just driven headlessly:
+     * open the room's timeline only long enough to read its loaded snapshot's newest event id,
+     * send the receipt, then close it again.
+     */
+    fun markAsRead(roomId: String) {
+        viewModelScope.launch {
+            try {
+                val handle = repository.openTimeline(roomId)
+                try {
+                    handle.messages.value.lastOrNull { it.eventId != null }?.eventId?.let {
+                        handle.sendReadReceipt(it)
+                    }
+                } finally {
+                    handle.close()
+                }
+                // Optimistic, same as mute/unmute above -- the next sync tick confirms it via
+                // Synapse's own notification count.
+                uiState = uiState.copy(rooms = uiState.rooms.map { if (it.id == roomId) it.copy(unreadCount = 0) else it })
+            } catch (e: Exception) {
+                uiState = uiState.copy(error = e.message)
+            }
+        }
+    }
+
     private fun updateMute(call: suspend () -> Map<String, Long?>) {
         viewModelScope.launch {
             try {
