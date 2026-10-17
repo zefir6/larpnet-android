@@ -21,10 +21,27 @@ internal val muteDurations: List<Pair<Int, Long?>> = listOf(
 )
 
 /** Picker for [muteDurations]; [onPick] gets the duration in millis, or null for "until turned
- * back on". With [onUnmute] set (the room is already muted) it offers only that instead. */
+ * back on". With [onUnmute] set (the room is already muted) it offers only that instead. A
+ * leading "Mark as read" item is shown when [onMarkAsRead] is non-null (the row has something
+ * to clear) -- same long-press menu, per the user-requested "next to muting" placement. */
 @Composable
-internal fun MuteDurationMenu(expanded: Boolean, onDismiss: () -> Unit, onPick: (Long?) -> Unit, onUnmute: (() -> Unit)? = null) {
+internal fun MuteDurationMenu(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    onPick: (Long?) -> Unit,
+    onUnmute: (() -> Unit)? = null,
+    onMarkAsRead: (() -> Unit)? = null,
+) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        if (onMarkAsRead != null) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.chat_mark_as_read)) },
+                onClick = {
+                    onDismiss()
+                    onMarkAsRead()
+                },
+            )
+        }
         if (onUnmute != null) {
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.chat_unmute)) },

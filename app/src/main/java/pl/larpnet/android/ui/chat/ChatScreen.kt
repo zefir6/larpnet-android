@@ -125,6 +125,7 @@ fun ChatScreen(
                             onClick = { onOpenRoom(room) },
                             onMute = { duration -> viewModel.mute(room.id, duration) },
                             onUnmute = { viewModel.unmute(room.id) },
+                            onMarkAsRead = { viewModel.markAsRead(room.id) },
                         )
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     }
@@ -145,6 +146,7 @@ private fun ChatRoomRow(
     onClick: () -> Unit,
     onMute: (Long?) -> Unit,
     onUnmute: () -> Unit,
+    onMarkAsRead: () -> Unit,
 ) {
     val hasUnread = room.unreadCount > 0
     var muteMenuOpen by remember { mutableStateOf(false) }
@@ -160,6 +162,7 @@ private fun ChatRoomRow(
             onDismiss = { muteMenuOpen = false },
             onPick = onMute,
             onUnmute = if (room.muted) onUnmute else null,
+            onMarkAsRead = if (hasUnread) onMarkAsRead else null,
         )
         MatrixAvatarImage(avatarUrl = room.avatarUrl, name = room.name, repository = repository, userId = room.peerUserId)
         Spacer(modifier = Modifier.width(10.dp))

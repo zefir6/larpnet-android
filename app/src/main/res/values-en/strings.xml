@@ -272,6 +272,7 @@
     <string name="chat_notification_fallback">New message</string>
     <string name="chat_notifications_section">Notifications</string>
     <string name="chat_notifications_on">Notifications on</string>
+    <string name="chat_mark_as_read">Mark as read</string>
     <string name="chat_muted">Muted</string>
     <string name="chat_muted_until">Muted until %1$s</string>
     <string name="chat_mute">Mute</string>

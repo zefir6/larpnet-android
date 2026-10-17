@@ -62,6 +62,7 @@ class ChatThreadViewModel(
      * then, so a message that arrives while the app is in the background stays unread. */
     private var isVisible = false
     private var lastReadMessageId: String? = null
+    private var isMarkingRead = false
 
     init {
         load()
@@ -126,16 +127,32 @@ class ChatThreadViewModel(
         }
     }
 
-    /** Read receipt for the newest message, once per new message while on screen. */
+    /**
+     * Read receipt for the newest message, once per new message while on screen. Deliberately
+     * does *not* set [lastReadMessageId] until [ChatTimelineHandle.sendReadReceipt] actually
+     * succeeds: marking it read locally before the server confirms would permanently poison the
+     * `newest == lastReadMessageId` guard above on a transient failure (network hiccup, sync
+     * loop mid-restart) -- the room's unread bubble would then never clear until a newer message
+     * bumped `newest` to a different id, exactly the "opening the conversation doesn't clear the
+     * badge" symptom reported on iOS 2026-10-17 and fixed there the same way.
+     */
     private fun markReadIfVisible() {
-        if (!isVisible || uiState.roomId == null) return
+        if (!isVisible || isMarkingRead || uiState.roomId == null) return
         val newest = uiState.messages.lastOrNull { it.eventId != null }?.eventId ?: return
         if (newest == lastReadMessageId) return
-        lastReadMessageId = newest
         val activeHandle = handle ?: return
+        isMarkingRead = true
         viewModelScope.launch {
-            runCatching { activeHandle.sendReadReceipt(newest) }
-                .onFailure { Log.w("ChatThreadViewModel", "read receipt failed", it) }
+            try {
+                activeHandle.sendReadReceipt(newest)
+                lastReadMessageId = newest
+            } catch (e: Exception) {
+                // lastReadMessageId left unset on purpose -- see doc comment above. The next
+                // message update (or re-opening the thread) retries.
+                Log.w("ChatThreadViewModel", "read receipt failed", e)
+            } finally {
+                isMarkingRead = false
+            }
         }
     }
 

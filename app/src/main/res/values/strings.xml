@@ -272,6 +272,7 @@
     <string name="chat_notification_fallback">Nowa wiadomość</string>
     <string name="chat_notifications_section">Powiadomienia</string>
     <string name="chat_notifications_on">Powiadomienia włączone</string>
+    <string name="chat_mark_as_read">Oznacz jako przeczytane</string>
     <string name="chat_muted">Wyciszona</string>
     <string name="chat_muted_until">Wyciszona do %1$s</string>
     <string name="chat_mute">Wycisz</string>
