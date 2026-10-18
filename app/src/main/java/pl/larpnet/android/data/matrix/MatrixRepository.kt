@@ -206,6 +206,18 @@ class MatrixRepository(
      * [startSyncLoop]), so the Chat entry points' badges are live without the chat screen open. */
     val unreadCount: StateFlow<Int> = _unreadCount.asStateFlow()
 
+    /** A room was read (read receipt sent from this device) or muted -- its chat notification
+     * is stale. Wired to `PushNotifications.cancelChat` by `AppContainer`, keeping this data
+     * layer free of notification code. */
+    @Volatile
+    var onRoomCaughtUp: ((roomId: String) -> Unit)? = null
+
+    /** After each sync response's recount: the rooms still unread (joined, not muted, count > 0)
+     * and when that state was read. Wired to `PushNotifications.reconcileChat` by `AppContainer`
+     * -- how a room read on another device loses its notification here too. */
+    @Volatile
+    var onUnreadRoomsChanged: ((unreadRoomIds: Set<String>, snapshotAtMillis: Long) -> Unit)? = null
+
     /** Background work kicked off from sync callbacks (unread recount). */
     private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val unreadRecountPending = AtomicBoolean(false)
@@ -894,7 +906,11 @@ class MatrixRepository(
         // bare mxid localpart whenever they haven't set a Matrix displayname yet (the common
         // case for anyone who's never opened chat themselves), instead of the full name the
         // room list already knows how to show.
-        val handle = ChatTimelineHandle(timeline, resolveDisplayName = ::resolvedName)
+        val handle = ChatTimelineHandle(
+            timeline,
+            resolveDisplayName = ::resolvedName,
+            onReadReceiptSent = { onRoomCaughtUp?.invoke(roomId) },
+        )
         handle.start()
         return handle
     }
@@ -1064,6 +1080,7 @@ class MatrixRepository(
      * The push rule it writes comes back over sync, which refreshes the room list. */
     suspend fun muteRoom(roomId: String, untilMillis: Long?): Map<String, Long?> =
         apiProvider().matrixMute(MatrixMuteRequest(MatrixMuteRequest.ACTION_MUTE, roomId, untilMillis)).mutes
+            .also { onRoomCaughtUp?.invoke(roomId) }
 
     /** Returns the server's updated mute map (same shape as [muteStates]), so a caller can show
      * the change right away instead of waiting for the push rule to come back over sync. */
@@ -1128,11 +1145,14 @@ class MatrixRepository(
             object : SyncListenerV2 {
                 override fun onUpdate(response: SyncResponseV2) {
                     _roomListUpdates.tryEmit(Unit)
-                    scheduleUnreadRecount(client)
+                    scheduleUnreadRecount(client, fromSyncResponse = true)
                 }
             },
         )
-        scheduleUnreadRecount(client)
+        // Local state may be stale here (the loop is only just (re)starting, e.g. on a push that
+        // arrived before this device synced the event), so this one only refreshes the badge
+        // and never reconciles notifications away.
+        scheduleUnreadRecount(client, fromSyncResponse = false)
     }
 
     /**
@@ -1161,21 +1181,25 @@ class MatrixRepository(
         runCatching { room.roomInfo().notificationCount.toInt() }.getOrDefault(0)
 
     /** Recomputes [unreadCount] off the sync callback thread; at most one recount in flight,
-     * extra requests while one runs are dropped (the running one reads the latest state). */
-    private fun scheduleUnreadRecount(activeClient: Client) {
+     * extra requests while one runs are dropped (the running one reads the latest state, and the
+     * next sync response recounts again). Only a recount following a real sync response
+     * ([fromSyncResponse]) reports to [onUnreadRoomsChanged]. */
+    private fun scheduleUnreadRecount(activeClient: Client, fromSyncResponse: Boolean) {
         if (!unreadRecountPending.compareAndSet(false, true)) return
         backgroundScope.launch {
             try {
+                val snapshotAt = System.currentTimeMillis()
                 val mutes = muteStates(activeClient)
-                var count = 0
+                val unreadRooms = mutableSetOf<String>()
                 for (room in activeClient.rooms()) {
                     room.use {
                         if (it.membership() == Membership.JOINED && it.id() !in mutes && unreadCountOf(it) > 0) {
-                            count++
+                            unreadRooms += it.id()
                         }
                     }
                 }
-                _unreadCount.value = count
+                _unreadCount.value = unreadRooms.size
+                if (fromSyncResponse) onUnreadRoomsChanged?.invoke(unreadRooms, snapshotAt)
             } catch (e: Exception) {
                 Log.w("MatrixRepository", "unread recount failed", e)
             } finally {

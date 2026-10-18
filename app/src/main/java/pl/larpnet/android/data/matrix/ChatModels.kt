@@ -84,4 +84,7 @@ data class ChatNotificationContent(
     /** Room name for group rooms, null for a 1:1 DM. */
     val roomName: String?,
     val body: String,
+    /** Generic text shown because the event couldn't be decrypted in time -- see
+     * [pl.larpnet.android.push.ChatNotificationStore.Line.placeholder]. */
+    val placeholder: Boolean = false,
 )
