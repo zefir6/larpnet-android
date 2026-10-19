@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Debug builds only. android.permission.DUMP: only `adb shell` can send to it. -->
+        <receiver
+            android:name=".debug.DebugChatPushReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP">
+            <intent-filter>
+                <action android:name="pl.larpnet.android.DEBUG_CHAT_PUSH" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

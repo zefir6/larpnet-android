@@ -9,6 +9,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -64,6 +66,7 @@ import org.matrix.rustcomponents.sdk.RoomVisibility
 import org.matrix.rustcomponents.sdk.ReceiptType
 import org.matrix.rustcomponents.sdk.Session
 import org.matrix.rustcomponents.sdk.SlidingSyncVersion
+import org.matrix.rustcomponents.sdk.SlidingSyncVersionBuilder
 import org.matrix.rustcomponents.sdk.SyncListenerV2
 import org.matrix.rustcomponents.sdk.SyncResponseV2
 import org.matrix.rustcomponents.sdk.SyncSettingsV2
@@ -137,6 +140,23 @@ private const val MAX_SERVER_BACKUP_DELETE_ATTEMPTS = 20
  * login -- see [MatrixRepository.discardLocalSession]. */
 private const val MATRIX_SESSION_RESET_VERSION = 1
 
+/**
+ * Sliding sync version for the clients this repository builds. The app itself still syncs with
+ * plain v2 ([MatrixRepository.startSyncLoop]); this is only for `NotificationClient`, which
+ * decrypts a pushed event through a short native sliding sync (Synapse's
+ * `org.matrix.simplified_msc3575`, available on test and prod) and fails instantly with
+ * `SlidingSync(VersionIsMissing)` without it. Until 0.28.0 that failure hit *every* chat push,
+ * so every one showed the generic "Nowa wiadomość" -- appended as yet another line, which is
+ * the ever-growing notification users reported (confirmed on the emulator, 2026-10-18).
+ * NATIVE rather than DISCOVER_NATIVE: discovery would fail `build()` (and so all of chat) on a
+ * server without it, instead of just the preview.
+ */
+private val NOTIFICATION_SLIDING_SYNC = SlidingSyncVersionBuilder.NATIVE
+
+/** See [MatrixRepository.startSyncWatchdog]. */
+private const val SYNC_WATCHDOG_MIN_MS = 15_000L
+private const val SYNC_WATCHDOG_MAX_MS = 120_000L
+
 /** Bump to make every install drop its local timeline cache once -- see
  * [MatrixRepository.discardEventCache]. 1 = caches written before [MatrixRepository.startEventCache]
  * existed, which can be missing messages (2026-10-13). */
@@ -162,6 +182,7 @@ class MatrixRepository(
 ) {
     private var client: Client? = null
     private var syncHandle: TaskHandle? = null
+    private var syncWatchdog: Job? = null
 
     /** Guards [ensureClient]'s build-and-login section -- see that function's doc comment for
      * why this is required, not just a defensive nicety. */
@@ -263,6 +284,7 @@ class MatrixRepository(
         val newClient = ClientBuilder()
             .homeserverUrl(identity.homeserver)
             .sessionPaths(sessionDir.absolutePath, sessionDir.absolutePath)
+            .slidingSyncVersionBuilder(NOTIFICATION_SLIDING_SYNC)
             .build()
         newClient.customLoginWithJwt(identity.token, "larpnet Android", deviceId())
         saveSession(newClient)
@@ -981,6 +1003,7 @@ class MatrixRepository(
                 ClientBuilder()
                     .homeserverUrl(saved.homeserverUrl)
                     .sessionPaths(dir.absolutePath, dir.absolutePath)
+                    .slidingSyncVersionBuilder(NOTIFICATION_SLIDING_SYNC)
                     .build()
                     .use { restored ->
                         restored.restoreSession(saved)
@@ -1043,7 +1066,7 @@ class MatrixRepository(
             deviceId = stored.deviceId,
             homeserverUrl = stored.homeserverUrl,
             oauthData = null,
-            slidingSyncVersion = SlidingSyncVersion.NONE,
+            slidingSyncVersion = SlidingSyncVersion.NATIVE,
         )
     }
 
@@ -1118,6 +1141,8 @@ class MatrixRepository(
      * cleanup below runs regardless of whether that network call succeeds.
      */
     fun clearSession() {
+        syncWatchdog?.cancel()
+        syncWatchdog = null
         syncHandle?.cancel()
         syncHandle?.close()
         syncHandle = null
@@ -1140,19 +1165,49 @@ class MatrixRepository(
     private fun startSyncLoop(client: Client) {
         syncHandle?.cancel()
         syncHandle?.close()
-        syncHandle = client.syncV2(
+        val handle = client.syncV2(
             SyncSettingsV2(fullState = false),
             object : SyncListenerV2 {
                 override fun onUpdate(response: SyncResponseV2) {
+                    syncRestartBackoffMs = SYNC_WATCHDOG_MIN_MS
                     _roomListUpdates.tryEmit(Unit)
                     scheduleUnreadRecount(client, fromSyncResponse = true)
                 }
             },
         )
+        syncHandle = handle
+        startSyncWatchdog(client, handle)
         // Local state may be stale here (the loop is only just (re)starting, e.g. on a push that
         // arrived before this device synced the event), so this one only refreshes the badge
         // and never reconciles notifications away.
         scheduleUnreadRecount(client, fromSyncResponse = false)
+    }
+
+    @Volatile
+    private var syncRestartBackoffMs = SYNC_WATCHDOG_MIN_MS
+
+    /**
+     * The SDK's `syncV2` loop ends for good on the first failed request ("Sync loop ended with
+     * error" -- any network drop: Wi-Fi/mobile handover, Doze, a suspended emulator) and has no
+     * error callback; before this, only the next push or thread resume restarted it, so the
+     * room list, badge and notification reconcile all went stale in between (confirmed on the
+     * emulator, 2026-10-18). Polls [TaskHandle.isFinished] and restarts the loop with backoff
+     * (15 s doubling to 2 min, reset by any successful sync response).
+     */
+    private fun startSyncWatchdog(client: Client, handle: TaskHandle) {
+        syncWatchdog?.cancel()
+        syncWatchdog = backgroundScope.launch {
+            while (true) {
+                delay(syncRestartBackoffMs)
+                if (this@MatrixRepository.client !== client || syncHandle !== handle) return@launch
+                if (runCatching { handle.isFinished() }.getOrDefault(false)) {
+                    Log.i("MatrixRepository", "sync loop ended, restarting (backoff ${syncRestartBackoffMs} ms)")
+                    syncRestartBackoffMs = (syncRestartBackoffMs * 2).coerceAtMost(SYNC_WATCHDOG_MAX_MS)
+                    startSyncLoop(client)
+                    return@launch
+                }
+            }
+        }
     }
 
     /**
