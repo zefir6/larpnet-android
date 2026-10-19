@@ -49,9 +49,14 @@ class LarpnetFirebaseMessagingService : FirebaseMessagingService() {
 
         val roomId = message.data["room_id"]
         val eventId = message.data["event_id"]
-        // Empty event_id = a "badge-only" push (counts changed after a read receipt); the
-        // gateway doesn't forward those to Android any more, but never show one regardless.
-        if (roomId.isNullOrEmpty() || eventId.isNullOrEmpty()) return
+        // Empty event_id = a "badge-only" push, `type=chat_counts` (counts changed after a read
+        // receipt, i.e. something was read, possibly on another device). Never shown; it only
+        // removes notifications of chats that are read now.
+        if (eventId.isNullOrEmpty()) {
+            ChatCounts.handle(this, (application as App).appContainer.matrixRepository, message.data["unread"]?.toIntOrNull())
+            return
+        }
+        if (roomId.isNullOrEmpty()) return
 
         val appContainer = (application as App).appContainer
         CoroutineScope(Dispatchers.IO).launch {

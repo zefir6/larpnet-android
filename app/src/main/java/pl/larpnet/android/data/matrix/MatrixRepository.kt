@@ -5,8 +5,10 @@ import android.content.Context
 import android.net.Uri
 import java.io.File
 import java.util.UUID
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -242,6 +244,11 @@ class MatrixRepository(
     /** Background work kicked off from sync callbacks (unread recount). */
     private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val unreadRecountPending = AtomicBoolean(false)
+    /** A sync response's recount arrived while another recount ran -- run it once that ends,
+     * so a sync response is never left without its [onUnreadRoomsChanged] call. */
+    private val syncRecountRequested = AtomicBoolean(false)
+    /** [catchUpUnread] callers waiting for the next sync response's [onUnreadRoomsChanged]. */
+    private val reconcileWaiters = ConcurrentLinkedQueue<CompletableDeferred<Unit>>()
 
     /**
      * Logs in if needed (idempotent -- returns the existing client on every call after the
@@ -1226,6 +1233,25 @@ class MatrixRepository(
     }
 
     /**
+     * For a `chat_counts` push (unread counts changed, i.e. something was read on another
+     * device): syncs now and returns once that sync response's recount has gone to
+     * [onUnreadRoomsChanged] -- which removes the notifications of rooms that are now read --
+     * or after [timeoutMs]. Logs in first when the process was started just for this push.
+     * @return whether the reconcile ran in time.
+     */
+    suspend fun catchUpUnread(timeoutMs: Long): Boolean {
+        val waiter = CompletableDeferred<Unit>()
+        reconcileWaiters += waiter
+        val done = withTimeoutOrNull(timeoutMs) {
+            val existing = client
+            if (existing != null) startSyncLoop(existing) else ensureClient()
+            waiter.await()
+        } != null
+        reconcileWaiters -= waiter
+        return done
+    }
+
+    /**
      * Unread count for one room: Synapse's own notification count from the sync response
      * (`unread_notifications`), which already respects push rules, so a muted room is 0 here.
      * Not `numUnreadMessages`: the SDK computes that client-side from its event cache, which
@@ -1240,7 +1266,10 @@ class MatrixRepository(
      * next sync response recounts again). Only a recount following a real sync response
      * ([fromSyncResponse]) reports to [onUnreadRoomsChanged]. */
     private fun scheduleUnreadRecount(activeClient: Client, fromSyncResponse: Boolean) {
-        if (!unreadRecountPending.compareAndSet(false, true)) return
+        if (!unreadRecountPending.compareAndSet(false, true)) {
+            if (fromSyncResponse) syncRecountRequested.set(true)
+            return
+        }
         backgroundScope.launch {
             try {
                 val snapshotAt = System.currentTimeMillis()
@@ -1254,12 +1283,16 @@ class MatrixRepository(
                     }
                 }
                 _unreadCount.value = unreadRooms.size
-                if (fromSyncResponse) onUnreadRoomsChanged?.invoke(unreadRooms, snapshotAt)
+                if (fromSyncResponse) {
+                    onUnreadRoomsChanged?.invoke(unreadRooms, snapshotAt)
+                    while (true) reconcileWaiters.poll()?.complete(Unit) ?: break
+                }
             } catch (e: Exception) {
                 Log.w("MatrixRepository", "unread recount failed", e)
             } finally {
                 unreadRecountPending.set(false)
             }
+            if (syncRecountRequested.getAndSet(false)) scheduleUnreadRecount(activeClient, fromSyncResponse = true)
         }
     }
 

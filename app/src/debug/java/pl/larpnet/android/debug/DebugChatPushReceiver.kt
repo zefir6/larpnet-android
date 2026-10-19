@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import pl.larpnet.android.App
+import pl.larpnet.android.push.ChatCounts
 import pl.larpnet.android.push.ChatPush
 
 /**
@@ -18,9 +19,11 @@ import pl.larpnet.android.push.ChatPush
  * ```
  * adb shell am broadcast -a pl.larpnet.android.DEBUG_CHAT_PUSH -p pl.larpnet.android --ez list true
  * adb shell am broadcast -a pl.larpnet.android.DEBUG_CHAT_PUSH -p pl.larpnet.android --es room '!id' [--ei nth 0] [--es event '$id']
+ * adb shell am broadcast -a pl.larpnet.android.DEBUG_CHAT_PUSH -p pl.larpnet.android --ei counts <unread>
  * ```
  * `list` logs room ids/names and the latest incoming event ids per room (tag `DebugChatPush`);
- * without `event`, the `nth` newest incoming message (default 0 = newest) is pushed.
+ * without `event`, the `nth` newest incoming message (default 0 = newest) is pushed. `counts`
+ * simulates a `chat_counts` push (unread counts changed) with that `unread` value.
  */
 class DebugChatPushReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -29,6 +32,10 @@ class DebugChatPushReceiver : BroadcastReceiver() {
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                if (intent.hasExtra("counts")) {
+                    ChatCounts.handle(app, repository, intent.getIntExtra("counts", -1))
+                    return@launch
+                }
                 if (intent.getBooleanExtra("list", false)) {
                     for (room in repository.rooms()) {
                         Log.i(TAG, "room ${room.id} name=${room.name} unread=${room.unreadCount}")
