@@ -38,6 +38,9 @@ class ChatTimelineHandle(
      * injected rather than duplicated so this stays in sync with `MatrixRepository`'s own
      * `contactsByLocalpart` lookup (see `MatrixRepository.openTimeline`'s call site). */
     private val resolveDisplayName: (String, String?) -> String,
+    /** Called after a read receipt went out, so the room's chat notification can be cleared --
+     * see [MatrixRepository.onRoomCaughtUp]. */
+    private val onReadReceiptSent: () -> Unit = {},
 ) {
     private var listenerHandle: TaskHandle? = null
     private val items = mutableListOf<ChatMessage?>()
@@ -81,6 +84,7 @@ class ChatTimelineHandle(
      */
     suspend fun sendReadReceipt(eventId: String) {
         timeline.sendReadReceipt(ReceiptType.READ, eventId)
+        onReadReceiptSent()
     }
 
     suspend fun send(text: String) {

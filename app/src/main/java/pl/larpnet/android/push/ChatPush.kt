@@ -12,7 +12,8 @@ import pl.larpnet.android.data.matrix.MatrixRepository
  * notification. Decrypts the real sender/text on-device via
  * [MatrixRepository.notificationPreview]; if that fails or takes too long, still shows a generic
  * "new message" notification for the room -- a chat push must never silently vanish (the old
- * behaviour on any decrypt error).
+ * behaviour on any decrypt error). That fallback is a placeholder: at most one per room, and
+ * replaced by the real text if the same event is pushed again (see [ChatNotificationStore]).
  */
 object ChatPush {
     /** Well inside FCM's ~10 s budget for handling a high-priority data message. */
@@ -29,15 +30,23 @@ object ChatPush {
 
         if (roomId == PushNotifications.visibleChatRoomId) return
 
+        val startedAt = System.currentTimeMillis()
         val result = withTimeoutOrNull(DECRYPT_TIMEOUT_MS) {
             runCatching { repository.notificationPreview(roomId, eventId) }
         }
+        val elapsed = System.currentTimeMillis() - startedAt
         if (result != null && result.isSuccess) {
+            val preview = result.getOrNull()
+            Log.i("ChatPush", "room=$roomId event=$eventId decrypt=${if (preview == null) "filtered" else "ok"} ms=$elapsed")
             // null = nothing worth showing (redacted, a room we left, ...).
-            result.getOrNull()?.let { PushNotifications.postChatMessage(context, it) }
+            preview?.let { PushNotifications.postChatMessage(context, it) }
             return
         }
-        Log.w("ChatPush", "couldn't decrypt chat push, showing a generic one", result?.exceptionOrNull())
+        Log.w(
+            "ChatPush",
+            "room=$roomId event=$eventId decrypt=${if (result == null) "timeout" else "failed"} ms=$elapsed, showing a placeholder",
+            result?.exceptionOrNull(),
+        )
         PushNotifications.postChatMessage(
             context,
             ChatNotificationContent(
@@ -46,6 +55,7 @@ object ChatPush {
                 senderName = fallbackTitle ?: context.getString(R.string.app_name),
                 roomName = null,
                 body = context.getString(R.string.chat_notification_fallback),
+                placeholder = true,
             ),
         )
     }

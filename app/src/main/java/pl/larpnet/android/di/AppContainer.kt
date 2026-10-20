@@ -31,6 +31,7 @@ import pl.larpnet.android.network.FriendicaApi
 import pl.larpnet.android.network.GitHubApi
 import pl.larpnet.android.network.InstanceUrl
 import pl.larpnet.android.network.friendicaJson
+import pl.larpnet.android.push.PushNotifications
 import pl.larpnet.android.ui.compose.RecentTagsStore
 import pl.larpnet.android.ui.following.FollowedThreadsStore
 import pl.larpnet.android.ui.moderation.LocalPostFilterStore
@@ -179,7 +180,10 @@ class AppContainer(context: Context) {
     }
 
     val oAuthFlow = OAuthFlow(tokenStore, ::authApi)
-    val matrixRepository = MatrixRepository(context, tokenStore, ::friendicaApi)
+    val matrixRepository = MatrixRepository(context, tokenStore, ::friendicaApi).apply {
+        onRoomCaughtUp = { PushNotifications.cancelChat(context, it) }
+        onUnreadRoomsChanged = { rooms, at -> PushNotifications.reconcileChat(context, rooms, at) }
+    }
 
     val authRepository = AuthRepository(tokenStore, oAuthFlow, ::friendicaApi, matrixRepository)
     val timelineRepository = TimelineRepository(::friendicaApi)

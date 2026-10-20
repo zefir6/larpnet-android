@@ -9,6 +9,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -64,6 +66,7 @@ import org.matrix.rustcomponents.sdk.RoomVisibility
 import org.matrix.rustcomponents.sdk.ReceiptType
 import org.matrix.rustcomponents.sdk.Session
 import org.matrix.rustcomponents.sdk.SlidingSyncVersion
+import org.matrix.rustcomponents.sdk.SlidingSyncVersionBuilder
 import org.matrix.rustcomponents.sdk.SyncListenerV2
 import org.matrix.rustcomponents.sdk.SyncResponseV2
 import org.matrix.rustcomponents.sdk.SyncSettingsV2
@@ -137,6 +140,23 @@ private const val MAX_SERVER_BACKUP_DELETE_ATTEMPTS = 20
  * login -- see [MatrixRepository.discardLocalSession]. */
 private const val MATRIX_SESSION_RESET_VERSION = 1
 
+/**
+ * Sliding sync version for the clients this repository builds. The app itself still syncs with
+ * plain v2 ([MatrixRepository.startSyncLoop]); this is only for `NotificationClient`, which
+ * decrypts a pushed event through a short native sliding sync (Synapse's
+ * `org.matrix.simplified_msc3575`, available on test and prod) and fails instantly with
+ * `SlidingSync(VersionIsMissing)` without it. Until 0.28.0 that failure hit *every* chat push,
+ * so every one showed the generic "Nowa wiadomość" -- appended as yet another line, which is
+ * the ever-growing notification users reported (confirmed on the emulator, 2026-10-18).
+ * NATIVE rather than DISCOVER_NATIVE: discovery would fail `build()` (and so all of chat) on a
+ * server without it, instead of just the preview.
+ */
+private val NOTIFICATION_SLIDING_SYNC = SlidingSyncVersionBuilder.NATIVE
+
+/** See [MatrixRepository.startSyncWatchdog]. */
+private const val SYNC_WATCHDOG_MIN_MS = 15_000L
+private const val SYNC_WATCHDOG_MAX_MS = 120_000L
+
 /** Bump to make every install drop its local timeline cache once -- see
  * [MatrixRepository.discardEventCache]. 1 = caches written before [MatrixRepository.startEventCache]
  * existed, which can be missing messages (2026-10-13). */
@@ -162,6 +182,7 @@ class MatrixRepository(
 ) {
     private var client: Client? = null
     private var syncHandle: TaskHandle? = null
+    private var syncWatchdog: Job? = null
 
     /** Guards [ensureClient]'s build-and-login section -- see that function's doc comment for
      * why this is required, not just a defensive nicety. */
@@ -205,6 +226,18 @@ class MatrixRepository(
      * "Chat notifications") and the web bubble shows. Recomputed after every sync (see
      * [startSyncLoop]), so the Chat entry points' badges are live without the chat screen open. */
     val unreadCount: StateFlow<Int> = _unreadCount.asStateFlow()
+
+    /** A room was read (read receipt sent from this device) or muted -- its chat notification
+     * is stale. Wired to `PushNotifications.cancelChat` by `AppContainer`, keeping this data
+     * layer free of notification code. */
+    @Volatile
+    var onRoomCaughtUp: ((roomId: String) -> Unit)? = null
+
+    /** After each sync response's recount: the rooms still unread (joined, not muted, count > 0)
+     * and when that state was read. Wired to `PushNotifications.reconcileChat` by `AppContainer`
+     * -- how a room read on another device loses its notification here too. */
+    @Volatile
+    var onUnreadRoomsChanged: ((unreadRoomIds: Set<String>, snapshotAtMillis: Long) -> Unit)? = null
 
     /** Background work kicked off from sync callbacks (unread recount). */
     private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -251,6 +284,7 @@ class MatrixRepository(
         val newClient = ClientBuilder()
             .homeserverUrl(identity.homeserver)
             .sessionPaths(sessionDir.absolutePath, sessionDir.absolutePath)
+            .slidingSyncVersionBuilder(NOTIFICATION_SLIDING_SYNC)
             .build()
         newClient.customLoginWithJwt(identity.token, "larpnet Android", deviceId())
         saveSession(newClient)
@@ -894,7 +928,11 @@ class MatrixRepository(
         // bare mxid localpart whenever they haven't set a Matrix displayname yet (the common
         // case for anyone who's never opened chat themselves), instead of the full name the
         // room list already knows how to show.
-        val handle = ChatTimelineHandle(timeline, resolveDisplayName = ::resolvedName)
+        val handle = ChatTimelineHandle(
+            timeline,
+            resolveDisplayName = ::resolvedName,
+            onReadReceiptSent = { onRoomCaughtUp?.invoke(roomId) },
+        )
         handle.start()
         return handle
     }
@@ -965,6 +1003,7 @@ class MatrixRepository(
                 ClientBuilder()
                     .homeserverUrl(saved.homeserverUrl)
                     .sessionPaths(dir.absolutePath, dir.absolutePath)
+                    .slidingSyncVersionBuilder(NOTIFICATION_SLIDING_SYNC)
                     .build()
                     .use { restored ->
                         restored.restoreSession(saved)
@@ -1027,7 +1066,7 @@ class MatrixRepository(
             deviceId = stored.deviceId,
             homeserverUrl = stored.homeserverUrl,
             oauthData = null,
-            slidingSyncVersion = SlidingSyncVersion.NONE,
+            slidingSyncVersion = SlidingSyncVersion.NATIVE,
         )
     }
 
@@ -1064,6 +1103,7 @@ class MatrixRepository(
      * The push rule it writes comes back over sync, which refreshes the room list. */
     suspend fun muteRoom(roomId: String, untilMillis: Long?): Map<String, Long?> =
         apiProvider().matrixMute(MatrixMuteRequest(MatrixMuteRequest.ACTION_MUTE, roomId, untilMillis)).mutes
+            .also { onRoomCaughtUp?.invoke(roomId) }
 
     /** Returns the server's updated mute map (same shape as [muteStates]), so a caller can show
      * the change right away instead of waiting for the push rule to come back over sync. */
@@ -1101,6 +1141,8 @@ class MatrixRepository(
      * cleanup below runs regardless of whether that network call succeeds.
      */
     fun clearSession() {
+        syncWatchdog?.cancel()
+        syncWatchdog = null
         syncHandle?.cancel()
         syncHandle?.close()
         syncHandle = null
@@ -1123,16 +1165,49 @@ class MatrixRepository(
     private fun startSyncLoop(client: Client) {
         syncHandle?.cancel()
         syncHandle?.close()
-        syncHandle = client.syncV2(
+        val handle = client.syncV2(
             SyncSettingsV2(fullState = false),
             object : SyncListenerV2 {
                 override fun onUpdate(response: SyncResponseV2) {
+                    syncRestartBackoffMs = SYNC_WATCHDOG_MIN_MS
                     _roomListUpdates.tryEmit(Unit)
-                    scheduleUnreadRecount(client)
+                    scheduleUnreadRecount(client, fromSyncResponse = true)
                 }
             },
         )
-        scheduleUnreadRecount(client)
+        syncHandle = handle
+        startSyncWatchdog(client, handle)
+        // Local state may be stale here (the loop is only just (re)starting, e.g. on a push that
+        // arrived before this device synced the event), so this one only refreshes the badge
+        // and never reconciles notifications away.
+        scheduleUnreadRecount(client, fromSyncResponse = false)
+    }
+
+    @Volatile
+    private var syncRestartBackoffMs = SYNC_WATCHDOG_MIN_MS
+
+    /**
+     * The SDK's `syncV2` loop ends for good on the first failed request ("Sync loop ended with
+     * error" -- any network drop: Wi-Fi/mobile handover, Doze, a suspended emulator) and has no
+     * error callback; before this, only the next push or thread resume restarted it, so the
+     * room list, badge and notification reconcile all went stale in between (confirmed on the
+     * emulator, 2026-10-18). Polls [TaskHandle.isFinished] and restarts the loop with backoff
+     * (15 s doubling to 2 min, reset by any successful sync response).
+     */
+    private fun startSyncWatchdog(client: Client, handle: TaskHandle) {
+        syncWatchdog?.cancel()
+        syncWatchdog = backgroundScope.launch {
+            while (true) {
+                delay(syncRestartBackoffMs)
+                if (this@MatrixRepository.client !== client || syncHandle !== handle) return@launch
+                if (runCatching { handle.isFinished() }.getOrDefault(false)) {
+                    Log.i("MatrixRepository", "sync loop ended, restarting (backoff ${syncRestartBackoffMs} ms)")
+                    syncRestartBackoffMs = (syncRestartBackoffMs * 2).coerceAtMost(SYNC_WATCHDOG_MAX_MS)
+                    startSyncLoop(client)
+                    return@launch
+                }
+            }
+        }
     }
 
     /**
@@ -1161,21 +1236,25 @@ class MatrixRepository(
         runCatching { room.roomInfo().notificationCount.toInt() }.getOrDefault(0)
 
     /** Recomputes [unreadCount] off the sync callback thread; at most one recount in flight,
-     * extra requests while one runs are dropped (the running one reads the latest state). */
-    private fun scheduleUnreadRecount(activeClient: Client) {
+     * extra requests while one runs are dropped (the running one reads the latest state, and the
+     * next sync response recounts again). Only a recount following a real sync response
+     * ([fromSyncResponse]) reports to [onUnreadRoomsChanged]. */
+    private fun scheduleUnreadRecount(activeClient: Client, fromSyncResponse: Boolean) {
         if (!unreadRecountPending.compareAndSet(false, true)) return
         backgroundScope.launch {
             try {
+                val snapshotAt = System.currentTimeMillis()
                 val mutes = muteStates(activeClient)
-                var count = 0
+                val unreadRooms = mutableSetOf<String>()
                 for (room in activeClient.rooms()) {
                     room.use {
                         if (it.membership() == Membership.JOINED && it.id() !in mutes && unreadCountOf(it) > 0) {
-                            count++
+                            unreadRooms += it.id()
                         }
                     }
                 }
-                _unreadCount.value = count
+                _unreadCount.value = unreadRooms.size
+                if (fromSyncResponse) onUnreadRoomsChanged?.invoke(unreadRooms, snapshotAt)
             } catch (e: Exception) {
                 Log.w("MatrixRepository", "unread recount failed", e)
             } finally {
