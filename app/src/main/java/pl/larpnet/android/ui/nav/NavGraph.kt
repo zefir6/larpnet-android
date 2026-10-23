@@ -203,12 +203,22 @@ fun LarpnetNavGraph(startDestination: String, pendingChatRoomId: MutableStateFlo
 
     // Start chat in the background as soon as we're logged in -- not only when the Chat screen
     // first opens -- so the Chat badge (MatrixRepository.unreadCount, recounted on every sync)
-    // is right from launch.
-    LaunchedEffect(Unit) {
-        if (appContainer.tokenStore.isLoggedIn) {
-            runCatching { appContainer.matrixRepository.ensureClient() }
+    // is right from launch. ensureEncryption() too: in standard mode it silently sets up key
+    // backup, so room keys this device receives before the user ever opens Chat are backed up
+    // for their other devices (web, a new phone). Any prompt it returns is ignored here; the
+    // Chat screen asks again and shows it. Called at launch and from LOGIN's onLoggedIn, same
+    // split as startPushIfEnabled().
+    val chatScope = rememberCoroutineScope()
+    fun startChatInBackground() {
+        if (!appContainer.tokenStore.isLoggedIn) return
+        chatScope.launch {
+            runCatching {
+                appContainer.matrixRepository.ensureClient()
+                appContainer.matrixRepository.ensureEncryption()
+            }
         }
     }
+    LaunchedEffect(Unit) { startChatInBackground() }
 
     // A tapped chat notification: open that room (its name fills in once the thread loads).
     val chatRoomToOpen by pendingChatRoomId.collectAsState()
@@ -322,6 +332,7 @@ fun LarpnetNavGraph(startDestination: String, pendingChatRoomId: MutableStateFlo
                 LoginScreen(
                     onLoggedIn = {
                         startPushIfEnabled()
+                        startChatInBackground()
                         navController.navigate(Routes.HOME) {
                             popUpTo(Routes.LOGIN) { inclusive = true }
                         }

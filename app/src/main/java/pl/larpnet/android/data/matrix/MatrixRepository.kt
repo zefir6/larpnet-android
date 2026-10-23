@@ -190,6 +190,11 @@ class MatrixRepository(
      * why this is required, not just a defensive nicety. */
     private val clientMutex = Mutex()
 
+    /** Serializes [ensureEncryption]: it now runs at app launch (NavGraph) as well as when the
+     * Chat screen opens, and two concurrent runs could both see `pending` + DISABLED and set up
+     * recovery twice. */
+    private val encryptionMutex = Mutex()
+
     /** Used only by [deleteAllServerSideBackups] -- a handful of plain authenticated REST calls
      * for a rare, one-shot user action, not worth threading a shared `OkHttpClient` through this
      * class's constructor for. */
@@ -704,7 +709,11 @@ class MatrixRepository(
      * - Standard, `active`: restore silently if INCOMPLETE -- on failure fall back to the manual
      *   prompt, **never** reset, so a transient error can't wipe history.
      */
-    suspend fun ensureEncryption(): RecoveryPromptKind? {
+    suspend fun ensureEncryption(): RecoveryPromptKind? = encryptionMutex.withLock {
+        ensureEncryptionLocked()
+    }
+
+    private suspend fun ensureEncryptionLocked(): RecoveryPromptKind? {
         ensureClient()
         val enc = encryptionInfo
         if (enc == null || !enc.isStandard) {
