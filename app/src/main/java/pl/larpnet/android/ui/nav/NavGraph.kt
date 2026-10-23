@@ -203,10 +203,16 @@ fun LarpnetNavGraph(startDestination: String, pendingChatRoomId: MutableStateFlo
 
     // Start chat in the background as soon as we're logged in -- not only when the Chat screen
     // first opens -- so the Chat badge (MatrixRepository.unreadCount, recounted on every sync)
-    // is right from launch.
+    // is right from launch. ensureEncryption() too: in standard mode it silently sets up key
+    // backup, so room keys this device receives before the user ever opens Chat are backed up
+    // for their other devices (web, a new phone). Any prompt it returns is ignored here; the
+    // Chat screen asks again and shows it.
     LaunchedEffect(Unit) {
         if (appContainer.tokenStore.isLoggedIn) {
-            runCatching { appContainer.matrixRepository.ensureClient() }
+            runCatching {
+                appContainer.matrixRepository.ensureClient()
+                appContainer.matrixRepository.ensureEncryption()
+            }
         }
     }
 
