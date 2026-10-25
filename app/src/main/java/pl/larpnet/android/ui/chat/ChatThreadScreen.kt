@@ -44,6 +44,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.derivedStateOf
@@ -133,22 +134,40 @@ fun ChatThreadScreen(
         }
     }
 
-    var lastMessageCount by remember { mutableIntStateOf(0) }
+    // Newest message timestamp already accounted for. "New" means newer than this -- not "the
+    // list got longer": back-pagination prepends up to ~90 older messages and a timeline
+    // Reset/Clear rebuilds the whole list, and counting those as new made the banner climb
+    // ("25 nowych", growing) on a conversation with nothing unread.
+    var newestSeenMillis by remember { mutableLongStateOf(Long.MIN_VALUE) }
     var pendingNewMessages by remember { mutableIntStateOf(0) }
-    val isAtBottom by remember { derivedStateOf { !listState.canScrollForward } }
-
-    LaunchedEffect(state.messages.size) {
-        val newCount = state.messages.size
-        if (newCount > lastMessageCount && rows.isNotEmpty()) {
-            val justSentOwnMessage = state.messages.lastOrNull()?.isOwn == true
-            if (isAtBottom || justSentOwnMessage) {
-                listState.animateScrollToItem(rows.size - 1)
-                pendingNewMessages = 0
-            } else {
-                pendingNewMessages += newCount - lastMessageCount
-            }
+    // Last row visible counts as the bottom -- `!canScrollForward` alone stays false while the
+    // newest bubble is on screen but a few pixels (the list's bottom padding) short of the end.
+    val isAtBottom by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            !listState.canScrollForward ||
+                info.visibleItemsInfo.lastOrNull()?.index == info.totalItemsCount - 1
         }
-        lastMessageCount = newCount
+    }
+
+    var lastMessageCount by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(state.messages) {
+        val messages = state.messages
+        val grew = messages.size > lastMessageCount
+        lastMessageCount = messages.size
+        val newest = messages.maxOfOrNull { it.timestampMillis } ?: return@LaunchedEffect
+        val previous = newestSeenMillis
+        newestSeenMillis = maxOf(previous, newest)
+        if (rows.isEmpty()) return@LaunchedEffect
+        val firstLoad = previous == Long.MIN_VALUE
+        val arrived = if (firstLoad) emptyList() else messages.filter { it.timestampMillis > previous }
+        if (firstLoad || (grew && isAtBottom) || arrived.any { it.isOwn }) {
+            listState.animateScrollToItem(rows.size - 1)
+            pendingNewMessages = 0
+        } else if (!isAtBottom) {
+            pendingNewMessages += arrived.count { !it.isOwn }
+        }
     }
     LaunchedEffect(isAtBottom) {
         if (isAtBottom) pendingNewMessages = 0
