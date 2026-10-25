@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew :app:assembleDebug -q)",
+      "Bash(git -C /Users/zefir/projects/larpnet/larpnet-android status)",
+      "Bash(git -C /Users/zefir/projects/larpnet/larpnet-android branch -a)",
+      "Bash(git *)"
+    ]
+  }
+}

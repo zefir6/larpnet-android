@@ -40,9 +40,11 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.longOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.matrix.rustcomponents.sdk.BackupState
 import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.ClientBuilder
 import org.matrix.rustcomponents.sdk.CreateRoomParameters
+import org.matrix.rustcomponents.sdk.Encryption
 import org.matrix.rustcomponents.sdk.EnableRecoveryProgress
 import org.matrix.rustcomponents.sdk.EnableRecoveryProgressListener
 import org.matrix.rustcomponents.sdk.HttpPusherData
@@ -75,6 +77,8 @@ import org.matrix.rustcomponents.sdk.SyncSettingsV2
 import org.matrix.rustcomponents.sdk.TaskHandle
 import org.matrix.rustcomponents.sdk.TimelineEventContent
 import org.matrix.rustcomponents.sdk.TimelineItemContent
+import org.matrix.rustcomponents.sdk.VerificationState
+import org.matrix.rustcomponents.sdk.VerificationStateListener
 import pl.larpnet.android.BuildConfig
 import pl.larpnet.android.data.auth.ChatNameDisplay
 import pl.larpnet.android.data.auth.TokenStore
@@ -96,8 +100,15 @@ import pl.larpnet.android.network.FriendicaApi
  *   identical pattern, and against larpnet-iOS's `MatrixClientStore`).
  * - The crypto/session store on disk (`sessionPaths`), keyed by the Matrix user id, DOES
  *   persist across launches -- that's what makes E2EE history survive a relaunch.
- * - `ClientBuilder.autoEnableCrossSigning`/`autoEnableBackups` are deliberately left at their
- *   defaults (off) -- no interactive device-verification (SAS/emoji) UI, same policy as web
+ * - `ClientBuilder.autoEnableCrossSigning` is ON: it runs the SDK's
+ *   `bootstrap_cross_signing_if_needed` after login, which uploads cross-signing keys only when
+ *   the account has *no* cross-signing identity on the server -- the same first-ever,
+ *   UIA-free `device_signing/upload` web's `recovery.js` relies on. Without it an account whose
+ *   first chat client was this app got secret storage without cross-signing keys (recovery stuck
+ *   at `INCOMPLETE`) until web happened to create them (seen live on test 2026-10-23). It never
+ *   replaces an existing identity (that would need UIA these JWT-only accounts don't have).
+ *   `autoEnableBackups` stays off, and there's no interactive device-verification (SAS/emoji)
+ *   UI, same policy as web
  *   (`addon/larpnet_matrix/CLAUDE.md`'s "Why there's no device-verification UI"). This does NOT
  *   mean no recovery key at all, though: the actual policy (see that same doc, updated once web
  *   shipped user-chosen recovery passphrases) is "no *operator-derivable* key" -- a recovery
@@ -297,6 +308,7 @@ class MatrixRepository(
             .homeserverUrl(identity.homeserver)
             .sessionPaths(sessionDir.absolutePath, sessionDir.absolutePath)
             .slidingSyncVersionBuilder(NOTIFICATION_SLIDING_SYNC)
+            .autoEnableCrossSigning(true)
             .build()
         newClient.customLoginWithJwt(identity.token, "larpnet Android", deviceId())
         saveSession(newClient)
@@ -714,7 +726,9 @@ class MatrixRepository(
     }
 
     private suspend fun ensureEncryptionLocked(): RecoveryPromptKind? {
-        ensureClient()
+        // Lets the post-login cross-signing bootstrap (see the class doc) finish first, so
+        // enableRecovery() below stores the cross-signing keys in secret storage too.
+        ensureClient().encryption().waitForE2eeInitializationTasks()
         val enc = encryptionInfo
         if (enc == null || !enc.isStandard) {
             return recoveryPromptKind()
@@ -739,13 +753,64 @@ class MatrixRepository(
 
         return when (status) {
             RecoveryState.INCOMPLETE ->
-                if (runCatching { restoreRecovery(passphrase) }.isSuccess) null else RecoveryPromptKind.NEEDS_RESTORE
+                if (runCatching { restoreRecovery(passphrase) }.isSuccess) {
+                    storeMissingCrossSigningSecrets(passphrase)
+                    null
+                } else {
+                    RecoveryPromptKind.NEEDS_RESTORE
+                }
             RecoveryState.DISABLED -> {
                 // Secret storage vanished server-side; recreate it under the same passphrase.
                 setUpRecovery(passphrase)
                 null
             }
-            else -> null
+            else -> {
+                storeMissingCrossSigningSecrets(passphrase)
+                null
+            }
+        }
+    }
+
+    /**
+     * One-time repair for accounts whose first chat client was an app build without
+     * `autoEnableCrossSigning` (before 0.29.2): their secret storage holds only the backup key,
+     * no cross-signing keys. This device has since bootstrapped cross-signing itself (see the
+     * class doc), so it re-exports every secret it holds under the same server passphrase --
+     * otherwise a new web/iOS device restoring from secret storage would get no cross-signing
+     * keys and could never create them (that needs UIA).
+     *
+     * Non-destructive: with backups already enabled locally, `enableRecovery()` skips the
+     * backup entirely and only re-creates secret storage (see [resetRecovery]'s point 2), so
+     * nothing here touches the key backup. Skipped unless this device is verified, i.e. holds
+     * the cross-signing private keys -- a device without them would rewrite secret storage
+     * with nothing new on every launch.
+     */
+    private suspend fun storeMissingCrossSigningSecrets(passphrase: String) {
+        runCatching {
+            val activeClient = ensureClient()
+            val encryption = activeClient.encryption()
+            if (activeClient.accountData("m.cross_signing.master") != null) return
+            if (!awaitVerified(encryption)) return
+            if (encryption.backupState() != BackupState.ENABLED) return
+            encryption.enableRecovery(true, passphrase, NoOpRecoveryProgressListener)
+        }.onFailure { Log.w("MatrixRepository", "storing cross-signing keys in secret storage failed", it) }
+    }
+
+    /** Right after the cross-signing bootstrap, `verificationState()` still reads UNVERIFIED for
+     * a moment (seen live on the first launch after upgrading) -- give it a few seconds to flip. */
+    private suspend fun awaitVerified(encryption: Encryption): Boolean {
+        val verified = CompletableDeferred<Unit>()
+        val handle = encryption.verificationStateListener(object : VerificationStateListener {
+            override fun onUpdate(status: VerificationState) {
+                if (status == VerificationState.VERIFIED) verified.complete(Unit)
+            }
+        })
+        try {
+            if (encryption.verificationState() == VerificationState.VERIFIED) return true
+            return withTimeoutOrNull(10_000) { verified.await() } != null
+        } finally {
+            handle.cancel()
+            handle.close()
         }
     }
 
