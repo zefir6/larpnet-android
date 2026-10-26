@@ -1,12 +1,23 @@
 package pl.larpnet.android.ui.chat
 
+import android.content.ContentResolver
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
+import android.net.Uri
+import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import java.io.ByteArrayOutputStream
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import pl.larpnet.android.R
 import pl.larpnet.android.data.matrix.ChatMessage
 import pl.larpnet.android.data.matrix.ChatTimelineHandle
 import pl.larpnet.android.data.matrix.MatrixRepository
@@ -38,6 +49,8 @@ data class ChatThreadUiState(
     val draft: String = "",
     val isSending: Boolean = false,
     val error: String? = null,
+    /** Set instead of [error] for a failure with a fixed, localized message. */
+    val errorRes: Int? = null,
 )
 
 /**
@@ -164,7 +177,7 @@ class ChatThreadViewModel(
         val activeHandle = handle ?: return
         val text = uiState.draft.trim()
         if (text.isEmpty() || uiState.isSending) return
-        uiState = uiState.copy(isSending = true, error = null)
+        uiState = uiState.copy(isSending = true, error = null, errorRes = null)
         viewModelScope.launch {
             try {
                 activeHandle.send(text)
@@ -175,8 +188,74 @@ class ChatThreadViewModel(
         }
     }
 
+    /** Sends a photo from the picker as `m.image`: re-encoded as JPEG and downscaled to at most
+     * [MAX_IMAGE_SIDE] px (a full-resolution camera photo is 5-10 MB of mostly wasted upload),
+     * then checked against the server's upload limit the way the web composer does. */
+    fun sendImage(contentResolver: ContentResolver, uri: Uri) {
+        val activeHandle = handle ?: return
+        if (uiState.isSending) return
+        uiState = uiState.copy(isSending = true, error = null, errorRes = null)
+        viewModelScope.launch {
+            try {
+                val jpeg = withContext(Dispatchers.IO) { encodeJpeg(contentResolver, uri) }
+                if (jpeg == null) {
+                    uiState = uiState.copy(isSending = false, errorRes = R.string.chat_image_unreadable)
+                    return@launch
+                }
+                val limit = runCatching { repository.maxUploadSize() }.getOrNull()
+                if (limit != null && jpeg.bytes.size > limit) {
+                    uiState = uiState.copy(isSending = false, errorRes = R.string.chat_image_too_large)
+                    return@launch
+                }
+                activeHandle.sendImage(jpeg.bytes, jpeg.width, jpeg.height)
+                uiState = uiState.copy(isSending = false)
+            } catch (e: Exception) {
+                uiState = uiState.copy(isSending = false, error = e.message)
+            }
+        }
+    }
+
+    private class EncodedImage(val bytes: ByteArray, val width: Int, val height: Int)
+
+    private fun encodeJpeg(contentResolver: ContentResolver, uri: Uri): EncodedImage? = runCatching {
+        val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            decodeWithImageDecoder(contentResolver, uri)
+        } else {
+            decodeWithBitmapFactory(contentResolver, uri)
+        } ?: return@runCatching null
+        val out = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
+        EncodedImage(out.toByteArray(), bitmap.width, bitmap.height).also { bitmap.recycle() }
+    }.getOrNull()
+
+    /** `ImageDecoder` applies EXIF rotation and downsamples while decoding, so the JPEG comes out
+     * upright (not every Matrix client honours EXIF orientation) without first decoding a
+     * full-size bitmap. */
+    @RequiresApi(Build.VERSION_CODES.P)
+    private fun decodeWithImageDecoder(contentResolver: ContentResolver, uri: Uri): Bitmap =
+        ImageDecoder.decodeBitmap(ImageDecoder.createSource(contentResolver, uri)) { decoder, info, _ ->
+            val longest = maxOf(info.size.width, info.size.height)
+            if (longest > MAX_IMAGE_SIDE) {
+                val factor = MAX_IMAGE_SIDE.toFloat() / longest
+                decoder.setTargetSize((info.size.width * factor).toInt(), (info.size.height * factor).toInt())
+            }
+            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+        }
+
+    /** Android 8.x fallback: power-of-two downsampling only, and no EXIF rotation. */
+    private fun decodeWithBitmapFactory(contentResolver: ContentResolver, uri: Uri): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        var sample = 1
+        while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= MAX_IMAGE_SIDE) sample *= 2
+        val options = BitmapFactory.Options().apply { inSampleSize = sample }
+        return contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+    }
+
     override fun onCleared() {
         super.onCleared()
         handle?.close()
     }
 }
+
+private const val MAX_IMAGE_SIDE = 2048

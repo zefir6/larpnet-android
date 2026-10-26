@@ -55,6 +55,18 @@ data class ChatMessage(
      * room key). `ChatThreadScreen` renders this as a distinct inline note instead of a normal
      * bubble; [body] is empty and unused in this case. */
     val isUndecryptable: Boolean = false,
+    /** Set for an `m.image` message; [body] is then its caption (usually empty). */
+    val image: ChatImage? = null,
+)
+
+/** An image message's media, display-ready -- loaded via [MatrixRepository.chatImage]. */
+data class ChatImage(
+    /** `MediaSource.toJson()`: the FFI object is closed with its timeline item (see
+     * [ChatTimelineHandle]), and for an encrypted room it's what carries the decryption key --
+     * so it's kept whole, never reduced to its `mxc://` URL. */
+    val sourceJson: String,
+    val width: Int? = null,
+    val height: Int? = null,
 )
 
 /** One other member of a room, display-ready -- [MatrixRepository.roomInfo]'s member list. */

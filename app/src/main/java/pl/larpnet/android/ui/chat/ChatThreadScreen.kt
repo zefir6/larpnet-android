@@ -1,5 +1,8 @@
 package pl.larpnet.android.ui.chat
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
@@ -253,14 +257,25 @@ fun ChatThreadScreen(
                 }
             }
 
-            state.error?.let {
+            (state.errorRes?.let { stringResource(it) } ?: state.error)?.let {
                 Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 16.dp))
             }
 
+            val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+                if (uri != null) viewModel.sendImage(context.contentResolver, uri)
+            }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                IconButton(
+                    onClick = {
+                        photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    },
+                    enabled = !state.isSending && state.roomId != null,
+                ) {
+                    Icon(Icons.Filled.AddPhotoAlternate, contentDescription = stringResource(R.string.chat_send_image))
+                }
                 OutlinedTextField(
                     value = state.draft,
                     onValueChange = viewModel::onDraftChange,
@@ -329,18 +344,21 @@ private fun ClusterView(cluster: ChatMessageGrouping.Cluster, isGroup: Boolean, 
                 )
             }
             cluster.messages.forEachIndexed { index, message ->
-                ChatMessageBubble(message, isLastInCluster = index == cluster.messages.size - 1)
+                ChatMessageBubble(message, isLastInCluster = index == cluster.messages.size - 1, repository = repository)
             }
         }
     }
 }
 
 @Composable
-private fun ChatMessageBubble(message: ChatMessage, isLastInCluster: Boolean) {
+private fun ChatMessageBubble(message: ChatMessage, isLastInCluster: Boolean, repository: MatrixRepository) {
     Column(horizontalAlignment = if (message.isOwn) Alignment.End else Alignment.Start) {
         if (message.isUndecryptable) {
             UndecryptableNote()
-        } else {
+        } else if (message.image != null) {
+            ChatImageBubble(message.image, repository)
+        }
+        if (!message.isUndecryptable && (message.image == null || message.body.isNotBlank())) {
             Box(
                 modifier = Modifier
                     .widthIn(max = 280.dp)
