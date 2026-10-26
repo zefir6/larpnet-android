@@ -1197,16 +1197,21 @@ class MatrixRepository(
         return (roomId in mutes) to mutes[roomId]
     }
 
+    /** Label for a media message (push body and room-list preview), null for text-like ones. */
+    private fun mediaLabel(messageType: MessageType): String? = when (messageType) {
+        is MessageType.Image -> "📷 Zdjęcie"
+        is MessageType.File -> "📎 Plik"
+        is MessageType.Audio -> "🎤 Nagranie"
+        is MessageType.Video -> "🎬 Wideo"
+        else -> null
+    }
+
     private fun bodyFor(content: TimelineEventContent): String? {
         val messageLike = (content as? TimelineEventContent.MessageLike)?.content ?: return null
         return when (messageLike) {
             is MessageLikeEventContent.RoomMessage -> when (val messageType = messageLike.messageType) {
                 is MessageType.Text -> messageType.content.body
-                is MessageType.Image -> "📷 Zdjęcie"
-                is MessageType.File -> "📎 Plik"
-                is MessageType.Audio -> "🎤 Nagranie"
-                is MessageType.Video -> "🎬 Wideo"
-                else -> "Nowa wiadomość"
+                else -> mediaLabel(messageType) ?: "Nowa wiadomość"
             }
             is MessageLikeEventContent.RoomEncrypted -> "🔒"
             else -> null
@@ -1420,6 +1425,17 @@ class MatrixRepository(
         return activeClient.getMediaThumbnail(source, size.toULong(), size.toULong())
     }
 
+    /** Full bytes of a chat image (see [ChatImage]). Always the original, not a server
+     * thumbnail: an encrypted image has no server-side thumbnail, and the apps send none of
+     * their own (same as the web client), so callers downscale locally. */
+    suspend fun chatImage(image: ChatImage): ByteArray {
+        val activeClient = ensureClient()
+        return MediaSource.fromJson(image.sourceJson).use { activeClient.getMediaContent(it) }
+    }
+
+    /** The homeserver's upload limit (`m.upload.size`), as the web composer checks it. */
+    suspend fun maxUploadSize(): Long = ensureClient().getMaxMediaUploadSize().toLong()
+
     /** Room-list display name -- same algorithm as the web client's `roomDisplayName()`: for
      * a 1:1 DM, the partner's name via [resolvedName] (Friendica name first, so it also covers
      * someone who's never opened chat themselves); for a group, its own name if it has one,
@@ -1494,7 +1510,7 @@ class MatrixRepository(
     private fun previewText(content: TimelineItemContent): String? {
         val msgLike = (content as? TimelineItemContent.MsgLike)?.content ?: return null
         return when (val kind = msgLike.kind) {
-            is MsgLikeKind.Message -> kind.content.body
+            is MsgLikeKind.Message -> mediaLabel(kind.content.msgType) ?: kind.content.body
             is MsgLikeKind.UnableToDecrypt -> "🔒"
             else -> null
         }

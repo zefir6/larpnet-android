@@ -59,7 +59,7 @@ fun MediaGalleryDialog(context: GalleryContext, onDismiss: () -> Unit) {
         ) {
             val pagerState = rememberPagerState(initialPage = context.initialIndex) { context.attachments.size }
             HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-                ZoomableImage(url = context.attachments[page].url)
+                ZoomableImage(model = context.attachments[page].url)
             }
             IconButton(
                 onClick = onDismiss,
@@ -72,14 +72,15 @@ fun MediaGalleryDialog(context: GalleryContext, onDismiss: () -> Unit) {
 }
 
 /** Pinch-to-zoom (1x-5x) with pan-while-zoomed, plus double-tap to toggle between 1x and 2.5x --
- * matching the standard photo-viewer gesture set (see iOS's `ZoomableImageView`). */
+ * matching the standard photo-viewer gesture set (see iOS's `ZoomableImageView`). [model] is
+ * anything Coil loads: a URL here, image bytes for chat images (`ChatImageViewer`). */
 @Composable
-private fun ZoomableImage(url: String?) {
+internal fun ZoomableImage(model: Any?) {
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
 
     AsyncImage(
-        model = url,
+        model = model,
         contentDescription = null,
         contentScale = ContentScale.Fit,
         modifier = Modifier

@@ -7,6 +7,10 @@ import org.matrix.rustcomponents.sdk.MsgLikeKind
 import org.matrix.rustcomponents.sdk.ProfileDetails
 import org.matrix.rustcomponents.sdk.TaskHandle
 import org.matrix.rustcomponents.sdk.EventOrTransactionId
+import org.matrix.rustcomponents.sdk.ImageInfo
+import org.matrix.rustcomponents.sdk.MessageType
+import org.matrix.rustcomponents.sdk.UploadParameters
+import org.matrix.rustcomponents.sdk.UploadSource
 import org.matrix.rustcomponents.sdk.ReceiptType
 import org.matrix.rustcomponents.sdk.Timeline
 import org.matrix.rustcomponents.sdk.TimelineDiff
@@ -91,6 +95,25 @@ class ChatTimelineHandle(
         timeline.send(messageEventContentFromMarkdown(text))
     }
 
+    /** Sends an already-encoded JPEG as `m.image`. The SDK uploads it (encrypted, in an
+     * encrypted room) and builds the same content shape the web client sends and renders. */
+    suspend fun sendImage(jpeg: ByteArray, width: Int, height: Int) {
+        val info = ImageInfo(
+            height = height.toULong(), width = width.toULong(), mimetype = "image/jpeg",
+            size = jpeg.size.toULong(), thumbnailInfo = null, thumbnailSource = null,
+            blurhash = null, isAnimated = false,
+        )
+        val params = UploadParameters(
+            source = UploadSource.Data(jpeg, "IMG_${System.currentTimeMillis() / 1000}.jpg"),
+            caption = null, formattedCaption = null, mentions = null, inReplyTo = null,
+        )
+        try {
+            timeline.sendImage(params, null, info).use { it.join() }
+        } finally {
+            info.destroy()
+        }
+    }
+
     /** Stops the timeline listener and frees the underlying `Timeline` -- call when the
      * thread screen closes, so this room's diff subscription doesn't keep running (and
      * retaining native memory) after the view that cares about it is gone. */
@@ -128,8 +151,21 @@ class ChatTimelineHandle(
         try {
             val event = item.asEvent() ?: return null
             val msgLike = (event.content as? TimelineItemContent.MsgLike)?.content ?: return null
+            var image: ChatImage? = null
             val (body, isUndecryptable) = when (val kind = msgLike.kind) {
-                is MsgLikeKind.Message -> kind.content.body to false
+                is MsgLikeKind.Message -> when (val type = kind.content.msgType) {
+                    is MessageType.Image -> {
+                        image = ChatImage(
+                            sourceJson = type.content.source.toJson(),
+                            width = type.content.info?.width?.toInt(),
+                            height = type.content.info?.height?.toInt(),
+                        )
+                        (type.content.caption ?: "") to false
+                    }
+                    is MessageType.File -> "📎 ${type.content.filename}" to false
+                    is MessageType.Video -> "🎬 ${type.content.filename}" to false
+                    else -> kind.content.body to false
+                }
                 is MsgLikeKind.UnableToDecrypt -> "" to true
                 else -> return null
             }
@@ -145,6 +181,7 @@ class ChatTimelineHandle(
                 senderDisplayName = if (event.isOwn) null else resolveDisplayName(event.sender, sdkDisplayName),
                 senderAvatarUrl = if (event.isOwn) null else readyProfile?.avatarUrl,
                 isUndecryptable = isUndecryptable,
+                image = image,
             )
         } finally {
             item.close()
