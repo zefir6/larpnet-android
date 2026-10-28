@@ -45,14 +45,17 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.Lifecycle
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -127,8 +130,12 @@ fun ChatThreadScreen(
         }
     }
 
-    // Flattened row list backing the LazyColumn -- lets us scroll-to-end by a plain last-index
-    // rather than hand-tracking per-section/per-cluster indices.
+    // Flattened row list backing the LazyColumn, oldest first. The list itself is drawn
+    // bottom-up (reverseLayout, newest = index 0): it opens at the newest message, back-pagination
+    // and late-loading images only grow it upwards, and a cluster that gains a message grows up
+    // from the bottom edge. Scrolling to the top of the last cluster instead (the old approach)
+    // landed on the *first* message of a long run from one sender, both on open and whenever
+    // a new message joined that run (2026-10-28).
     val rows = remember(groups) {
         buildList {
             groups.forEach { day ->
@@ -144,13 +151,21 @@ fun ChatThreadScreen(
     // ("25 nowych", growing) on a conversation with nothing unread.
     var newestSeenMillis by remember { mutableLongStateOf(Long.MIN_VALUE) }
     var pendingNewMessages by remember { mutableIntStateOf(0) }
-    // Last row visible counts as the bottom -- `!canScrollForward` alone stays false while the
-    // newest bubble is on screen but a few pixels (the list's bottom padding) short of the end.
+    // Newest cluster (index 0) shown down to its bottom edge, give or take the list padding.
+    val bottomSlackPx = with(LocalDensity.current) { 48.dp.toPx() }
     val isAtBottom by remember {
         derivedStateOf {
-            val info = listState.layoutInfo
-            !listState.canScrollForward ||
-                info.visibleItemsInfo.lastOrNull()?.index == info.totalItemsCount - 1
+            listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < bottomSlackPx
+        }
+    }
+    // isAtBottom as of the last time scrolling stopped. A new message that starts its own cluster
+    // is inserted at index 0, and the list keeps the previous first item in place by key, so
+    // isAtBottom already reads false by the time the messages effect below runs -- deciding on
+    // that turned "new message while at the bottom" into the "N new" banner.
+    var stuckToBottom by remember { mutableStateOf(true) }
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.isScrollInProgress }.collect { scrolling ->
+            if (!scrolling) stuckToBottom = isAtBottom
         }
     }
 
@@ -166,10 +181,10 @@ fun ChatThreadScreen(
         if (rows.isEmpty()) return@LaunchedEffect
         val firstLoad = previous == Long.MIN_VALUE
         val arrived = if (firstLoad) emptyList() else messages.filter { it.timestampMillis > previous }
-        if (firstLoad || (grew && isAtBottom) || arrived.any { it.isOwn }) {
-            listState.animateScrollToItem(rows.size - 1)
+        if (firstLoad || (grew && stuckToBottom) || arrived.any { it.isOwn }) {
+            listState.animateScrollToItem(0)
             pendingNewMessages = 0
-        } else if (!isAtBottom) {
+        } else if (!stuckToBottom) {
             pendingNewMessages += arrived.count { !it.isOwn }
         }
     }
@@ -225,8 +240,9 @@ fun ChatThreadScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
+                        reverseLayout = true,
                     ) {
-                        rows.forEach { row ->
+                        rows.asReversed().forEach { row ->
                             when (row) {
                                 is ChatRow.DaySeparator -> item(key = "day_${row.dayStartMillis}") {
                                     DaySeparator(row.dayStartMillis)
@@ -243,7 +259,7 @@ fun ChatThreadScreen(
                     Button(
                         onClick = {
                             coroutineScope.launch {
-                                if (rows.isNotEmpty()) listState.animateScrollToItem(rows.size - 1)
+                                if (rows.isNotEmpty()) listState.animateScrollToItem(0)
                             }
                             pendingNewMessages = 0
                         },
