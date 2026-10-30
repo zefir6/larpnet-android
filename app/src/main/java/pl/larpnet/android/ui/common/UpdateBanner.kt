@@ -23,11 +23,11 @@ import pl.larpnet.android.data.repository.UpdateSource
 
 /** Global "new version available" banner -- see UpdateChecker. Shown once above the NavHost so it survives switching bottom-nav tabs. */
 @Composable
-fun UpdateBanner(update: AppUpdate, onDownload: () -> Unit, onDismiss: () -> Unit) {
+fun UpdateBanner(update: AppUpdate, onDownload: () -> Unit, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
         shape = MaterialTheme.shapes.small,
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
