@@ -11,7 +11,11 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
@@ -21,12 +25,14 @@ import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -265,7 +271,12 @@ fun LarpnetNavGraph(startDestination: String, pendingChatRoomId: MutableStateFlo
     val onOpenDestination: (AppDestination) -> Unit = { navController.navigateToDestination(it) }
     val onOpenNotifications: () -> Unit = { navController.navigateToDestination(AppDestination.NOTIFICATIONS) }
 
+    // No insets of its own: every screen's Scaffold/TopAppBar handles the status bar itself.
+    // With the default insets this Scaffold padded the status bar AND each screen's TopAppBar
+    // added it again, so the purple bar was ~40dp too tall with a blank band above it.
+    // consumeWindowInsets() below still stops screens from re-adding the bottom bar's insets.
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (currentRoute in topLevelRoutes) {
                 NavigationBar {
@@ -283,7 +294,7 @@ fun LarpnetNavGraph(startDestination: String, pendingChatRoomId: MutableStateFlo
                                     Icon(destination.icon, contentDescription = null)
                                 }
                             },
-                            label = { Text(stringResource(destination.labelRes)) },
+                            label = { NavBarLabel(stringResource(destination.labelRes)) },
                         )
                     }
                     // Fixed last item, not itself reassignable to another zone -- always the
@@ -292,7 +303,7 @@ fun LarpnetNavGraph(startDestination: String, pendingChatRoomId: MutableStateFlo
                         selected = currentRoute == Routes.MORE,
                         onClick = { navController.navigateToTopLevel(Routes.MORE) },
                         icon = { Icon(Icons.Filled.MoreHoriz, contentDescription = null) },
-                        label = { Text(stringResource(R.string.nav_more)) },
+                        label = { NavBarLabel(stringResource(R.string.nav_more)) },
                     )
                 }
             }
@@ -305,9 +316,10 @@ fun LarpnetNavGraph(startDestination: String, pendingChatRoomId: MutableStateFlo
             }
         },
     ) { padding ->
-        Column(modifier = Modifier.padding(padding)) {
+        Column(modifier = Modifier.padding(padding).consumeWindowInsets(padding)) {
             availableUpdate?.let { update ->
                 UpdateBanner(
+                    modifier = Modifier.statusBarsPadding(),
                     update = update,
                     onDownload = {
                         try {
@@ -327,6 +339,8 @@ fun LarpnetNavGraph(startDestination: String, pendingChatRoomId: MutableStateFlo
             NavHost(
                 navController = navController,
                 startDestination = startDestination,
+                // The banner already sits below the status bar, so the screen's top bar mustn't add it again.
+                modifier = if (availableUpdate != null) Modifier.consumeWindowInsets(WindowInsets.statusBars) else Modifier,
             ) {
             composable(Routes.LOGIN) {
                 LoginScreen(
@@ -649,4 +663,13 @@ fun LarpnetNavGraph(startDestination: String, pendingChatRoomId: MutableStateFlo
         }
         }
     }
+}
+
+/**
+ * Bottom-bar label kept to one line: with five items, "Notifications" (or "Powiadomienia")
+ * wrapped to a second line at the default label size and pushed the bar out of line.
+ */
+@Composable
+private fun NavBarLabel(text: String) {
+    Text(text, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
