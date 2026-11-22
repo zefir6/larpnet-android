@@ -1,17 +1,15 @@
 package pl.larpnet.android.ui.chat
 
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -25,9 +23,15 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -36,6 +40,7 @@ import pl.larpnet.android.R
 import pl.larpnet.android.data.matrix.ChatRoomMember
 import pl.larpnet.android.data.matrix.MatrixRepository
 import pl.larpnet.android.di.rememberAppContainer
+import pl.larpnet.android.ui.common.CopyProfileLinkButton
 import pl.larpnet.android.ui.common.MatrixAvatarImage
 import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 
@@ -46,6 +51,7 @@ fun ChatRoomInfoScreen(
     onBack: () -> Unit,
     onAddMember: () -> Unit,
     onLeft: () -> Unit,
+    onOpenProfile: (nickname: String) -> Unit,
 ) {
     val appContainer = rememberAppContainer()
     val viewModel: ChatRoomInfoViewModel = viewModel(
@@ -137,7 +143,9 @@ fun ChatRoomInfoScreen(
                     member = member,
                     repository = appContainer.matrixRepository,
                     enabled = !state.isBusy,
+                    canRemove = state.isGroup,
                     onRemove = { viewModel.remove(member.userId) },
+                    onOpenProfile = onOpenProfile,
                 )
             }
             item {
@@ -163,22 +171,59 @@ fun ChatRoomInfoScreen(
     }
 }
 
+/**
+ * Tapping the avatar/name opens the person's profile and the link icon copies their profile URL
+ * (web: the info panel's member rows). Remove is offered in groups only -- in a 1:1 it would just
+ * end the conversation for the other person, which "leave" already covers (same as the web).
+ */
 @Composable
-private fun ChatRoomMemberRow(member: ChatRoomMember, repository: MatrixRepository, enabled: Boolean, onRemove: () -> Unit) {
+private fun ChatRoomMemberRow(
+    member: ChatRoomMember,
+    repository: MatrixRepository,
+    enabled: Boolean,
+    canRemove: Boolean,
+    onRemove: () -> Unit,
+    onOpenProfile: (nickname: String) -> Unit,
+) {
+    val nickname = repository.friendicaNickname(member.userId)
+    val profileUrl = repository.friendicaProfileUrl(member.userId)
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 2.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .clip(RoundedCornerShape(12.dp))
+                .then(
+                    if (nickname != null) {
+                        Modifier.clickable(onClickLabel = stringResource(R.string.view_profile)) { onOpenProfile(nickname) }
+                    } else {
+                        Modifier
+                    },
+                )
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
             MatrixAvatarImage(
-                avatarUrl = member.avatarUrl, name = member.displayName, repository = repository, size = 36.dp,
+                avatarUrl = member.avatarUrl, name = member.displayName, repository = repository, size = 40.dp,
                 userId = member.userId,
             )
-            Text(member.displayName, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                member.displayName,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
-        TextButton(onClick = onRemove, enabled = enabled) {
-            Text(stringResource(R.string.chat_room_remove_member), color = MaterialTheme.colorScheme.error)
+        if (profileUrl != null) {
+            CopyProfileLinkButton(profileUrl)
+        }
+        if (canRemove) {
+            TextButton(onClick = onRemove, enabled = enabled) {
+                Text(stringResource(R.string.chat_room_remove_member), color = MaterialTheme.colorScheme.error)
+            }
         }
     }
 }

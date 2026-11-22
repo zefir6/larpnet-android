@@ -44,6 +44,14 @@ class ProfileRepository(private val apiProvider: () -> FriendicaApi) {
         if (following) apiProvider().follow(id) else apiProvider().unfollow(id)
     }
 
+    /** Exact local-account lookup. [host] qualifies the nickname (`nick@host`): the server's
+     * `accounts/lookup` resolves via `Contact::getByURL`, which 404s on a bare nickname -- and
+     * the host also keeps it from matching a remote account of the same name (same as iOS's
+     * `lookupLocalAccount`). */
+    suspend fun lookup(nickname: String, host: String?): Result<Account> = safeApiCall {
+        apiProvider().lookupAccount(if (host.isNullOrBlank()) nickname else "$nickname@$host")
+    }
+
     /** [resolve] triggers a WebFinger lookup server-side, only useful when [query] is an exact `user@domain` handle. */
     suspend fun search(query: String, resolve: Boolean = false): Result<List<Account>> = safeApiCall {
         apiProvider().searchAccounts(query, resolve = resolve)

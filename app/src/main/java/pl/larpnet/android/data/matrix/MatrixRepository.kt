@@ -1500,6 +1500,23 @@ class MatrixRepository(
         return "${base}photo/avatar/${Uri.encode(localpart)}.jpg"
     }
 
+    /** The Friendica nickname behind a local Matrix user (localpart == lowercased nickname, see
+     * [friendicaAvatarUrl]), null for a user on another homeserver -- what the chat screens pass
+     * to open that person's profile (resolved via `accounts/lookup`). */
+    fun friendicaNickname(userId: String?): String? {
+        if (userId == null || userId.substringAfter(':') != serverName) return null
+        return localpartOf(userId)
+    }
+
+    /** Public Larpnet profile URL (`<instance>/profile/<nickname>`) for a local Matrix user, null
+     * otherwise -- what "copy profile link" in chat copies, same as the web client's
+     * `profileUrlForUserId()`. */
+    fun friendicaProfileUrl(userId: String?): String? {
+        val nickname = friendicaNickname(userId) ?: return null
+        val base = tokenStore.instanceBaseUrl?.let(InstanceUrl::normalize) ?: return null
+        return "${base}profile/${Uri.encode(nickname)}"
+    }
+
     private suspend fun previewFor(room: Room): Pair<String?, Long?> = when (val latest = room.latestEvent()) {
         is LatestEventValue.None -> null to null
         is LatestEventValue.RemoteInvite -> null to latest.timestamp.toLong()

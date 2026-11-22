@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
@@ -16,28 +17,28 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.platform.LocalContext
-import androidx.core.content.ContextCompat
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.core.content.ContextCompat
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -46,31 +47,34 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import java.net.URLDecoder
+import java.net.URLEncoder
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import pl.larpnet.android.BuildConfig
 import pl.larpnet.android.R
+import pl.larpnet.android.network.InstanceUrl
 import pl.larpnet.android.data.model.Status
 import pl.larpnet.android.di.rememberAppContainer
+import pl.larpnet.android.push.PushControl
+import pl.larpnet.android.ui.albums.AlbumDetailScreen
+import pl.larpnet.android.ui.albums.AlbumsScreen
 import pl.larpnet.android.ui.chat.ChatRoomInfoScreen
 import pl.larpnet.android.ui.chat.ChatScreen
 import pl.larpnet.android.ui.chat.ChatThreadScreen
 import pl.larpnet.android.ui.chat.ChatThreadTarget
+import pl.larpnet.android.ui.common.UpdateBanner
 import pl.larpnet.android.ui.compose.ComposeScreen
 import pl.larpnet.android.ui.directory.DirectoryScreen
+import pl.larpnet.android.ui.following.FollowedThreadsScreen
 import pl.larpnet.android.ui.login.LoginScreen
+import pl.larpnet.android.ui.media.MediaGridScreen
 import pl.larpnet.android.ui.messages.ConversationThreadScreen
 import pl.larpnet.android.ui.messages.ConversationsScreen
-import pl.larpnet.android.ui.notifications.NotificationsScreen
-import pl.larpnet.android.push.PushControl
-import pl.larpnet.android.ui.albums.AlbumDetailScreen
-import pl.larpnet.android.ui.albums.AlbumsScreen
-import pl.larpnet.android.ui.common.UpdateBanner
-import pl.larpnet.android.ui.following.FollowedThreadsScreen
-import pl.larpnet.android.ui.media.MediaGridScreen
 import pl.larpnet.android.ui.moderation.BlockedAccountsScreen
 import pl.larpnet.android.ui.moderation.LocalPostListKind
 import pl.larpnet.android.ui.moderation.LocalPostListScreen
+import pl.larpnet.android.ui.notifications.NotificationsScreen
 import pl.larpnet.android.ui.profile.EditProfileScreen
 import pl.larpnet.android.ui.profile.ProfileScreen
 import pl.larpnet.android.ui.search.SearchScreen
@@ -78,8 +82,6 @@ import pl.larpnet.android.ui.settings.SettingsScreen
 import pl.larpnet.android.ui.thread.ThreadScreen
 import pl.larpnet.android.ui.timeline.TimelineKind
 import pl.larpnet.android.ui.timeline.TimelineScreen
-import java.net.URLDecoder
-import java.net.URLEncoder
 
 internal object Routes {
     const val LOGIN = "login"
@@ -260,6 +262,17 @@ fun LarpnetNavGraph(startDestination: String, pendingChatRoomId: MutableStateFlo
     val onOpenThread: (Status) -> Unit = { navController.navigate(threadRoute(it.id)) }
     val onOpenThreadById: (String) -> Unit = { navController.navigate(threadRoute(it)) }
     val onOpenProfile: (String) -> Unit = { navController.navigate(profileRoute(it)) }
+    // Chat only knows a person's Friendica nickname (Matrix localpart), not their API account
+    // id -- resolve it first, then open the regular profile screen.
+    val onOpenProfileByNickname: (String) -> Unit = { nickname ->
+        chatScope.launch {
+            val host = appContainer.tokenStore.instanceBaseUrl
+                ?.let { runCatching { java.net.URI(InstanceUrl.normalize(it)).host }.getOrNull() }
+            appContainer.profileRepository.lookup(nickname, host)
+                .onSuccess { navController.navigate(profileRoute(it.id)) }
+                .onFailure { Toast.makeText(context, R.string.profile_open_failed, Toast.LENGTH_SHORT).show() }
+        }
+    }
     val onReply: (Status) -> Unit = { navController.navigate(composeRoute(it.id)) }
     val onSearch: () -> Unit = { navController.navigate(Routes.SEARCH) }
     val onOpenHashtag: (String) -> Unit = { navController.navigate(tagRoute(it)) }
@@ -609,6 +622,7 @@ fun LarpnetNavGraph(startDestination: String, pendingChatRoomId: MutableStateFlo
                     target = target,
                     onBack = { navController.popBackStack() },
                     onOpenInfo = { roomId -> navController.navigate(chatRoomInfoRoute(roomId)) },
+                    onOpenProfile = onOpenProfileByNickname,
                 )
             }
 
@@ -622,6 +636,7 @@ fun LarpnetNavGraph(startDestination: String, pendingChatRoomId: MutableStateFlo
                     onBack = { navController.popBackStack() },
                     onAddMember = { navController.navigate(addChatMemberRoute(roomId)) },
                     onLeft = { navController.popBackStack(Routes.CHAT, inclusive = false) },
+                    onOpenProfile = onOpenProfileByNickname,
                 )
             }
 

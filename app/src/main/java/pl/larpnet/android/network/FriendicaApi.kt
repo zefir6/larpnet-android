@@ -76,6 +76,10 @@ interface FriendicaApi {
     @GET("api/v1/accounts/{id}")
     suspend fun getAccount(@Path("id") id: String): Account
 
+    /** Exact local-account lookup by nickname -- used to open a chat peer's profile. */
+    @GET("api/v1/accounts/lookup")
+    suspend fun lookupAccount(@Query("acct") acct: String): Account
+
     @GET("api/v1/accounts/search")
     suspend fun searchAccounts(
         @Query("q") query: String,

@@ -324,4 +324,8 @@
     <string name="error_network">Network error. Check your connection.</string>
     <string name="error_generic">Something went wrong.</string>
     <string name="error_session_expired">Session expired, please log in again.</string>
+    <string name="copy_profile_link">Copy profile link</string>
+    <string name="link_copied">Link copied</string>
+    <string name="view_profile">View profile</string>
+    <string name="profile_open_failed">Couldn\'t open the profile</string>
 </resources>

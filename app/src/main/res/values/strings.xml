@@ -324,4 +324,8 @@
     <string name="error_network">Błąd sieci. Sprawdź połączenie.</string>
     <string name="error_generic">Coś poszło nie tak.</string>
     <string name="error_session_expired">Sesja wygasła, zaloguj się ponownie.</string>
+    <string name="copy_profile_link">Kopiuj link do profilu</string>
+    <string name="link_copied">Skopiowano link</string>
+    <string name="view_profile">Zobacz profil</string>
+    <string name="profile_open_failed">Nie udało się otworzyć profilu</string>
 </resources>

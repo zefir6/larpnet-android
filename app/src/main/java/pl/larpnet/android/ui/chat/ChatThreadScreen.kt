@@ -4,6 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -40,28 +42,28 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import pl.larpnet.android.push.PushNotifications
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.Lifecycle
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -72,6 +74,7 @@ import pl.larpnet.android.R
 import pl.larpnet.android.data.matrix.ChatMessage
 import pl.larpnet.android.data.matrix.MatrixRepository
 import pl.larpnet.android.di.rememberAppContainer
+import pl.larpnet.android.push.PushNotifications
 import pl.larpnet.android.ui.common.MatrixAvatarImage
 import pl.larpnet.android.ui.theme.LarpnetAccent
 import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
@@ -82,6 +85,7 @@ fun ChatThreadScreen(
     target: ChatThreadTarget,
     onBack: () -> Unit,
     onOpenInfo: (String) -> Unit,
+    onOpenProfile: (nickname: String) -> Unit,
 ) {
     val appContainer = rememberAppContainer()
     val viewModelKey = when (target) {
@@ -198,7 +202,19 @@ fun ChatThreadScreen(
                 colors = larpnetTopAppBarColors(),
                 title = {
                     val title = state.roomName ?: stringResource(R.string.chat_title)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    // 1:1: the person's avatar + name open their profile (web: the header's
+                    // `lnc-header-person` link).
+                    val peerNickname = if (state.isGroup) null else appContainer.matrixRepository.friendicaNickname(state.peerUserId)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = if (peerNickname != null) {
+                            Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable(onClickLabel = stringResource(R.string.view_profile)) { onOpenProfile(peerNickname) }
+                        } else {
+                            Modifier
+                        },
+                    ) {
                         if (state.roomId != null) {
                             MatrixAvatarImage(
                                 avatarUrl = state.avatarUrl, name = title, repository = appContainer.matrixRepository,
@@ -248,7 +264,7 @@ fun ChatThreadScreen(
                                     DaySeparator(row.dayStartMillis)
                                 }
                                 is ChatRow.ClusterRow -> item(key = "cluster_${row.cluster.id}") {
-                                    ClusterView(row.cluster, isGroup = state.isGroup, repository = appContainer.matrixRepository)
+                                    ClusterView(row.cluster, isGroup = state.isGroup, repository = appContainer.matrixRepository, onOpenProfile = onOpenProfile)
                                 }
                             }
                         }
@@ -331,17 +347,31 @@ private fun DaySeparator(dayStartMillis: Long) {
 }
 
 @Composable
-private fun ClusterView(cluster: ChatMessageGrouping.Cluster, isGroup: Boolean, repository: MatrixRepository) {
+private fun ClusterView(
+    cluster: ChatMessageGrouping.Cluster,
+    isGroup: Boolean,
+    repository: MatrixRepository,
+    onOpenProfile: (nickname: String) -> Unit,
+) {
+    // Group rooms: the sender's avatar and name open their profile.
+    val senderNickname = if (isGroup && !cluster.isOwn) repository.friendicaNickname(cluster.senderId) else null
+    val profileClick = if (senderNickname != null) {
+        Modifier.clickable(onClickLabel = stringResource(R.string.view_profile)) { onOpenProfile(senderNickname) }
+    } else {
+        Modifier
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (cluster.isOwn) Arrangement.End else Arrangement.Start,
     ) {
         if (!cluster.isOwn) {
             if (isGroup) {
-                MatrixAvatarImage(
-                    avatarUrl = cluster.senderAvatarUrl, name = cluster.senderDisplayName ?: "?",
-                    repository = repository, size = 28.dp, userId = cluster.senderId,
-                )
+                Box(modifier = Modifier.clip(CircleShape).then(profileClick)) {
+                    MatrixAvatarImage(
+                        avatarUrl = cluster.senderAvatarUrl, name = cluster.senderDisplayName ?: "?",
+                        repository = repository, size = 28.dp, userId = cluster.senderId,
+                    )
+                }
             } else {
                 Spacer(modifier = Modifier.size(28.dp))
             }
@@ -356,7 +386,7 @@ private fun ClusterView(cluster: ChatMessageGrouping.Cluster, isGroup: Boolean, 
                     text = cluster.senderDisplayName,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 4.dp),
+                    modifier = Modifier.clip(RoundedCornerShape(4.dp)).then(profileClick).padding(horizontal = 4.dp),
                 )
             }
             cluster.messages.forEachIndexed { index, message ->
