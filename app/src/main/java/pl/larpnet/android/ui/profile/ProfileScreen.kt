@@ -46,6 +46,7 @@ import pl.larpnet.android.data.model.Status
 import pl.larpnet.android.di.rememberAppContainer
 import pl.larpnet.android.domain.html.HtmlParser
 import pl.larpnet.android.ui.common.AvatarImage
+import pl.larpnet.android.ui.common.CopyProfileLinkButton
 import pl.larpnet.android.ui.common.HtmlContent
 import pl.larpnet.android.ui.moderation.PostModerationDialogs
 import pl.larpnet.android.ui.moderation.rememberPostModerationHost
@@ -212,10 +213,17 @@ private fun ProfileHeader(
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(top = 8.dp),
         )
-        Text(
-            text = "@${account.acct}",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        // "@acct" + copy-link icon (web: "Kopiuj link do profilu" on the profile card).
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "@${account.acct}",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            if (account.url.isNotBlank()) {
+                CopyProfileLinkButton(account.url)
+            }
+        }
 
         if (account.note.isNotBlank()) {
             HtmlContent(bioNodes, modifier = Modifier.padding(top = 8.dp))
