@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.Ringtone
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
@@ -41,6 +42,7 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Report
 import androidx.compose.material.icons.filled.Shield
@@ -63,6 +65,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -95,7 +98,10 @@ import pl.larpnet.android.data.repository.ProfileRepository
 import pl.larpnet.android.data.repository.PushRepository
 import pl.larpnet.android.data.repository.UpdateChecker
 import pl.larpnet.android.di.rememberAppContainer
+import pl.larpnet.android.push.ChatSound
+import pl.larpnet.android.push.ChatSounds
 import pl.larpnet.android.push.PushControl
+import pl.larpnet.android.push.PushNotifications
 import pl.larpnet.android.ui.chat.RecoveryKeyDialog
 import pl.larpnet.android.ui.chat.RecoveryKeyMode
 import pl.larpnet.android.ui.chat.RecoveryPhraseDialog
@@ -164,6 +170,8 @@ fun SettingsScreen(
     var showChatTimestamps by remember { mutableStateOf(appContainer.tokenStore.showChatTimestamps) }
     var chatNameDisplay by remember { mutableStateOf(appContainer.tokenStore.chatNameDisplay) }
     var showChatNameDialog by remember { mutableStateOf(false) }
+    var chatSound by remember { mutableStateOf(ChatSounds.current(context)) }
+    var showChatSoundDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showServerDialog by remember { mutableStateOf(false) }
     var serverAddress by remember { mutableStateOf(appContainer.tokenStore.instanceBaseUrl ?: BuildConfig.DEFAULT_INSTANCE) }
@@ -224,6 +232,18 @@ fun SettingsScreen(
                 chatNameDisplay = it
                 appContainer.matrixRepository.setChatNameDisplay(it)
                 showChatNameDialog = false
+            },
+        )
+    }
+
+    if (showChatSoundDialog) {
+        ChatSoundDialog(
+            current = chatSound,
+            onDismiss = { showChatSoundDialog = false },
+            onSave = {
+                PushNotifications.setChatSound(context, it)
+                chatSound = it
+                showChatSoundDialog = false
             },
         )
     }
@@ -468,6 +488,12 @@ fun SettingsScreen(
                     hint = stringResource(R.string.settings_chat_name_display),
                     onClick = { showChatNameDialog = true },
                 )
+                SettingsLinkRow(
+                    icon = Icons.Filled.MusicNote,
+                    label = stringResource(chatSound.labelRes),
+                    hint = stringResource(R.string.settings_chat_sound),
+                    onClick = { showChatSoundDialog = true },
+                )
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -623,6 +649,58 @@ private fun ChatNameDisplayDialog(current: ChatNameDisplay, onDismiss: () -> Uni
             }
         },
         confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+        },
+    )
+}
+
+/**
+ * Tapping a sound plays it and marks it; Save applies it (switching sounds replaces the chat
+ * notification channel, see ChatSounds, so that happens once, not on every preview tap).
+ */
+@Composable
+private fun ChatSoundDialog(current: ChatSound, onDismiss: () -> Unit, onSave: (ChatSound) -> Unit) {
+    val context = LocalContext.current
+    var selected by remember { mutableStateOf(current) }
+    var playing by remember { mutableStateOf<Ringtone?>(null) }
+    DisposableEffect(Unit) { onDispose { playing?.stop() } }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_chat_sound)) },
+        text = {
+            Column(Modifier.selectableGroup().verticalScroll(rememberScrollState())) {
+                Text(
+                    stringResource(R.string.settings_chat_sound_preview_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 4.dp),
+                )
+                ChatSound.entries.forEach { sound ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .selectable(
+                                selected = sound == selected,
+                                onClick = {
+                                    selected = sound
+                                    playing?.stop()
+                                    playing = ChatSounds.preview(context, sound)
+                                },
+                                role = Role.RadioButton,
+                            )
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = sound == selected, onClick = null)
+                        Text(stringResource(sound.labelRes), modifier = Modifier.padding(start = 12.dp))
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(selected) }) { Text(stringResource(R.string.edit_profile_save)) }
+        },
+        dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
         },
     )
