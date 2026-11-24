@@ -23,9 +23,8 @@ import pl.larpnet.android.R
 object PushNotifications {
     const val CHANNEL_MESSAGES = "larpnet_push_messages"
     const val CHANNEL_SERVICE = "larpnet_push_service"
-    /** Chat messages get their own high-importance channel (heads-up, like any messenger) instead
-     * of sharing [CHANNEL_MESSAGES] with likes/follows -- and users can tune them separately. */
-    const val CHANNEL_CHAT = "larpnet_chat"
+    // Chat messages get their own high-importance channel (heads-up, like any messenger) instead
+    // of sharing CHANNEL_MESSAGES with likes/follows -- one per chat sound, see ChatSounds.
     const val SERVICE_NOTIFICATION_ID = 1
 
     /** Intent extra carrying the Matrix room id a chat notification opens -- read by MainActivity. */
@@ -71,18 +70,12 @@ object PushNotifications {
         )
         manager.createNotificationChannel(
             NotificationChannel(
-                CHANNEL_CHAT,
-                context.getString(R.string.push_channel_chat),
-                NotificationManager.IMPORTANCE_HIGH,
-            ),
-        )
-        manager.createNotificationChannel(
-            NotificationChannel(
                 CHANNEL_SERVICE,
                 context.getString(R.string.push_channel_service),
                 NotificationManager.IMPORTANCE_MIN,
             ).apply { setShowBadge(false) },
         )
+        synchronized(chatLock) { chatChannelId(context) }
     }
 
     fun serviceNotification(context: Context): Notification {
@@ -181,6 +174,32 @@ object PushNotifications {
         }
     }
 
+    /** Switches the chat sound (Settings -> Chat). The chat notifications already showing move
+     * to the new channel without alerting again. */
+    fun setChatSound(context: Context, sound: ChatSound) {
+        synchronized(chatLock) {
+            ChatSounds.select(context, sound)
+            chatChannelId(context)
+        }
+    }
+
+    /**
+     * The channel for the current chat sound, created if needed. If that meant deleting another
+     * chat channel -- a new sound picked, or the first run after updating from the single chat
+     * channel -- its notifications are gone, so every room still in [store] is shown again,
+     * silently. Callers hold [chatLock] (re-entrant, so the re-post's own calls are fine).
+     */
+    private fun chatChannelId(context: Context): String {
+        val channel = ChatSounds.ensureChannel(context)
+        if (channel.removedOthers && canPostNotifications(context)) {
+            for (roomId in chatStore(context).all().keys) {
+                notifyChatRoom(context, roomId, silent = true)
+            }
+            updateChatSummary(context)
+        }
+        return channel.id
+    }
+
     /** Removes [roomId]'s chat notification -- called when the room is opened, read (read
      * receipt sent from this device) or muted. */
     fun cancelChat(context: Context, roomId: String) {
@@ -232,7 +251,7 @@ object PushNotifications {
                 Person.Builder().setName(line.senderName).setKey(line.senderName).build(),
             )
         }
-        val notification = NotificationCompat.Builder(context, CHANNEL_CHAT)
+        val notification = NotificationCompat.Builder(context, chatChannelId(context))
             .setSmallIcon(R.mipmap.ic_launcher)
             .setStyle(style)
             .setContentTitle(entry.roomName ?: last.senderName)
@@ -271,7 +290,7 @@ object PushNotifications {
         val openIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
-        val summary = NotificationCompat.Builder(context, CHANNEL_CHAT)
+        val summary = NotificationCompat.Builder(context, chatChannelId(context))
             .setSmallIcon(R.mipmap.ic_launcher)
             .setStyle(inbox)
             .setContentTitle(context.getString(R.string.app_name))
