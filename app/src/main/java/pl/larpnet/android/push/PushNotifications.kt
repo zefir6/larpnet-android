@@ -30,6 +30,12 @@ object PushNotifications {
     /** Intent extra carrying the Matrix room id a chat notification opens -- read by MainActivity. */
     const val EXTRA_CHAT_ROOM_ID = "pl.larpnet.android.CHAT_ROOM_ID"
 
+    /** Intent extra carrying the post/comment (Mastodon status id) a like/comment/mention
+     * notification opens -- read by MainActivity. Named like the push's own data key, because
+     * when the app is in the background FCM shows the notification itself and a tap hands the
+     * push's data fields to MainActivity as extras under their own names. */
+    const val EXTRA_STATUS_ID = "status_id"
+
     /** Tag for chat notifications; the id is the room id's hash, so one notification per room. */
     private const val CHAT_TAG = "chat"
     private const val CHAT_GROUP = "pl.larpnet.android.CHAT"
@@ -100,17 +106,18 @@ object PushNotifications {
     }
 
     fun postMessage(context: Context, msg: NtfyMessage) {
-        postMessage(context, requestCode = msg.id.hashCode(), title = msg.title, body = msg.message, click = null)
+        postMessage(context, requestCode = msg.id.hashCode(), title = msg.title, body = msg.message, click = null, statusId = msg.statusId)
     }
 
     /** Shared by both push transports -- ntfy (above) and FCM (LarpnetFirebaseMessagingService).
      * [requestCode] should be unique per message, so each notification's tap action gets its
      * own PendingIntent instead of FLAG_UPDATE_CURRENT silently rewriting a shared one. */
     @SuppressLint("MissingPermission") // checked via canPostNotifications()
-    fun postMessage(context: Context, requestCode: Int, title: String?, body: String?, click: String?) {
+    fun postMessage(context: Context, requestCode: Int, title: String?, body: String?, click: String?, statusId: String? = null) {
         ensureChannels(context)
         val openIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            if (!statusId.isNullOrEmpty()) putExtra(EXTRA_STATUS_ID, statusId)
         }
         val pendingIntent = PendingIntent.getActivity(
             context,
