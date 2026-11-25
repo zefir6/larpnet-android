@@ -157,9 +157,14 @@ private fun tagRoute(hashtag: String) = "tag/${URLEncoder.encode(hashtag, "UTF-8
 private fun albumDetailRoute(album: String) = "albums/${URLEncoder.encode(album, "UTF-8")}"
 
 /** [startDestination] is [Routes.LOGIN] or [Routes.HOME] depending on whether MainActivity found a
- * stored token. [pendingChatRoomId] is a room to open from a tapped chat notification. */
+ * stored token. [pendingChatRoomId] is a room to open from a tapped chat notification,
+ * [pendingStatusId] a post/comment from a tapped like/comment/mention one. */
 @Composable
-fun LarpnetNavGraph(startDestination: String, pendingChatRoomId: MutableStateFlow<String?> = MutableStateFlow(null)) {
+fun LarpnetNavGraph(
+    startDestination: String,
+    pendingChatRoomId: MutableStateFlow<String?> = MutableStateFlow(null),
+    pendingStatusId: MutableStateFlow<String?> = MutableStateFlow(null),
+) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
@@ -236,6 +241,17 @@ fun LarpnetNavGraph(startDestination: String, pendingChatRoomId: MutableStateFlo
             navController.navigate(chatThreadRoomRoute(roomId, "")) { launchSingleTop = true }
         }
         pendingChatRoomId.value = null
+    }
+
+    // A tapped like/comment/mention notification: its thread, focused on that post/comment
+    // (same as opening it from the Notifications screen).
+    val statusToOpen by pendingStatusId.collectAsState()
+    LaunchedEffect(statusToOpen) {
+        val statusId = statusToOpen ?: return@LaunchedEffect
+        if (appContainer.tokenStore.isLoggedIn) {
+            navController.navigate(threadRoute(statusId)) { launchSingleTop = true }
+        }
+        pendingStatusId.value = null
     }
 
     // Both distribution flavors notice their own updates -- GitHub Releases polling or the Play

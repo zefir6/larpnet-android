@@ -26,6 +26,15 @@ data class NtfyMessage(
             return room to event
         }
 
+    /** Post/comment a classic Friendica notification is about: friendica-larpnet's `NtfyPush`
+     * puts it on the click URL as `?status_id=`. Null for chat and older servers. */
+    val statusId: String?
+        get() {
+            if (CHAT_TAG in tags) return null
+            val uri = click?.let { runCatching { android.net.Uri.parse(it) }.getOrNull() } ?: return null
+            return runCatching { uri.getQueryParameter("status_id") }.getOrNull()?.takeIf { it.isNotEmpty() }
+        }
+
     companion object {
         const val CHAT_TAG = "larpnet-chat"
     }

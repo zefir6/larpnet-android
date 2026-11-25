@@ -18,6 +18,9 @@ class MainActivity : ComponentActivity() {
      * it has navigated there. singleTop: a tap while the app is open arrives via [onNewIntent]. */
     private val pendingChatRoomId = MutableStateFlow<String?>(null)
 
+    /** Post/comment from a tapped like/comment/mention notification, consumed the same way. */
+    private val pendingStatusId = MutableStateFlow<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -30,7 +33,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             LarpnetTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    LarpnetNavGraph(startDestination = startDestination, pendingChatRoomId = pendingChatRoomId)
+                    LarpnetNavGraph(
+                        startDestination = startDestination,
+                        pendingChatRoomId = pendingChatRoomId,
+                        pendingStatusId = pendingStatusId,
+                    )
                 }
             }
         }
@@ -43,5 +50,6 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIntent(intent: Intent?) {
         intent?.getStringExtra(PushNotifications.EXTRA_CHAT_ROOM_ID)?.let { pendingChatRoomId.value = it }
+        intent?.getStringExtra(PushNotifications.EXTRA_STATUS_ID)?.takeIf { it.isNotEmpty() }?.let { pendingStatusId.value = it }
     }
 }

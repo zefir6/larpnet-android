@@ -43,6 +43,7 @@ class LarpnetFirebaseMessagingService : FirebaseMessagingService() {
                 title = notification.title,
                 body = notification.body,
                 click = message.data["click"],
+                statusId = message.data["status_id"],
             )
             return
         }
