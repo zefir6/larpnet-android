@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -27,7 +28,7 @@ import pl.larpnet.android.R
 import pl.larpnet.android.di.rememberAppContainer
 
 @Composable
-fun LoginScreen(onLoggedIn: () -> Unit) {
+fun LoginScreen(onLoggedIn: () -> Unit, onRegister: () -> Unit) {
     val appContainer = rememberAppContainer()
     val context = LocalContext.current
     val viewModel: LoginViewModel = viewModel(
@@ -40,13 +41,8 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
         appContainer.oauthCallbackEvents.collect { uri -> viewModel.handleCallback(uri) }
     }
 
-    // Single-instance app, no server-address field on this screen anymore -- proceed straight
-    // to the browser on first landing here. Keyed on Unit so it fires once per screen entry,
-    // not on every Idle state (onScreenResumed drops back to Idle when the user backs out of
-    // the browser, which must NOT re-trigger this or backing out would be impossible to escape).
-    LaunchedEffect(Unit) {
-        if (viewModel.uiState is LoginUiState.Idle) viewModel.startLogin(context)
-    }
+    // No automatic jump into the browser any more: this screen now also offers in-app
+    // registration, which an immediate Custom Tab would hide from people without an account.
 
     LaunchedEffect(viewModel.uiState) {
         if (viewModel.uiState is LoginUiState.LoggedIn) onLoggedIn()
@@ -92,6 +88,21 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
                 .padding(top = 16.dp),
         ) {
             Text(stringResource(R.string.login_button))
+        }
+
+        Text(
+            text = stringResource(R.string.login_or),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(top = 32.dp),
+        )
+        OutlinedButton(
+            onClick = onRegister,
+            enabled = state !is LoginUiState.AwaitingBrowser && state !is LoginUiState.ExchangingToken,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+        ) {
+            Text(stringResource(R.string.register_open))
         }
 
         if (state is LoginUiState.AwaitingBrowser || state is LoginUiState.ExchangingToken) {

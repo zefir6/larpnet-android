@@ -77,6 +77,7 @@ import pl.larpnet.android.ui.compose.ComposeScreen
 import pl.larpnet.android.ui.directory.DirectoryScreen
 import pl.larpnet.android.ui.following.FollowedThreadsScreen
 import pl.larpnet.android.ui.login.LoginScreen
+import pl.larpnet.android.ui.register.RegisterScreen
 import pl.larpnet.android.ui.media.MediaGridScreen
 import pl.larpnet.android.ui.messages.ConversationThreadScreen
 import pl.larpnet.android.ui.messages.ConversationsScreen
@@ -94,6 +95,7 @@ import pl.larpnet.android.ui.timeline.TimelineScreen
 
 internal object Routes {
     const val LOGIN = "login"
+    const val REGISTER = "register"
     const val HOME = "home"
     const val LOCAL = "local"
     const val DIRECTORY = "directory"
@@ -452,6 +454,21 @@ fun LarpnetNavGraph(
                             popUpTo(Routes.LOGIN) { inclusive = true }
                         }
                     },
+                    onRegister = { navController.navigate(Routes.REGISTER) },
+                )
+            }
+
+            composable(Routes.REGISTER) {
+                RegisterScreen(
+                    onBack = { navController.popBackStack() },
+                    onLoggedIn = {
+                        startPushIfEnabled()
+                        startChatInBackground()
+                        navController.navigate(Routes.HOME) {
+                            popUpTo(Routes.LOGIN) { inclusive = true }
+                        }
+                    },
+                    onLogIn = { navController.popBackStack(Routes.LOGIN, inclusive = false) },
                 )
             }
 
