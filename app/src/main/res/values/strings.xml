@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">Larpnet</string>
     <!-- Not translated: Digital Asset Links statement, see AndroidManifest asset_statements. -->
-    <string name="asset_statements" translatable="false">[{\"include\": \"https://larpnet.pl/.well-known/assetlinks.json\"}, {\"include\": \"https://test.larpnet.pl/.well-known/assetlinks.json\"}]</string>
+    <string name="asset_statements" translatable="false">[{\"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": {\"namespace\": \"web\", \"site\": \"https://larpnet.pl\"}}, {\"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": {\"namespace\": \"web\", \"site\": \"https://test.larpnet.pl\"}}]</string>
 
     <!-- Login -->
     <string name="login_title">Zaloguj się do Larpnet</string>
