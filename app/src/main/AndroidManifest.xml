@@ -52,6 +52,13 @@
                 <data android:scheme="web+mastodon" />
                 <data android:scheme="web+ap" />
             </intent-filter>
+            <!-- larpnet://open?url=<page>: the website's "Open in app" banner (any larpnet.pl page). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="larpnet" android:host="open" />
+            </intent-filter>
         </activity>
 
         <!--
@@ -87,6 +94,12 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <!-- Lets Chrome tell larpnet.pl that the app is installed (getInstalledRelatedApps),
+          so the site's banner says "Open" instead of offering a download. -->
+        <meta-data
+            android:name="asset_statements"
+            android:resource="@string/asset_statements" />
 
         <meta-data
             android:name="firebase_messaging_auto_init_enabled"

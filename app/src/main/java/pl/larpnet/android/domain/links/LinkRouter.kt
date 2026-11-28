@@ -61,6 +61,11 @@ object LinkRouter {
         return when (uri.scheme?.lowercase()) {
             "web+mastodon" -> classifyMastodonIntent(uri, link)
             "web+ap" -> classifyWebAp(link, instanceHost)
+            // The website's "Open in app" banner: larpnet://open?url=<the page>.
+            "larpnet" -> queryParams(uri.rawQuery)["url"]
+                ?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
+                ?.let { classify(it, instanceHost) }
+                ?: LinkTarget.InstancePage("")
             "http", "https" -> classifyHttp(uri, link, instanceHost)
             else -> LinkTarget.External(link)
         }

@@ -51,4 +51,10 @@ class LinkRouterTest {
         assertTrue(LinkRouter.isHandle("Gargron@mastodon.social"))
         assertTrue(!LinkRouter.isHandle("https://mastodon.social/@Gargron"))
     }
+
+    @Test fun websiteBanner() {
+        assertEquals(LinkTarget.Resolve("https://larpnet.pl/display/abc"), route("larpnet://open?url=https%3A%2F%2Flarpnet.pl%2Fdisplay%2Fabc"))
+        assertEquals(LinkTarget.InstancePage("https://larpnet.pl/network"), route("larpnet://open?url=https%3A%2F%2Flarpnet.pl%2Fnetwork"))
+        assertEquals(LinkTarget.InstancePage(""), route("larpnet://open"))
+    }
 }
