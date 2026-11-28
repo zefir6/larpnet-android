@@ -86,6 +86,8 @@ data class ComposeUiState(
 
 class ComposeViewModel(
     replyToId: String?,
+    /** Prefilled text, from a `web+mastodon://share` link. */
+    initialText: String?,
     private val statusRepository: StatusRepository,
     private val mediaRepository: MediaRepository,
     private val profileRepository: ProfileRepository,
@@ -93,7 +95,7 @@ class ComposeViewModel(
 ) : ViewModel() {
 
     var uiState by mutableStateOf(
-        ComposeUiState(replyToId = replyToId, recentTags = recentTagsStore.recentTags.value),
+        ComposeUiState(replyToId = replyToId, text = initialText.orEmpty(), recentTags = recentTagsStore.recentTags.value),
     )
         private set
 

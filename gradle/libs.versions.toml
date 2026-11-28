@@ -20,6 +20,7 @@ browser = "1.8.0"
 securityCrypto = "1.1.0-alpha06"
 datastore = "1.1.1"
 jsoup = "1.18.1"
+junit = "4.13.2"
 kotlinxDatetime = "0.6.1"
 googleServices = "4.5.0"
 firebaseBom = "34.18.0"
@@ -33,6 +34,7 @@ playAppUpdate = "2.1.0"
 matrixRustSdk = "26.09.9"
 
 [libraries]
+junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycle" }

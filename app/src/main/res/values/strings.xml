@@ -341,5 +341,7 @@
     <string name="copy_profile_link">Kopiuj link do profilu</string>
     <string name="link_copied">Skopiowano link</string>
     <string name="view_profile">Zobacz profil</string>
+    <string name="link_opening">Otwieranie…</string>
+    <string name="link_open_failed">Nie udało się otworzyć tego linku w aplikacji</string>
     <string name="profile_open_failed">Nie udało się otworzyć profilu</string>
 </resources>

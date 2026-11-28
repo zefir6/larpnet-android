@@ -21,6 +21,10 @@ class MainActivity : ComponentActivity() {
     /** Post/comment from a tapped like/comment/mention notification, consumed the same way. */
     private val pendingStatusId = MutableStateFlow<String?>(null)
 
+    /** A link the app was opened with: an https://larpnet.pl App Link, or a `web+mastodon://` /
+     * `web+ap://` one (see the intent filters in AndroidManifest.xml). */
+    private val pendingLink = MutableStateFlow<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -37,6 +41,7 @@ class MainActivity : ComponentActivity() {
                         startDestination = startDestination,
                         pendingChatRoomId = pendingChatRoomId,
                         pendingStatusId = pendingStatusId,
+                        pendingLink = pendingLink,
                     )
                 }
             }
@@ -51,5 +56,6 @@ class MainActivity : ComponentActivity() {
     private fun handleIntent(intent: Intent?) {
         intent?.getStringExtra(PushNotifications.EXTRA_CHAT_ROOM_ID)?.let { pendingChatRoomId.value = it }
         intent?.getStringExtra(PushNotifications.EXTRA_STATUS_ID)?.takeIf { it.isNotEmpty() }?.let { pendingStatusId.value = it }
+        if (intent?.action == Intent.ACTION_VIEW) intent.dataString?.let { pendingLink.value = it }
     }
 }

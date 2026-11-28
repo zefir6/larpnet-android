@@ -23,6 +23,7 @@ import pl.larpnet.android.data.model.Poll
 import pl.larpnet.android.data.model.Preferences
 import pl.larpnet.android.data.model.PushConfig
 import pl.larpnet.android.data.model.Relationship
+import pl.larpnet.android.data.model.SearchResults
 import pl.larpnet.android.data.model.Status
 import pl.larpnet.android.data.model.StatusContext
 import retrofit2.Response
@@ -86,6 +87,16 @@ interface FriendicaApi {
         @Query("limit") limit: Int = 20,
         @Query("resolve") resolve: Boolean = false,
     ): List<Account>
+
+    /** With an http(s) URL as [query] and [resolve], the server fetches that post or account from
+     * its own instance (Search::searchLinks) and returns it with a local id -- how fediverse links
+     * open natively (domain/links/LinkRouter.kt). */
+    @GET("api/v2/search")
+    suspend fun search(
+        @Query("q") query: String,
+        @Query("resolve") resolve: Boolean = true,
+        @Query("limit") limit: Int = 1,
+    ): SearchResults
 
     /** No Link-header pagination here (Directory.php just does `jsonExit`) -- callers page via [offset]. */
     @GET("api/v1/directory")

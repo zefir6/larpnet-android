@@ -17,8 +17,9 @@ blocking, HTML-parser block/inline handling, OAuth back-stack/cancellation fixes
   or `./gradlew installGithubDebug`.
 - Lint: `./gradlew lintDebug` (must stay at 0 errors/0 warnings).
 - Compile-only check (fast): `./gradlew :app:compileGithubDebugKotlin`.
-- There are no unit or instrumented tests in this repo — verification is done by running the
-  app (see "Testing changes" below), plus `assembleDebug`/`lintDebug` passing clean.
+- Unit tests (plain JVM, JUnit 4): `./gradlew :app:testGithubDebugUnitTest`. Only pure logic is
+  covered so far (`domain/links/LinkRouterTest`); UI changes are verified by running the app (see
+  "Testing changes" below), plus `assembleDebug`/`lintDebug` passing clean.
 - If `./gradlew` hangs/fails talking to `services.gradle.org` on this network, it's a TLS
   quirk, not a project issue: retry with
   `JAVA_OPTS="-Dhttp.keepAlive=false -Dhttps.protocols=TLSv1.2"` (only needed before the
