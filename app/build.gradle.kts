@@ -33,7 +33,7 @@ android {
         versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
         // Semantic-ish version, bumped by hand: patch for fixes, minor for any functionality
         // change, per user preference (2026-08-23) -- not tied to versionCode/run number.
-        versionName = "0.36.0"
+        versionName = "0.37.0"
 
         // Default Larpnet instance and OAuth redirect scheme. See ui/login/OAuthRedirectActivity.kt
         // and AndroidManifest.xml for the matching intent-filter -- the scheme/host here must stay
@@ -152,6 +152,9 @@ dependencies {
 
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
+    // Proves to the server that an in-app registration comes from this genuine app (both
+    // flavors: GitHub builds pass too, as UNRECOGNIZED_VERSION signed with our key).
+    implementation(libs.play.integrity)
 
     "playstoreImplementation"(libs.play.app.update.ktx)
 }

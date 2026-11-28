@@ -12,6 +12,7 @@ import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import pl.larpnet.android.BuildConfig
+import pl.larpnet.android.data.auth.IntegrityProvider
 import pl.larpnet.android.data.auth.OAuthFlow
 import pl.larpnet.android.data.auth.TokenStore
 import pl.larpnet.android.data.matrix.MatrixRepository
@@ -23,10 +24,12 @@ import pl.larpnet.android.data.repository.MediaRepository
 import pl.larpnet.android.data.repository.NotificationRepository
 import pl.larpnet.android.data.repository.ProfileRepository
 import pl.larpnet.android.data.repository.PushRepository
+import pl.larpnet.android.data.repository.RegistrationRepository
 import pl.larpnet.android.data.repository.StatusRepository
 import pl.larpnet.android.data.repository.TimelineRepository
 import pl.larpnet.android.data.repository.UpdateChecker
 import pl.larpnet.android.network.AuthApi
+import pl.larpnet.android.network.RegistrationApi
 import pl.larpnet.android.network.AuthInterceptor
 import pl.larpnet.android.network.FriendicaApi
 import pl.larpnet.android.network.GitHubApi
@@ -166,6 +169,9 @@ class AppContainer(context: Context) {
     fun authApi(baseUrl: String): AuthApi =
         retrofitFor(baseUrl, unauthenticatedClient).create(AuthApi::class.java)
 
+    fun registrationApi(baseUrl: String): RegistrationApi =
+        retrofitFor(baseUrl, unauthenticatedClient).create(RegistrationApi::class.java)
+
     // Memoized by base URL so repeated access doesn't rebuild Retrofit on every call, but
     // stays correct if the user logs into a different instance later (cache key changes).
     private var cachedApi: Pair<String, FriendicaApi>? = null
@@ -187,6 +193,7 @@ class AppContainer(context: Context) {
     }
 
     val authRepository = AuthRepository(tokenStore, oAuthFlow, ::friendicaApi, matrixRepository)
+    val registrationRepository = RegistrationRepository(tokenStore, oAuthFlow, ::registrationApi, IntegrityProvider(context))
     val timelineRepository = TimelineRepository(::friendicaApi)
     val statusRepository = StatusRepository(::friendicaApi)
     val notificationRepository = NotificationRepository(::friendicaApi)
