@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Larpnet</string>
+    <!-- Not translated: Digital Asset Links statement, see AndroidManifest asset_statements. -->
+    <string name="asset_statements" translatable="false">[{\"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": {\"namespace\": \"web\", \"site\": \"https://larpnet.pl\"}}, {\"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": {\"namespace\": \"web\", \"site\": \"https://test.larpnet.pl\"}}]</string>
 
     <!-- Login -->
     <string name="login_title">Zaloguj się do Larpnet</string>
@@ -341,5 +343,7 @@
     <string name="copy_profile_link">Kopiuj link do profilu</string>
     <string name="link_copied">Skopiowano link</string>
     <string name="view_profile">Zobacz profil</string>
+    <string name="link_opening">Otwieranie…</string>
+    <string name="link_open_failed">Nie udało się otworzyć tego linku w aplikacji</string>
     <string name="profile_open_failed">Nie udało się otworzyć profilu</string>
 </resources>

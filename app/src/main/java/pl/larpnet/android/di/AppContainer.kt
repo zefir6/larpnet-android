@@ -18,6 +18,7 @@ import pl.larpnet.android.data.matrix.MatrixRepository
 import pl.larpnet.android.data.repository.AlbumRepository
 import pl.larpnet.android.data.repository.AuthRepository
 import pl.larpnet.android.data.repository.ConversationRepository
+import pl.larpnet.android.data.repository.LinkRepository
 import pl.larpnet.android.data.repository.MediaRepository
 import pl.larpnet.android.data.repository.NotificationRepository
 import pl.larpnet.android.data.repository.ProfileRepository
@@ -190,6 +191,7 @@ class AppContainer(context: Context) {
     val statusRepository = StatusRepository(::friendicaApi)
     val notificationRepository = NotificationRepository(::friendicaApi)
     val profileRepository = ProfileRepository(::friendicaApi)
+    val linkRepository = LinkRepository(::friendicaApi)
     val mediaRepository = MediaRepository(::friendicaApi)
     val conversationRepository = ConversationRepository(::friendicaApi)
     val pushRepository = PushRepository(::friendicaApi)

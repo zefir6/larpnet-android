@@ -65,6 +65,7 @@ import pl.larpnet.android.ui.theme.larpnetTopAppBarColors
 @Composable
 fun ComposeScreen(
     replyToId: String?,
+    initialText: String? = null,
     onBack: () -> Unit,
     onPosted: () -> Unit,
 ) {
@@ -76,6 +77,7 @@ fun ComposeScreen(
             initializer {
                 ComposeViewModel(
                     replyToId,
+                    initialText,
                     appContainer.statusRepository,
                     appContainer.mediaRepository,
                     appContainer.profileRepository,

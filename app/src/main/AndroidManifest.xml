@@ -23,6 +23,42 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!--
+              Larpnet post and profile links open in the app (App Links, verified against
+              https://<host>/.well-known/assetlinks.json). Only these path prefixes: never
+              /oauth/, or the login flow's own Custom Tab would land back in the app.
+              Routed by domain/links/LinkRouter.kt.
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="larpnet.pl" />
+                <data android:host="test.larpnet.pl" />
+                <data android:pathPrefix="/display/" />
+                <data android:pathPrefix="/profile/" />
+                <data android:pathPrefix="/item/" />
+                <data android:pathPrefix="/objects/" />
+            </intent-filter>
+            <!--
+              Fediverse links from outside: Mastodon's web+mastodon://follow|share protocol
+              handler, and FEP-07d7 web+ap://<host>/<path> ActivityPub object links.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="web+mastodon" />
+                <data android:scheme="web+ap" />
+            </intent-filter>
+            <!-- larpnet://open?url=<page>: the website's "Open in app" banner (any larpnet.pl page). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="larpnet" android:host="open" />
+            </intent-filter>
         </activity>
 
         <!--
@@ -58,6 +94,12 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <!-- Lets Chrome tell larpnet.pl that the app is installed (getInstalledRelatedApps),
+          so the site's banner says "Open" instead of offering a download. -->
+        <meta-data
+            android:name="asset_statements"
+            android:resource="@string/asset_statements" />
 
         <meta-data
             android:name="firebase_messaging_auto_init_enabled"

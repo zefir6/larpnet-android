@@ -30,15 +30,21 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -55,6 +61,9 @@ import pl.larpnet.android.BuildConfig
 import pl.larpnet.android.R
 import pl.larpnet.android.network.InstanceUrl
 import pl.larpnet.android.data.model.Status
+import pl.larpnet.android.data.repository.ResolvedLink
+import pl.larpnet.android.domain.links.LinkRouter
+import pl.larpnet.android.domain.links.LinkTarget
 import pl.larpnet.android.di.rememberAppContainer
 import pl.larpnet.android.push.PushControl
 import pl.larpnet.android.ui.albums.AlbumDetailScreen
@@ -94,7 +103,7 @@ internal object Routes {
     const val OTHER_PROFILE = "profile/{accountId}"
     const val EDIT_PROFILE = "edit_profile"
     const val SETTINGS = "settings"
-    const val COMPOSE = "compose?replyToId={replyToId}"
+    const val COMPOSE = "compose?replyToId={replyToId}&text={text}"
     const val SEARCH = "search"
     const val MESSAGES = "messages"
     const val NEW_MESSAGE = "messages/new"
@@ -145,6 +154,7 @@ private fun NavHostController.navigateToDestination(destination: AppDestination)
 private fun threadRoute(statusId: String) = "thread/$statusId"
 private fun profileRoute(accountId: String) = "profile/$accountId"
 private fun composeRoute(replyToId: String? = null) = if (replyToId != null) "compose?replyToId=$replyToId" else "compose"
+private fun composeWithTextRoute(text: String) = "compose?text=${Uri.encode(text)}"
 private fun messageThreadRoute(accountId: String, conversationId: String? = null) =
     if (conversationId != null) "messages/thread/$accountId?conversationId=$conversationId" else "messages/thread/$accountId"
 private fun chatThreadRoomRoute(id: String, name: String) =
@@ -158,12 +168,14 @@ private fun albumDetailRoute(album: String) = "albums/${URLEncoder.encode(album,
 
 /** [startDestination] is [Routes.LOGIN] or [Routes.HOME] depending on whether MainActivity found a
  * stored token. [pendingChatRoomId] is a room to open from a tapped chat notification,
- * [pendingStatusId] a post/comment from a tapped like/comment/mention one. */
+ * [pendingStatusId] a post/comment from a tapped like/comment/mention one, [pendingLink] a
+ * link the app was opened with (App Link, `web+mastodon://`, `web+ap://`). */
 @Composable
 fun LarpnetNavGraph(
     startDestination: String,
     pendingChatRoomId: MutableStateFlow<String?> = MutableStateFlow(null),
     pendingStatusId: MutableStateFlow<String?> = MutableStateFlow(null),
+    pendingLink: MutableStateFlow<String?> = MutableStateFlow(null),
 ) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -290,6 +302,65 @@ fun LarpnetNavGraph(
         }
     }
     val onReply: (Status) -> Unit = { navController.navigate(composeRoute(it.id)) }
+
+    // Links: tapped in a post (LocalUriHandler below) or the app was opened with one. Fediverse
+    // posts and profiles open natively, resolved through our server; the rest go to the browser.
+    fun openInBrowser(url: String) {
+        try {
+            CustomTabsIntent.Builder().build().launchUrl(context, url.toUri())
+        } catch (_: ActivityNotFoundException) {
+            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }
+        }
+    }
+    fun openLink(url: String, fromOutside: Boolean) {
+        val instanceHost = appContainer.tokenStore.instanceBaseUrl
+            ?.let { runCatching { java.net.URI(InstanceUrl.normalize(it)).host }.getOrNull() }
+        when (val target = LinkRouter.classify(url, instanceHost)) {
+            is LinkTarget.Hashtag -> navController.navigate(tagRoute(target.tag))
+            is LinkTarget.Share -> navController.navigate(composeWithTextRoute(target.text))
+            is LinkTarget.LocalProfile -> chatScope.launch {
+                appContainer.profileRepository.lookup(target.nickname, instanceHost)
+                    .onSuccess { navController.navigate(profileRoute(it.id)) }
+                    .onFailure {
+                        // From outside, the browser would hand the App Link straight back.
+                        if (fromOutside) {
+                            Toast.makeText(context, R.string.profile_open_failed, Toast.LENGTH_SHORT).show()
+                        } else {
+                            openInBrowser(url)
+                        }
+                    }
+            }
+            is LinkTarget.Resolve -> chatScope.launch {
+                Toast.makeText(context, R.string.link_opening, Toast.LENGTH_SHORT).show()
+                val resolved = appContainer.linkRepository.resolve(target.query).getOrNull()
+                when (resolved) {
+                    is ResolvedLink.Post -> navController.navigate(threadRoute(resolved.statusId))
+                    is ResolvedLink.Profile -> navController.navigate(profileRoute(resolved.accountId))
+                    else -> if (target.query.startsWith("http")) {
+                        openInBrowser(target.query)
+                    } else {
+                        Toast.makeText(context, R.string.link_open_failed, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            // Opened from outside with a page of ours the app has no screen for: the app is
+            // open now, which is the most it can do -- sending it back to the browser would
+            // bounce straight back here through the App Link.
+            is LinkTarget.InstancePage -> if (!fromOutside) openInBrowser(target.url)
+            is LinkTarget.External -> openInBrowser(target.url)
+        }
+    }
+    val linkHandler = remember {
+        object : UriHandler {
+            override fun openUri(uri: String) = openLink(uri, fromOutside = false)
+        }
+    }
+    val linkToOpen by pendingLink.collectAsState()
+    LaunchedEffect(linkToOpen) {
+        val link = linkToOpen ?: return@LaunchedEffect
+        if (appContainer.tokenStore.isLoggedIn) openLink(link, fromOutside = true)
+        pendingLink.value = null
+    }
     val onSearch: () -> Unit = { navController.navigate(Routes.SEARCH) }
     val onOpenHashtag: (String) -> Unit = { navController.navigate(tagRoute(it)) }
 
@@ -304,6 +375,7 @@ fun LarpnetNavGraph(
     // With the default insets this Scaffold padded the status bar AND each screen's TopAppBar
     // added it again, so the purple bar was ~40dp too tall with a blank band above it.
     // consumeWindowInsets() below still stops screens from re-adding the bottom bar's insets.
+    CompositionLocalProvider(LocalUriHandler provides linkHandler) {
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
@@ -683,16 +755,23 @@ fun LarpnetNavGraph(
                         nullable = true
                         defaultValue = null
                     },
+                    navArgument("text") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
                 ),
             ) { entry ->
                 ComposeScreen(
                     replyToId = entry.arguments?.getString("replyToId"),
+                    initialText = entry.arguments?.getString("text"),
                     onBack = { navController.popBackStack() },
                     onPosted = { navController.popBackStack() },
                 )
             }
         }
         }
+    }
     }
 }
 
